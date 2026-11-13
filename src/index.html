@@ -2503,15 +2503,22 @@ function log(text) {
 
 let compiling = false;     // the compiler works on a project
 let compileTimer = 0;      // shows the time of a compile, which can be more than a minute for a firmware
+const COMPILE_HINT = $('compile').title;
+
+// Shows on the COMPILE button if the compiler is busy: the light, and the hint.
+function setCompiling(busy) {
+  compiling = busy;
+  $('compile').disabled = busy;
+  $('compile').classList.toggle('lit', busy);
+  $('compile').title = busy ? 'Compiling… please wait' : COMPILE_HINT;
+}
 
 // Compiles the project and runs the program. During a compile, it does nothing.
 // A worker that is not ready keeps the project, and compiles it when it is ready.
 function compile() {
   if (compiling || $('compile').disabled) return; // disabled: the compiler did not load
   startAudio();
-  compiling = true;
-  $('compile').disabled = true;
-  $('compile').classList.add('lit');
+  setCompiling(true);
   $('log').textContent = '';
   compilingName = project.name || 'project';
   const start = Date.now();
@@ -2531,9 +2538,7 @@ function stopCompile() {
   if (!compiling) return false;
   compiler.terminate();
   clearInterval(compileTimer);
-  compiling = false;
-  $('compile').disabled = false;
-  $('compile').classList.remove('lit');
+  setCompiling(false);
   setLamp('lamp-compiler', false);
   log(`The compile of ${compilingName} was stopped.\n`);
   startCompiler();
@@ -2557,9 +2562,7 @@ function compilerMessage(data) {
     return;
   }
   clearInterval(compileTimer);
-  compiling = false;
-  $('compile').disabled = false;
-  $('compile').classList.remove('lit');
+  setCompiling(false);
   if (!data.wasm) { setStatus('Compile failed'); return; }
   wasm = data.wasm;
   wasmWeb = data.web;
