@@ -1786,19 +1786,6 @@ const FELUCCA_PATHS = ['firmware/', 'tests/hostsim.c', 'web/emu/', 'LICENSE', 'L
 //          '/' at its end is a folder with all that is in it. `to` is the folder in the project.
 const GITHUB_PROJECTS = [
   {
-    id: 'skiff', label: 'SKIFF', version: 'v2.5.1', about: 'a six-track groovebox',
-    sources: [{ repo: 'illuminus5/skiff', ref: 'v2.5.1', paths: FELUCCA_PATHS }],
-    extras: 'extras/skiff.js',
-    manifest: {
-      sources: ['web/emu/felucca_web.c'],
-      include: ['build/gen', 'firmware/src', 'fm1studio'],
-      define: ['FELUCCA_VERSION="v2.5.1"'],
-      flags: ['-std=gnu99', '-w'],
-      stack: 1048576,
-      web: FELUCCA_WEB,
-    },
-  },
-  {
     id: 'fmini-1', label: 'FMINI-1', version: 'v2.5.12', about: 'a Minimoog Model D',
     sources: [
       { repo: 'ruppert/fmini-1', ref: 'v2.5.12', paths: FELUCCA_PATHS },
@@ -1831,6 +1818,19 @@ const GITHUB_PROJECTS = [
       flags: ['-std=gnu99', '-Wno-unused-function'],
       stack: 1048576,
       web: {},
+    },
+  },
+  {
+    id: 'skiff', label: 'SKIFF', version: 'v2.5.1', about: 'a six-track groovebox',
+    sources: [{ repo: 'illuminus5/skiff', ref: 'v2.5.1', paths: FELUCCA_PATHS }],
+    extras: 'extras/skiff.js',
+    manifest: {
+      sources: ['web/emu/felucca_web.c'],
+      include: ['build/gen', 'firmware/src', 'fm1studio'],
+      define: ['FELUCCA_VERSION="v2.5.1"'],
+      flags: ['-std=gnu99', '-w'],
+      stack: 1048576,
+      web: FELUCCA_WEB,
     },
   },
 ];
