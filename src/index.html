@@ -292,6 +292,12 @@
   /* ---- Compiler ---- */
 
   .compiler { display: grid; grid-template: minmax(0, 1fr) / 64px minmax(0, 1fr); gap: 16px; }
+  .progress {  /* the progress of a compile, below the COMPILE button: an estimate (see showProgress()) */
+    width: 62px; height: 6px; overflow: hidden; border-radius: 3px; background: var(--oled-bg);
+    box-shadow: 0 0 0 1px #000, 0 0 0 2px #2b2926;
+  }
+  .progress i { display: block; width: 0; height: 100%; background: linear-gradient(90deg, var(--stripe-3), var(--stripe-1)); }
+  .progress.busy i { transition: width 1s linear; }  /* showProgress() gives a new width each second */
   #log {
     margin: 0; padding: 7px 10px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
     font: 12px/1.45 var(--font-mono); color: var(--oled-mid); user-select: text; -webkit-user-select: text;
@@ -510,6 +516,8 @@
           <h2 class="legend">COMPILER</h2>
           <div class="transport">
             <button class="big-button red chip" id="compile" title="Compile the project and run the program (Ctrl+Enter)"><i></i>COMPILE</button>
+            <div class="progress" id="compile-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+              aria-label="Compile progress, an estimate" title="Compile progress (an estimate)"><i></i></div>
           </div>
           <pre class="oled" id="log" aria-label="Compiler output"></pre>
           <div class="cable" data-lane="load"></div>
@@ -2170,11 +2178,12 @@ const FELUCCA_WEB = {
 const FELUCCA_PATHS = ['firmware/', 'tests/hostsim.c', 'web/emu/', 'LICENSE', 'LICENSING.md', 'README.md'];
 
 // license: the SPDX name of the licence of the firmware, from its repository. The card shows it.
+// seconds: the time of a compile, measured on a fast computer. The progress bar of the compiler uses it.
 // sources: the repositories. `ref` is a tag or a commit. `paths` are the files to load: a path with
 //          '/' at its end is a folder with all that is in it. `to` is the folder in the project.
 const GITHUB_PROJECTS = [
   {
-    id: 'cs-1', label: 'CS-1', version: 'v0.3.4', about: 'a CS-80 in spirit', license: 'GPL-3.0-only',
+    id: 'cs-1', label: 'CS-1', version: 'v0.3.4', about: 'a CS-80 in spirit', license: 'GPL-3.0-only', seconds: 3,
     sources: [{
       repo: 'twochannels/CS-1', ref: 'v0.3.4',
       paths: ['firmware/', 'tests/fake_fm1.h', 'web/emu/', 'LICENSE', 'LICENSING.md', 'README.md'],
@@ -2189,7 +2198,7 @@ const GITHUB_PROJECTS = [
     },
   },
   {
-    id: 'fm-106', label: 'FM-106', version: '1.0', about: 'a Juno-106', license: 'GPL-3.0-only',
+    id: 'fm-106', label: 'FM-106', version: '1.0', about: 'a Juno-106', license: 'GPL-3.0-only', seconds: 6,
     sources: [{ repo: 'PatttF/fm-106', ref: '1.0', paths: ['firmware/', 'emu/', 'LICENSE', 'LICENSING.md', 'README.md'] }],
     manifest: {
       sources: ['emu/fm106_web.c'],
@@ -2201,7 +2210,7 @@ const GITHUB_PROJECTS = [
     },
   },
   {
-    id: 'aurora', label: 'AURORA', version: '0.9.1', about: 'epic film sounds', license: 'GPL-3.0-only',
+    id: 'aurora', label: 'AURORA', version: '0.9.1', about: 'epic film sounds', license: 'GPL-3.0-only', seconds: 4,
     sources: [{
       repo: 'twochannels/AURORA', ref: 'd55484cd2eb86d3de316c1ec02ee444a7f2c18fe',
       paths: ['firmware/', 'tests/fake_fm1.h', 'web/emu/', 'LICENSE', 'LICENSING.md', 'README.md'],
@@ -2216,7 +2225,7 @@ const GITHUB_PROJECTS = [
     },
   },
   {
-    id: 'fmini-1', label: 'FMINI-1', version: 'v2.5.12', about: 'a Minimoog Model D', license: 'GPL-3.0-only',
+    id: 'fmini-1', label: 'FMINI-1', version: 'v2.5.12', about: 'a Minimoog Model D', license: 'GPL-3.0-only', seconds: 19,
     sources: [
       { repo: 'ruppert/fmini-1', ref: 'v2.5.12', paths: FELUCCA_PATHS },
       // The engines are a submodule of fmini-1: this is the commit that v2.5.12 uses.
@@ -2236,7 +2245,7 @@ const GITHUB_PROJECTS = [
     },
   },
   {
-    id: 'skiff', label: 'SKIFF', version: 'v2.5.1', about: 'a six-track groovebox', license: 'GPL-3.0-only',
+    id: 'skiff', label: 'SKIFF', version: 'v2.5.1', about: 'a six-track groovebox', license: 'GPL-3.0-only', seconds: 81,
     sources: [{ repo: 'illuminus5/skiff', ref: 'v2.5.1', paths: FELUCCA_PATHS }],
     extras: 'extras/skiff.js',
     manifest: {
@@ -2249,7 +2258,7 @@ const GITHUB_PROJECTS = [
     },
   },
   {
-    id: 'jiant', label: 'JIANT', version: 'V10.7.23', about: 'a bio-synthetic groovebox', license: 'GPL-3.0-only',
+    id: 'jiant', label: 'JIANT', version: 'V10.7.23', about: 'a bio-synthetic groovebox', license: 'GPL-3.0-only', seconds: 65,
     // JIANT has no tags: this is the commit of its public release V10.7.23.
     sources: [{ repo: 'juanjiant-bit/JIANT', ref: 'd247fd9c311be4b33bde64d8794d6d83ec8a99b4', paths: FELUCCA_PATHS }],
     extras: 'extras/jiant.js',
@@ -2516,6 +2525,40 @@ function setCompiling(busy) {
   $('compile').disabled = busy;
   $('compile').classList.toggle('lit', busy);
   $('compile').title = busy ? 'Compiling… please wait' : COMPILE_HINT;
+  $('compile-progress').classList.toggle('busy', busy);
+  if (!busy) setProgress(0);
+}
+
+// ---- Compile progress ----
+// The compiler gives no progress during a file, and a firmware is one large file. Thus the bar
+// below the COMPILE button shows the time of the compile against an estimate of its full time.
+const compileSeconds = new Map(); // project name -> the time of its last good compile on this computer
+let compileStart = 0;     // when the compile started (Date.now())
+let compileEstimate = 1;  // the estimate of its full time, in seconds
+
+// The estimate: the time of the last compile of this project, or the measured time of a firmware
+// of the gallery, or a time from the size of the C and C++ files (2 seconds, and 9 seconds for
+// each million characters).
+function estimateCompile() {
+  const known = compileSeconds.get(compilingName) ??
+    GITHUB_PROJECTS.find((entry) => entry.id === project.github)?.seconds;
+  if (known) return known;
+  let size = 0;
+  for (const [path, text] of project.files) if (/\.(c|cc|cpp|cxx)$/i.test(path)) size += text.length;
+  return 2 + size * 9e-6;
+}
+
+// `part` is 0 to 1.
+function setProgress(part) {
+  $('compile-progress').firstElementChild.style.width = `${part * 100}%`;
+  $('compile-progress').setAttribute('aria-valuenow', Math.round(part * 100));
+}
+
+// Shows the progress after `seconds` of the compile. The bar is at 90% when the estimate is
+// over. After that it continues more and more slowly, and it does not get to 100%.
+function showProgress(seconds) {
+  const part = seconds / compileEstimate;
+  setProgress(part < 1 ? 0.9 * part : 1 - 0.1 * Math.exp(1 - part));
 }
 
 // Compiles the project and runs the program. During a compile, it does nothing.
@@ -2526,10 +2569,12 @@ function compile() {
   setCompiling(true);
   $('log').textContent = '';
   compilingName = project.name || 'project';
-  const start = Date.now();
+  compileStart = Date.now();
+  compileEstimate = estimateCompile();
   const showTime = () => {
-    const seconds = Math.round((Date.now() - start) / 1000);
+    const seconds = Math.round((Date.now() - compileStart) / 1000);
     if (!githubBusy) setStatus(seconds < 2 ? 'Compiling…' : `Compiling… ${seconds} s`);
+    showProgress(seconds + 1); // the bar moves to this position during the next second
   };
   showTime();
   compileTimer = setInterval(showTime, 1000);
@@ -2569,6 +2614,7 @@ function compilerMessage(data) {
   clearInterval(compileTimer);
   setCompiling(false);
   if (!data.wasm) { setStatus('Compile failed'); return; }
+  compileSeconds.set(compilingName, Math.max(1, (Date.now() - compileStart) / 1000));
   wasm = data.wasm;
   wasmWeb = data.web;
   wasmName = compilingName;
