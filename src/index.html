@@ -119,10 +119,24 @@
     border-color: transparent transparent transparent currentColor;
   }
   .big-button.chip i { border-radius: 2px; outline: 2px dotted currentColor; outline-offset: 1px; }
-  .big-button.red { color: #e2aa9f; background: linear-gradient(#7a2219, #5c160f 60%, #440d08); }
+  .big-button.red {  /* COMPILE: a clear red, with less shadow than the other big buttons */
+    color: #ffd6cc; background: linear-gradient(#d12a1c, #b01a10 60%, #8e110a);
+    box-shadow: 0 0 0 2px #0b0a09, 0 0 0 4px #3b3833, 0 3px 0 4px #0b0a09, inset 0 2px 0 #ffffff40;
+  }
+  .big-button.red:active {
+    transform: translateY(2px);
+    box-shadow: 0 0 0 2px #0b0a09, 0 0 0 4px #3b3833, 0 1px 0 4px #0b0a09, inset 0 2px 0 #ffffff40;
+  }
   .big-button.green { color: #a6d9b0; background: linear-gradient(#1d6b34, #145226 60%, #0c3a19); }
   .big-button.lit { color: #fff; animation: lit 0.9s ease-in-out infinite alternate; }
-  .big-button.red.lit { background: radial-gradient(circle at 50% 42%, #ffc4a3 0%, #ff6a3d 38%, #e0321d 70%, #b3190d 100%); }
+  .big-button.red.lit {  /* the compiler is busy: the button pulses to a bright red, with a glow */
+    background: radial-gradient(circle at 50% 42%, #ffc2b3 0%, #ff4a30 38%, #ee1c10 70%, #c20c06 100%);
+    animation: glow 0.6s ease-in-out infinite alternate;
+  }
+  @keyframes glow {
+    from { filter: saturate(0.75) brightness(0.8) drop-shadow(0 0 0 #ff2a1a00); }
+    to { filter: saturate(1.6) brightness(1.2) drop-shadow(0 0 9px #ff2a1a); }
+  }
   .big-button.green.lit { color: #04260f; text-shadow: none; background: radial-gradient(circle at 50% 42%, #d8ffd9 0%, #4fe07a 38%, #1fa84a 70%, #0f7a31 100%); }
   @keyframes lit { from { filter: brightness(0.85); } to { filter: brightness(1.1); } }
   .transport { display: grid; align-content: center; justify-items: center; gap: 14px; }
@@ -190,7 +204,7 @@
 
   /* ---- Project ---- */
 
-  .project { display: grid; grid-template: minmax(0, 1fr) / 304px minmax(0, 1fr); gap: 14px; }
+  .project { display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr) 250px; gap: 14px; }
   .project-controls { display: grid; align-content: space-between; }
   .buttons { display: flex; gap: 7px; }
   .buttons .file-buttons { margin-left: auto; }
@@ -215,7 +229,7 @@
   .card.busy .card-name i { background: var(--accent); animation: lit 0.4s ease-in-out infinite alternate; }
   .card a.push { display: grid; place-items: center; width: 22px; height: 20px; padding: 0; }  /* the GitHub logo */
   .card a.push svg { width: 13px; height: 13px; fill: currentColor; }
-  .card button.push {  /* LOAD C CODE: orange */
+  .card button.push {  /* LOAD: orange */
     grid-column: 1 / -1; color: #241000; background: linear-gradient(#f79a3e, var(--stripe-2) 45%, #cc6410);
     box-shadow: 0 0 0 1px #000, 0 2px 0 #000, inset 0 1px 0 #ffffff59;
   }
@@ -1928,7 +1942,7 @@ for (const entry of GITHUB_PROJECTS) {
   card.innerHTML = `<span class="card-name"><i></i>${entry.label}</span>
     <a class="push" href="https://github.com/${repo}/tree/${ref}" target="_blank" rel="noopener"
       title="Open github.com/${repo} in a new tab" aria-label="${entry.label} on GitHub">${GITHUB_LOGO}</a>
-    <button class="push" title="Load ${entry.label} ${entry.version} from github.com/${repo}">LOAD C CODE</button>`;
+    <button class="push" title="Load ${entry.label} ${entry.version} from github.com/${repo}">LOAD</button>`;
   card.querySelector('button').onclick = () => loadGitHub(entry, card);
   $('github').append(card);
 }
