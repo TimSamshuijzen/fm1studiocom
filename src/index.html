@@ -1697,6 +1697,11 @@ class Fm1Processor extends AudioWorkletProcessor {
         program.fm1_sim_master(this.master);
         this.keys.forEach((down, id) => { if (down) program.fm1_sim_key(id, 1); });
         program.setup();
+        // Show the screen and the LEDs now. A browser blocks the audio until a click or key press:
+        // until then process() does not run, but this function does. Thus loop() runs one time
+        // here, because a program can draw its screen there.
+        program.loop();
+        this.report(program);
       }
       this.program = program;
     } catch (error) {
