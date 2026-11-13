@@ -1828,6 +1828,48 @@ const FELUCCA_PATHS = ['firmware/', 'tests/hostsim.c', 'web/emu/', 'LICENSE', 'L
 //          '/' at its end is a folder with all that is in it. `to` is the folder in the project.
 const GITHUB_PROJECTS = [
   {
+    id: 'cs-1', label: 'CS-1', version: 'v0.3.4', about: 'a CS-80 in spirit', license: 'GPL-3.0-only',
+    sources: [{
+      repo: 'twochannels/CS-1', ref: 'v0.3.4',
+      paths: ['firmware/', 'tests/fake_fm1.h', 'web/emu/', 'LICENSE', 'LICENSING.md', 'README.md'],
+    }],
+    manifest: {
+      sources: ['web/emu/cs1_web.c'],
+      include: ['firmware/src', 'firmware/gen'],
+      define: ['APP_VER="0.3.4"'],
+      flags: ['-std=gnu99', '-Wno-unused-function'],
+      stack: 1048576,
+      web: {},
+    },
+  },
+  {
+    id: 'fm-106', label: 'FM-106', version: '1.0', about: 'a Juno-106', license: 'GPL-3.0-only',
+    sources: [{ repo: 'PatttF/fm-106', ref: '1.0', paths: ['firmware/', 'emu/', 'LICENSE', 'LICENSING.md', 'README.md'] }],
+    manifest: {
+      sources: ['emu/fm106_web.c'],
+      include: ['firmware/src', 'firmware/gen'],
+      define: ['FM106_WEB=1'],
+      flags: ['-std=gnu99', '-w'],
+      stack: 1048576,
+      web: FELUCCA_WEB,  // its emulator numbers the buttons and encoders as Felucca's does
+    },
+  },
+  {
+    id: 'aurora', label: 'AURORA', version: '0.9.1', about: 'epic film sounds', license: 'GPL-3.0-only',
+    sources: [{
+      repo: 'twochannels/AURORA', ref: 'd55484cd2eb86d3de316c1ec02ee444a7f2c18fe',
+      paths: ['firmware/', 'tests/fake_fm1.h', 'web/emu/', 'LICENSE', 'LICENSING.md', 'README.md'],
+    }],
+    manifest: {
+      sources: ['web/emu/aurora_web.c'],
+      include: ['firmware/src', 'firmware/gen'],
+      define: ['APP_VER="0.9.1"'],
+      flags: ['-std=gnu99', '-Wno-unused-function'],
+      stack: 1048576,
+      web: {},
+    },
+  },
+  {
     id: 'fmini-1', label: 'FMINI-1', version: 'v2.5.12', about: 'a Minimoog Model D', license: 'GPL-3.0-only',
     sources: [
       { repo: 'ruppert/fmini-1', ref: 'v2.5.12', paths: FELUCCA_PATHS },
@@ -1845,21 +1887,6 @@ const GITHUB_PROJECTS = [
       flags: ['-std=gnu99', '-w'],
       stack: 1048576,
       web: FELUCCA_WEB,
-    },
-  },
-  {
-    id: 'aurora', label: 'AURORA', version: '0.9.1', about: 'epic film sounds', license: 'GPL-3.0-only',
-    sources: [{
-      repo: 'twochannels/AURORA', ref: 'd55484cd2eb86d3de316c1ec02ee444a7f2c18fe',
-      paths: ['firmware/', 'tests/fake_fm1.h', 'web/emu/', 'LICENSE', 'LICENSING.md', 'README.md'],
-    }],
-    manifest: {
-      sources: ['web/emu/aurora_web.c'],
-      include: ['firmware/src', 'firmware/gen'],
-      define: ['APP_VER="0.9.1"'],
-      flags: ['-std=gnu99', '-Wno-unused-function'],
-      stack: 1048576,
-      web: {},
     },
   },
   {
@@ -1887,33 +1914,6 @@ const GITHUB_PROJECTS = [
       flags: ['-std=gnu99', '-w'],
       stack: 1048576,
       web: FELUCCA_WEB,
-    },
-  },
-  {
-    id: 'fm-106', label: 'FM-106', version: '1.0', about: 'a Juno-106', license: 'GPL-3.0-only',
-    sources: [{ repo: 'PatttF/fm-106', ref: '1.0', paths: ['firmware/', 'emu/', 'LICENSE', 'LICENSING.md', 'README.md'] }],
-    manifest: {
-      sources: ['emu/fm106_web.c'],
-      include: ['firmware/src', 'firmware/gen'],
-      define: ['FM106_WEB=1'],
-      flags: ['-std=gnu99', '-w'],
-      stack: 1048576,
-      web: FELUCCA_WEB,  // its emulator numbers the buttons and encoders as Felucca's does
-    },
-  },
-  {
-    id: 'cs-1', label: 'CS-1', version: 'v0.3.4', about: 'a CS-80 in spirit', license: 'GPL-3.0-only',
-    sources: [{
-      repo: 'twochannels/CS-1', ref: 'v0.3.4',
-      paths: ['firmware/', 'tests/fake_fm1.h', 'web/emu/', 'LICENSE', 'LICENSING.md', 'README.md'],
-    }],
-    manifest: {
-      sources: ['web/emu/cs1_web.c'],
-      include: ['firmware/src', 'firmware/gen'],
-      define: ['APP_VER="0.3.4"'],
-      flags: ['-std=gnu99', '-Wno-unused-function'],
-      stack: 1048576,
-      web: {},
     },
   },
 ];
