@@ -35,19 +35,9 @@
   :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   * { scrollbar-width: thin; scrollbar-color: #2f4a55 transparent; }
 
-  .banner { height: 40px; display: flex; align-items: center; padding: 0 14px; background: #333333; }
-  .banner a {
-    color: #80cccc; text-decoration: none; font-size: 14px; letter-spacing: 0.04em;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-  }
-  .banner .crumb {
-    margin-left: 60px; font-size: 12px; color: #cccccc;
-    font-family: "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif;
-  }
-
   /* The device has a fixed size. fitDevice() in the page script sets --scale, so that the device
-     is as large as the space below the banner permits. The arrangement of the panels never changes. */
-  .stage { position: fixed; inset: 40px 0 0 0; overflow: hidden; }
+     is as large as the window permits. The arrangement of the panels never changes. */
+  .stage { position: fixed; inset: 0; overflow: hidden; }
   .device {
     position: absolute; left: 50%; top: 50%; width: 1600px; height: 900px;
     transform: translate(-50%, -50%) scale(var(--scale, 1));
@@ -401,9 +391,6 @@
 </style>
 </head>
 <body>
-<div class="banner">
-  <span class="crumb">FM-1 STUDIO</span>
-</div>
 <div class="stage">
 <div class="device">
   <div class="cheek left"></div>
