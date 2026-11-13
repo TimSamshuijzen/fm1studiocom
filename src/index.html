@@ -318,19 +318,21 @@
 
   .simulator { padding: 14px 10px 8px; }
   /* The skin: the colours of the body, the trays, the keys, the text on the body and the text on the
-     keys. The other colours of the body and the keys are made from these five. The SKIN button sets
-     data-skin. The skins are after the six colours of the FM-1 that M-VAVE sells. */
-  .simulator                          { --body: #4c4d50; --tray: #232426; --cap: #1b1c1e; --label: #c9cace; --ink: #e6e6e8; }
-  .simulator[data-skin="purple"]      { --body: #bc92ce; --tray: #766bad; --cap: #8377c6; --label: #ffffff; --ink: #1d1842; }
-  .simulator[data-skin="orange"]      { --body: #ba6947; --tray: #865044; --cap: #99594b; --label: #ffffff; --ink: #2b140e; }
-  .simulator[data-skin="black-green"] { --body: #3a3a3b; --tray: #8dd6cc; --cap: #70cdbf; --label: #e6e6e8; --ink: #0c3a34; }
-  .simulator[data-skin="cool-gray"]   { --body: #ded4cc; --tray: #3c4041; --cap: #2f3233; --label: #2e2e2e; --ink: #b4b7b9; }
-  .simulator[data-skin="white-blue"]  { --body: #eeebe5; --tray: #4a6882; --cap: #5a7b9a; --label: #566b83; --ink: #14243a; }
-  .skin { display: flex; align-items: center; gap: 6px; }
-  .skin i {  /* the colours of the body and the trays */
-    width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 1px #000;
+     keys. The other colours of the body and the keys are made from these five. The skins are after the
+     six colours of the FM-1 that M-VAVE sells. The simulator panel has the data-skin of its skin, and
+     each swatch has the data-skin of the skin that it gives. */
+  [data-skin="black"]       { --body: #4c4d50; --tray: #232426; --cap: #1b1c1e; --label: #c9cace; --ink: #e6e6e8; }
+  [data-skin="purple"]      { --body: #bc92ce; --tray: #766bad; --cap: #8377c6; --label: #ffffff; --ink: #1d1842; }
+  [data-skin="orange"]      { --body: #ba6947; --tray: #865044; --cap: #99594b; --label: #ffffff; --ink: #2b140e; }
+  [data-skin="black-green"] { --body: #3a3a3b; --tray: #8dd6cc; --cap: #70cdbf; --label: #e6e6e8; --ink: #0c3a34; }
+  [data-skin="cool-gray"]   { --body: #ded4cc; --tray: #3c4041; --cap: #2f3233; --label: #2e2e2e; --ink: #b4b7b9; }
+  [data-skin="white-blue"]  { --body: #eeebe5; --tray: #4a6882; --cap: #5a7b9a; --label: #566b83; --ink: #14243a; }
+  .skins { display: flex; align-items: center; gap: 6px; }
+  .swatch {  /* the colours of the body and the trays of a skin */
+    width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 0 1px #000;
     background: linear-gradient(135deg, var(--body) 50%, var(--tray) 50%);
   }
+  .swatch[aria-pressed="true"] { box-shadow: 0 0 0 1px #000, 0 0 0 3px var(--silk); }  /* the skin of the FM-1 */
   .fm1 { position: relative; }
   #panel { display: block; width: 100%; height: auto; }
   #screen {  /* the 180 x 180 units at (304, 83) of the picture */
@@ -516,10 +518,11 @@
       </div>
       <div class="column right">
 
-        <section class="section simulator" style="--accent: #8fe3ff">
+        <section class="section simulator" data-skin="cool-gray" style="--accent: #8fe3ff">
           <h2 class="legend">FM-1 SIMULATOR</h2>
           <div class="legend right">
-            <button class="push skin" id="skin" title="Give the FM-1 its next colour (with Shift: the colour before)"><i></i><span></span></button>
+            <!-- The page script adds a swatch for each skin of SKINS. -->
+            <span class="skins" id="skins" role="group" aria-label="Colour of the FM-1"></span>
             <button class="push" id="midi" title="Use the MIDI keyboards and controllers of this computer">MIDI IN: OFF</button>
           </div>
           <div class="fm1">
@@ -2628,26 +2631,28 @@ document.addEventListener('keyup', (event) => releaseComputerKey(event.code));
 window.addEventListener('blur', () => [...heldCodes].forEach(releaseComputerKey));
 
 // ---- Skin: the colours of the FM-1 ----
-// The styles have the colours of each skin. The browser keeps the skin for the next visit.
+// The styles have the colours of each skin. The FM-1 always starts in Cool Gray: the skin is not kept.
 
-const SKINS = {  // data-skin of the simulator panel -> the name on the SKIN button
-  'black': 'BLACK', 'purple': 'PURPLE', 'orange': 'ORANGE',
-  'black-green': 'BLACK-GREEN', 'cool-gray': 'COOL GRAY', 'white-blue': 'WHITE-BLUE',
+const SKINS = {  // data-skin -> the name of the skin
+  'black': 'Black', 'purple': 'Purple', 'orange': 'Orange',
+  'black-green': 'Black-Green', 'cool-gray': 'Cool Gray', 'white-blue': 'White-Blue',
 };
 
 function setSkin(skin) {
-  if (!(skin in SKINS)) skin = 'black';
   panel.closest('.simulator').dataset.skin = skin;
-  $('skin').lastChild.textContent = `SKIN: ${SKINS[skin]}`;
-  try { localStorage.setItem('fm1-skin', skin); } catch { /* the browser does not keep it */ }
+  for (const swatch of $('skins').children) swatch.setAttribute('aria-pressed', swatch.dataset.skin === skin);
 }
 
-$('skin').onclick = (event) => {
-  const skins = Object.keys(SKINS);
-  const step = event.shiftKey ? skins.length - 1 : 1;
-  setSkin(skins[(skins.indexOf(panel.closest('.simulator').dataset.skin) + step) % skins.length]);
-};
-try { setSkin(localStorage.getItem('fm1-skin')); } catch { setSkin('black'); }
+for (const [skin, name] of Object.entries(SKINS)) {
+  const swatch = document.createElement('button');
+  swatch.className = 'swatch';
+  swatch.dataset.skin = skin;
+  swatch.title = `FM-1 in ${name}`;
+  swatch.setAttribute('aria-label', swatch.title);
+  swatch.onclick = () => setSkin(skin);
+  $('skins').append(swatch);
+}
+setSkin('cool-gray');
 
 // ---- MIDI input (Web MIDI) ----
 
