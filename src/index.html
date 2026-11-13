@@ -1642,7 +1642,7 @@ $('project-name').oninput = () => {
 $('project-new').onclick = () => {
   if (!canReplace()) return;
   newProject();
-  compile(true);
+  compileNew();
 };
 
 $('file-new').onclick = () => {
@@ -1779,7 +1779,7 @@ $('project-file').onchange = async () => {
   if (!file) return;
   try {
     setProject(file.name.replace(/\.zip$/i, ''), await zipRead(await file.arrayBuffer()));
-    compile(true);
+    compileNew();
   } catch (error) {
     log(`Cannot load ${file.name}: ${error.message}\n`);
   }
@@ -1914,6 +1914,8 @@ async function loadGitHub(entry, card) {
   if (githubBusy || !canReplace()) return;
   githubBusy = true;
   card.classList.add('busy');
+  // A compile that runs now stops here, so that the compiler starts again during the download.
+  const stopped = stopCompile();
   try {
     if (!githubFiles.has(entry.id)) {
       const files = new Map();
@@ -1928,10 +1930,11 @@ async function loadGitHub(entry, card) {
       githubFiles.set(entry.id, files);
     }
     setProject(entry.id, new Map(githubFiles.get(entry.id)), entry.id);
-    compile(true);
+    compileNew();
   } catch (error) {
     log(`Cannot load ${entry.label} from GitHub: ${error.message}\n`);
     setStatus(`${entry.label} did not load: see the compiler panel`);
+    if (stopped || !wasm) compile(); // the project that stays has no program: compile it
   }
   card.classList.remove('busy');
   githubBusy = false;
@@ -2068,27 +2071,39 @@ $('source').onkeydown = (event) => {
 // The compiler worker starts from inline code, because a page opened from disk cannot load
 // a worker from a file. It gets fm1.h and the runtime as the constant FILES in front of its code.
 const files = { 'fm1.h': text('fm1.h'), 'fm1_runtime.c': text('fm1_runtime.c') };
-const compiler = new Worker(URL.createObjectURL(new Blob(
+const compilerUrl = URL.createObjectURL(new Blob(
   [`const FILES = ${JSON.stringify(files)};\n`, text('compiler-worker.js')],
-  { type: 'text/javascript' })));
+  { type: 'text/javascript' }));
+let compiler = null;  // the worker. stopCompile() replaces it with a new one.
+
+function startCompiler() {
+  const worker = new Worker(compilerUrl);
+  // A worker that was stopped gives no messages to the page.
+  worker.onmessage = ({ data }) => { if (worker === compiler) compilerMessage(data); };
+  // The worker code itself failed, for example because the compiler site cannot be reached.
+  // The worker cannot compile after that.
+  worker.onerror = (event) => {
+    if (worker !== compiler) return;
+    log(`Compiler error: ${event.message}\n`);
+    setStatus('The compiler did not load. Reload the page to try again.');
+    $('compile').disabled = true;
+  };
+  compiler = worker;
+}
+startCompiler();
 
 function log(text) {
   $('log').textContent += text;
   $('log').scrollTop = $('log').scrollHeight;
 }
 
-let compiling = false;     // the compiler works on a project. It cannot be stopped.
-let compileAgain = false;  // a new project came during a compile: compile it when that compile is done
+let compiling = false;     // the compiler works on a project
 let compileTimer = 0;      // shows the time of a compile, which can be more than a minute for a firmware
 
-// Compiles the project and runs the program. `replaced`: the project is a new one. A compile that
-// runs now is then followed by a compile of the new project. Without it, there is no second compile.
-function compile(replaced = false) {
-  if (compiling) {
-    compileAgain ||= replaced;
-    return;
-  }
-  if ($('compile').disabled) return; // the compiler did not load
+// Compiles the project and runs the program. During a compile, it does nothing.
+// A worker that is not ready keeps the project, and compiles it when it is ready.
+function compile() {
+  if (compiling || $('compile').disabled) return; // disabled: the compiler did not load
   startAudio();
   compiling = true;
   $('compile').disabled = true;
@@ -2105,38 +2120,49 @@ function compile(replaced = false) {
   compiler.postMessage({ files: Object.fromEntries(project.files) });
 }
 
-compiler.onmessage = ({ data }) => {
+// Stops a compile that runs now, because its project is replaced. Returns true if there was one.
+// The compiler cannot stop in the middle of a file. Thus the worker is stopped, and a new worker
+// starts: it loads the compiler again, which is faster than the end of a firmware compile.
+function stopCompile() {
+  if (!compiling) return false;
+  compiler.terminate();
+  clearInterval(compileTimer);
+  compiling = false;
+  $('compile').disabled = false;
+  $('compile').classList.remove('lit');
+  setLamp('lamp-compiler', false);
+  log(`The compile of ${compilingName} was stopped.\n`);
+  startCompiler();
+  return true;
+}
+
+// Compiles a project that replaced another one: a compile of the old project stops.
+function compileNew() {
+  stopCompile();
+  compile();
+}
+
+function compilerMessage(data) {
   if (data.type === 'log') { log(data.text); return; }
   if (data.type === 'ready') {
     setLamp('lamp-compiler', data.ok);
-    if (data.ok) compile(); // so that the FM-1 can be played without a click on COMPILE
-    else if (!compiling) setStatus('The compiler did not start: see the compiler panel');
+    // Compile now, so that the FM-1 can be played without a click on COMPILE. Not during a
+    // download from GitHub: the project is replaced when that is done.
+    if (data.ok && !githubBusy) compile();
+    else if (!data.ok && !compiling) setStatus('The compiler did not start: see the compiler panel');
     return;
   }
   clearInterval(compileTimer);
   compiling = false;
   $('compile').disabled = false;
   $('compile').classList.remove('lit');
-  if (compileAgain) { // this was the compile of a project that is not there now
-    compileAgain = false;
-    compile();
-    return;
-  }
   if (!data.wasm) { setStatus('Compile failed'); return; }
   wasm = data.wasm;
   wasmWeb = data.web;
   wasmName = compilingName;
   showStats();
   runProgram();
-};
-
-// The worker code itself failed, for example because the compiler site cannot be reached.
-// The worker cannot compile after that.
-compiler.onerror = (event) => {
-  log(`Compiler error: ${event.message}\n`);
-  setStatus('The compiler did not load. Reload the page to try again.');
-  $('compile').disabled = true;
-};
+}
 
 $('compile').onclick = () => compile();
 document.addEventListener('keydown', (event) => {
