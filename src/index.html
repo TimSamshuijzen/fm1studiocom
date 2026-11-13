@@ -1853,6 +1853,20 @@ const GITHUB_PROJECTS = [
       web: FELUCCA_WEB,
     },
   },
+  {
+    id: 'jiant', label: 'JIANT', version: 'V10.7.23', about: 'a bio-synthetic groovebox', license: 'GPL-3.0-only',
+    // JIANT has no tags: this is the commit of its public release V10.7.23.
+    sources: [{ repo: 'juanjiant-bit/JIANT', ref: 'd247fd9c311be4b33bde64d8794d6d83ec8a99b4', paths: FELUCCA_PATHS }],
+    extras: 'extras/jiant.js',
+    manifest: {
+      sources: ['web/emu/felucca_web.c'],
+      include: ['build/gen', 'firmware/src', 'fm1studio'],
+      define: ['FELUCCA_VERSION="v0.9.18"'],  // as web/emu/build.sh takes it from firmware/src/felucca.c
+      flags: ['-std=gnu99', '-w'],
+      stack: 1048576,
+      web: FELUCCA_WEB,
+    },
+  },
 ];
 
 // Files that are not text: the compiler cannot use them, and the editor cannot show them.
