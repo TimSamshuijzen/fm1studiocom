@@ -317,18 +317,34 @@
      with the screen canvas on top of it. The page script adds the knobs, buttons and keys. ---- */
 
   .simulator { padding: 14px 10px 8px; }
+  /* The skin: the colours of the body, the trays, the keys, the text on the body and the text on the
+     keys. The other colours of the body and the keys are made from these five. The SKIN button sets
+     data-skin. The skins are after the six colours of the FM-1 that M-VAVE sells. */
+  .simulator                          { --body: #4c4d50; --tray: #232426; --cap: #1b1c1e; --label: #c9cace; --ink: #e6e6e8; }
+  .simulator[data-skin="purple"]      { --body: #bc92ce; --tray: #766bad; --cap: #8377c6; --label: #ffffff; --ink: #1d1842; }
+  .simulator[data-skin="orange"]      { --body: #ba6947; --tray: #865044; --cap: #99594b; --label: #ffffff; --ink: #2b140e; }
+  .simulator[data-skin="black-green"] { --body: #3a3a3b; --tray: #8dd6cc; --cap: #70cdbf; --label: #e6e6e8; --ink: #0c3a34; }
+  .simulator[data-skin="cool-gray"]   { --body: #ded4cc; --tray: #3c4041; --cap: #2f3233; --label: #2e2e2e; --ink: #b4b7b9; }
+  .simulator[data-skin="white-blue"]  { --body: #eeebe5; --tray: #4a6882; --cap: #5a7b9a; --label: #566b83; --ink: #14243a; }
+  .skin { display: flex; align-items: center; gap: 6px; }
+  .skin i {  /* the colours of the body and the trays */
+    width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 1px #000;
+    background: linear-gradient(135deg, var(--body) 50%, var(--tray) 50%);
+  }
   .fm1 { position: relative; }
   #panel { display: block; width: 100%; height: auto; }
   #screen {  /* the 180 x 180 units at (304, 83) of the picture */
     position: absolute; left: 29.008%; top: 13.301%; width: 17.176%; height: 28.846%;
     background: #000;
   }
-  #panel .body { fill: url(#body-fill); stroke: #5b5c60; stroke-width: 2; }
+  #panel .body { fill: url(#body-fill); stroke: color-mix(in srgb, var(--body), #fff 9%); stroke-width: 2; }
+  #body-fill stop:first-child { stop-color: var(--body); }
+  #body-fill stop:last-child { stop-color: color-mix(in srgb, var(--body), #000 15%); }
   #panel .bezel { fill: #0b0b0c; }
-  #panel .tray { fill: #232426; }
-  #panel .dot { fill: #131416; }
+  #panel .tray { fill: var(--tray); }
+  #panel .dot { fill: color-mix(in srgb, var(--tray), #000 45%); }
   #panel text { text-anchor: middle; pointer-events: none; }
-  #panel .label { font: 16px ui-monospace, Consolas, monospace; letter-spacing: 0.04em; fill: #c9cace; }
+  #panel .label { font: 16px ui-monospace, Consolas, monospace; letter-spacing: 0.04em; fill: var(--label); }
   #panel #program-name { font-size: 24px; font-weight: 700; text-transform: uppercase; }
 
   .knob { cursor: ns-resize; touch-action: none; }
@@ -338,18 +354,18 @@
   .knob.pot .mark { stroke: #f2f2f2; }
 
   .key { cursor: pointer; touch-action: none; }
-  .key .cap { fill: #1b1c1e; stroke: #303134; stroke-width: 1.5; }
-  .key text { font: 700 13px system-ui, sans-serif; fill: #e6e6e8; }
-  .key .rule { stroke: #e6e6e8; stroke-width: 1.5; }
+  .key .cap { fill: var(--cap); stroke: color-mix(in srgb, var(--cap), #fff 9%); stroke-width: 1.5; }
+  .key text { font: 700 13px system-ui, sans-serif; fill: var(--ink); }
+  .key .rule { stroke: var(--ink); stroke-width: 1.5; }
   .key.down { transform: translateY(2px); }
-  .key.down .cap { fill: #111214; }
+  .key.down .cap { fill: color-mix(in srgb, var(--cap), #000 37%); }
   .btn.lit .cap { fill: #f3a33a; filter: drop-shadow(0 0 6px #f3a33a); }
   .btn.lit.green .cap { fill: #62d36e; filter: drop-shadow(0 0 6px #62d36e); }
   .btn.lit text { fill: #201400; }
   .btn.lit .rule { stroke: #201400; }
   .note text { font-weight: 400; font-size: 11px; }
-  .note .led { fill: #a9aaae; }
-  .note.lit .cap { fill: #4a3516; }
+  .note .led { fill: color-mix(in srgb, var(--ink), var(--cap) 30%); }
+  .note.lit .cap { fill: color-mix(in srgb, var(--cap), #f3a33a 22%); }
   .note.lit .led { fill: #ffe2b0; filter: drop-shadow(0 0 4px #f3a33a); }
 
   /* ---- FM-1 API: one lane for each signal between the program and the FM-1 ---- */
@@ -502,7 +518,10 @@
 
         <section class="section simulator" style="--accent: #8fe3ff">
           <h2 class="legend">FM-1 SIMULATOR</h2>
-          <div class="legend right"><button class="push" id="midi" title="Use the MIDI keyboards and controllers of this computer">MIDI IN: OFF</button></div>
+          <div class="legend right">
+            <button class="push skin" id="skin" title="Give the FM-1 its next colour (with Shift: the colour before)"><i></i><span></span></button>
+            <button class="push" id="midi" title="Use the MIDI keyboards and controllers of this computer">MIDI IN: OFF</button>
+          </div>
           <div class="fm1">
             <svg id="panel" viewBox="0 0 1048 624" role="img" aria-label="FM-1 front panel">
               <defs>
@@ -2607,6 +2626,28 @@ document.addEventListener('keydown', (event) => {
 // keyboard gets no release, so it releases all keys.
 document.addEventListener('keyup', (event) => releaseComputerKey(event.code));
 window.addEventListener('blur', () => [...heldCodes].forEach(releaseComputerKey));
+
+// ---- Skin: the colours of the FM-1 ----
+// The styles have the colours of each skin. The browser keeps the skin for the next visit.
+
+const SKINS = {  // data-skin of the simulator panel -> the name on the SKIN button
+  'black': 'BLACK', 'purple': 'PURPLE', 'orange': 'ORANGE',
+  'black-green': 'BLACK-GREEN', 'cool-gray': 'COOL GRAY', 'white-blue': 'WHITE-BLUE',
+};
+
+function setSkin(skin) {
+  if (!(skin in SKINS)) skin = 'black';
+  panel.closest('.simulator').dataset.skin = skin;
+  $('skin').lastChild.textContent = `SKIN: ${SKINS[skin]}`;
+  try { localStorage.setItem('fm1-skin', skin); } catch { /* the browser does not keep it */ }
+}
+
+$('skin').onclick = (event) => {
+  const skins = Object.keys(SKINS);
+  const step = event.shiftKey ? skins.length - 1 : 1;
+  setSkin(skins[(skins.indexOf(panel.closest('.simulator').dataset.skin) + step) % skins.length]);
+};
+try { setSkin(localStorage.getItem('fm1-skin')); } catch { setSkin('black'); }
 
 // ---- MIDI input (Web MIDI) ----
 
