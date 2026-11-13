@@ -298,9 +298,9 @@
   }
   /* The cable from the compiler to connector J1 of the program board. It goes below the RUN and
      STOP buttons of the program panel. `bottom` puts it at the height of J1, which drawBoard()
-     draws 22 pixels above the bottom edge of the board. */
+     draws 30 pixels above the bottom edge of the board. */
   .cable {
-    position: absolute; z-index: 2; right: calc(-137px - var(--gap)); bottom: 32px;
+    position: absolute; z-index: 2; right: calc(-137px - var(--gap)); bottom: 40px;
     width: calc(143px + var(--gap)); height: 16px; pointer-events: none;
     background: repeating-linear-gradient(180deg, #8d8f94 0 2px, #5d5f64 2px 4px); box-shadow: 0 2px 3px #000a;
     transition: filter 0.1s;
@@ -2378,14 +2378,14 @@ function drawBoard() {
   // J1 is at the height of the cable from the compiler (see .cable in the styles).
   // A lower contact has its vertical part more to the right, so that the traces do not cross.
   for (let i = 0; i < 3; i++) {
-    const y = h - 28 + i * 6;
+    const y = h - 36 + i * 6;
     svg(board, 'rect', { class: 'pad', x: 0, y: y - 2, width: 11, height: 4 });
     svg(traces, 'path', {
       class: 'trace', 'data-lane': 'load',
       d: `M11 ${y}H${romX - reach - 16 + i * 5}V${cy + pin(i + 3)}H${romX - reach}`,
     });
   }
-  svg(board, 'text', { class: 'silk-small', x: 3, y: h - 35 }, 'J1');
+  svg(board, 'text', { class: 'silk-small', x: 3, y: h - 43 }, 'J1');
   // The state of the program, below the RAM chip.
   const ledY = cy + pitch * 2.25 + 13;
   svg(board, 'rect', { class: 'smd-led run', x: ramX - 34, y: ledY - 6, width: 8, height: 5, rx: 1 });
