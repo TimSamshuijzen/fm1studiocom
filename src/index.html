@@ -1867,6 +1867,33 @@ const GITHUB_PROJECTS = [
       web: FELUCCA_WEB,
     },
   },
+  {
+    id: 'fm-106', label: 'FM-106', version: '1.0', about: 'a Juno-106', license: 'GPL-3.0-only',
+    sources: [{ repo: 'PatttF/fm-106', ref: '1.0', paths: ['firmware/', 'emu/', 'LICENSE', 'LICENSING.md', 'README.md'] }],
+    manifest: {
+      sources: ['emu/fm106_web.c'],
+      include: ['firmware/src', 'firmware/gen'],
+      define: ['FM106_WEB=1'],
+      flags: ['-std=gnu99', '-w'],
+      stack: 1048576,
+      web: FELUCCA_WEB,  // its emulator numbers the buttons and encoders as Felucca's does
+    },
+  },
+  {
+    id: 'cs-1', label: 'CS-1', version: 'v0.3.4', about: 'a CS-80 in spirit', license: 'GPL-3.0-only',
+    sources: [{
+      repo: 'twochannels/CS-1', ref: 'v0.3.4',
+      paths: ['firmware/', 'tests/fake_fm1.h', 'web/emu/', 'LICENSE', 'LICENSING.md', 'README.md'],
+    }],
+    manifest: {
+      sources: ['web/emu/cs1_web.c'],
+      include: ['firmware/src', 'firmware/gen'],
+      define: ['APP_VER="0.3.4"'],
+      flags: ['-std=gnu99', '-Wno-unused-function'],
+      stack: 1048576,
+      web: {},
+    },
+  },
 ];
 
 // Files that are not text: the compiler cannot use them, and the editor cannot show them.
