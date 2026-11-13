@@ -895,167 +895,508 @@ int fm1_midi_take(uint32_t *packet) {
 </script>
 
 <script type="text/plain" id="main.c">
-/* main.c - demo - demonstrates the FM-1 API.
+/* main.c - demo - a small FM synthesizer that shows the FM-1 API.
  *
- *   Note keys      play tones
- *   MIDI keyboard  plays the same 27 notes (F3 to G5)
- *   Buttons        the LED of a button is on while the button is down
- *   OCT- and OCT+  shift the octave
- *   Knobs          each knob moves its marker on the screen
- *   KNOB 1         tone: the level of the second harmonic
- *   MASTER         volume
+ * Each note has two sine operators: a modulator that bends the phase of a
+ * carrier. The pitch ratio between them and the depth of the bending make the
+ * tone, from soft organ to bright bell. After a key press the note fades, and
+ * its brightness fades with it. A ping-pong echo throws the sound between the
+ * left and right channels.
  *
- * The screen, from top to bottom: the volume, the seven knobs (SELECT,
- * ALGORITHM, KNOB 1 to 4, PRESETS), the buttons and the note keys.
+ *   Note keys       play notes; a MIDI keyboard plays the same 27 notes (F3 to G5)
+ *   OCT- and OCT+   shift the octave
+ *   ARP             arpeggiator on or off: plays the held notes one at a time
+ *   SELECT          arpeggiator tempo
+ *   ALGORITHM       arpeggiator order: up, down or random
+ *   PRESETS         choose a sound (it sets KNOB 1 to 4)
+ *   KNOB 1 RATIO    pitch of the modulator, as a multiple of the note
+ *   KNOB 2 BRIGHT   depth of the modulation
+ *   KNOB 3 DECAY    how long a note rings
+ *   KNOB 4 ECHO     amount of echo
+ *   MASTER          volume
+ *   Other buttons   the LED is on while the button is down
+ *
+ * The screen, from top to bottom: the sound, the arpeggiator and the octave;
+ * the volume; an oscilloscope; the four knobs; a keyboard on which each key
+ * glows while its note sounds.
  */
 #include "fm1.h"
 #include <math.h>
+#include <string.h>
 
 #define NOTES FM1_NOTE_KEYS
-#define BUTTONS FM1_KEY_NOTE0  /* the count of buttons: their ids are below those of the note keys */
-#define KNOB_MAX 12            /* a knob value is 0 to KNOB_MAX */
-#define VOLUME_PARTS 16        /* parts in the volume bar */
+#define BUTTONS FM1_KEY_NOTE0 /* the count of buttons: their ids are below those of the note keys */
+#define BIT(n) (1u << (n))
 
-enum { BLACK = 0x0000, GREY = 0x2104, GREEN = 0x07E0, ORANGE = 0xFD20, CYAN = 0x07FF, WHITE = 0xFFFF };
+/* ---- Sounds ---- */
 
-static float phase[NOTES];   /* 0 to 1, one cycle of the sine */
-static float step[NOTES];    /* phase increase for each sample */
-static float level[NOTES];   /* 0 to 1, follows the key smoothly to prevent clicks */
-static float gain;           /* follows MASTER smoothly, for the same reason */
-static int octave;           /* -2 to 2 */
-static int knob[FM1_NENC] = { 6, 6, 4, 6, 6, 6, 6 };  /* knob[FM1_ENC_KNOB1] is the tone */
-static uint32_t midi_notes;  /* notes held on a MIDI keyboard, same bits as fm1_in.notes */
+static const struct { float value; const char *name; } ratios[13] = {
+    { 0.5f, "0.5" }, { 1, "1" }, { 1.5f, "1.5" }, { 2, "2" }, { 2.5f, "2.5" }, { 3, "3" },
+    { 3.5f, "3.5" }, { 4, "4" }, { 5, "5" }, { 6, "6" }, { 7, "7" }, { 9, "9" }, { 11, "11" },
+};
 
-static int shown_volume = -1;   /* the volume that the screen shows (-1: not drawn yet) */
-static uint32_t shown_buttons;  /* the buttons that the screen and LEDs show as down */
-static uint32_t shown_notes;    /* the notes that the screen and LEDs show as down */
+#define RGB(r, g, b) (uint16_t)(((r) >> 3) << 11 | ((g) >> 2) << 5 | (b) >> 3)
 
-/* ---- Sound: a sine and its second harmonic for each note ---- */
+typedef struct {
+    const char *name;
+    int ratio, bright, decay, echo; /* values of KNOB 1 to 4, 0 to 12 */
+    uint16_t colour;
+} preset_t;
+
+static const preset_t presets[] = {
+    /* name      ratio bright decay echo colour */
+    { "BELL",    6,    7,     10,   5,   RGB(255, 190, 60) },
+    { "EPIANO",  1,    4,     7,    3,   RGB(255, 110, 90) },
+    { "GLASS",   10,   3,     9,    8,   RGB(90, 220, 255) },
+    { "PLUCK",   3,    10,    3,    6,   RGB(210, 120, 255) },
+    { "BASS",    0,    9,     5,    0,   RGB(120, 255, 120) },
+    { "ORGAN",   3,    3,     12,   2,   RGB(255, 230, 170) },
+};
+#define PRESET_COUNT (int)(sizeof presets / sizeof presets[0])
+
+enum { ARP_UP, ARP_DOWN, ARP_RANDOM, ARP_MODES };
+static const char *const arp_names[ARP_MODES] = { "UP", "DOWN", "RND" };
+
+/* The knobs, set by loop() and read by audio(). A value is 0 to knob_max. */
+static int knob[FM1_NENC] = { [FM1_ENC_SELECT] = 6 };
+static const int knob_max[FM1_NENC] = { 12, ARP_MODES - 1, 12, 12, 12, 12, PRESET_COUNT - 1 };
+
+static int octave;  /* -2 to 2 */
+static int arp_on;  /* the arpeggiator plays */
+
+static int arp_tempo(void) { return 60 + 10 * knob[FM1_ENC_SELECT]; } /* beats per minute */
+
+/* ---- Sound: two sine operators for each note ---- */
+
+typedef struct {
+    float carrier, modulator; /* phases: 0 to 1 is one cycle */
+    float env;                /* envelope: 0 to 1 */
+    int attacking;            /* rising after a key press, then decaying */
+} voice_t;
+
+static voice_t voice[NOTES];
+static float step[NOTES];        /* carrier phase increase for each sample */
+static uint32_t midi_notes;      /* notes held on a MIDI keyboard, same bits as fm1_in.notes */
+static uint32_t last_gates;      /* the notes that were on in the last block */
+static float gain;               /* follows MASTER smoothly, to prevent clicks */
+
+#define SINE_SIZE 4096
+static float sine_table[SINE_SIZE];
+
+static float sine(float phase) { /* phase in cycles, any value */
+    phase -= floorf(phase);
+    return sine_table[(int)(phase * SINE_SIZE) & (SINE_SIZE - 1)];
+}
+
+#define ECHO_FRAMES 13230 /* 0.3 s */
+static float echo_line[2][ECHO_FRAMES]; /* left and right */
+static int echo_pos;
+static float echo_tone;                 /* a low pass filter: each repeat is softer */
+
+/* audio() keeps the latest samples for the oscilloscope. */
+#define SCOPE_RING 2048
+static float scope_ring[SCOPE_RING];
+static volatile uint32_t scope_pos;    /* where the next sample goes */
+static volatile uint32_t audio_blocks; /* count of audio() calls: loop() uses it as a clock */
 
 static void set_pitch(void) {
-  for (int n = 0; n < (int)NOTES; n++) {
-    float frequency = 174.614f * powf(2.0f, octave + n / 12.0f);  /* note key 0 is F3 */
-    step[n] = frequency / FM1_AUDIO_RATE;
-  }
+    for (int n = 0; n < (int)NOTES; n++) {
+        float frequency = 174.614f * powf(2.0f, octave + n / 12.0f); /* note key 0 is F3 */
+        step[n] = frequency / FM1_AUDIO_RATE;
+    }
 }
 
 /* Reads the MIDI messages and keeps the held notes in midi_notes. */
 static void read_midi(void) {
-  uint32_t packet;
-  while (fm1_midi_take(&packet)) {
-    uint32_t type = FM1_MIDI_STATUS(packet) & 0xF0u;  /* without the channel */
-    int n = (int)FM1_MIDI_DATA1(packet) - 53;         /* MIDI note 53 is F3, note key 0 */
-    uint32_t velocity = FM1_MIDI_DATA2(packet);
-    if (n < 0 || n >= (int)NOTES) continue;
-    if (type == 0x90u && velocity > 0) midi_notes |= 1u << n;           /* note on */
-    else if (type == 0x80u || type == 0x90u) midi_notes &= ~(1u << n);  /* note off */
-  }
+    uint32_t packet;
+    while (fm1_midi_take(&packet)) {
+        uint32_t type = FM1_MIDI_STATUS(packet) & 0xF0u; /* without the channel */
+        int n = (int)FM1_MIDI_DATA1(packet) - 53;        /* MIDI note 53 is F3, note key 0 */
+        uint32_t velocity = FM1_MIDI_DATA2(packet);
+        if (n < 0 || n >= (int)NOTES) continue;
+        if (type == 0x90u && velocity > 0) midi_notes |= BIT(n);              /* note on */
+        else if (type == 0x80u || type == 0x90u) midi_notes &= ~BIT(n);       /* note off */
+    }
+}
+
+/* ---- Arpeggiator: plays one held note at a time, a 16th note each ---- */
+
+static int arp_note = -1; /* the note it plays (-1: it has not started) */
+static int arp_wait;      /* frames until the next note */
+static uint32_t random_state = 1;
+
+static uint32_t random_number(void) { /* xorshift */
+    random_state ^= random_state << 13;
+    random_state ^= random_state >> 17;
+    random_state ^= random_state << 5;
+    return random_state;
+}
+
+/* The held note that comes after arp_note. */
+static int arp_next(uint32_t held) {
+    int mode = knob[FM1_ENC_ALGORITHM];
+    if (mode == ARP_RANDOM) {
+        int k = (int)(random_number() % (uint32_t)__builtin_popcount(held));
+        for (int n = 0;; n++)
+            if (((held >> n) & 1u) && k-- == 0) return n;
+    }
+    int direction = mode == ARP_UP ? 1 : -1;
+    int n = arp_note;
+    if (n < 0) n = direction > 0 ? NOTES - 1 : 0; /* so that it starts at the lowest or highest */
+    do n = (n + direction + NOTES) % NOTES;
+    while (!((held >> n) & 1u));
+    return n;
+}
+
+/* Returns the notes to sound in this block, and in *triggers the notes that start. */
+static uint32_t arpeggiate(uint32_t held, int frames, uint32_t *triggers) {
+    *triggers = 0;
+    if (!held) {
+        arp_note = -1;
+        arp_wait = 0; /* the next key press plays at once */
+        return 0;
+    }
+    int step_frames = FM1_AUDIO_RATE * 15 / arp_tempo(); /* a 16th note */
+    if (arp_wait <= 0) {
+        arp_note = arp_next(held);
+        *triggers = BIT(arp_note);
+        arp_wait += step_frames;
+    }
+    arp_wait -= frames;
+    int sounding = arp_wait > step_frames / 2 && ((held >> arp_note) & 1u); /* for half a step */
+    return sounding ? BIT(arp_note) : 0;
 }
 
 void audio(int32_t *out, int frames) {
-  read_midi();
-  uint32_t notes = fm1_in.notes | midi_notes;
-  float target_gain = fm1_master() / (float)FM1_MASTER_MAX * 0.2f;
-  float harmonic = knob[FM1_ENC_KNOB1] / (float)KNOB_MAX * 0.5f;
-  for (int i = 0; i < frames; i++) {
-    gain += (target_gain - gain) * 0.002f;
-    float mix = 0.0f;
-    for (int n = 0; n < (int)NOTES; n++) {
-      float target = (notes >> n) & 1u ? 1.0f : 0.0f;
-      level[n] += (target - level[n]) * 0.002f;
-      if (level[n] < 0.0001f) continue;
-      float angle = phase[n] * 6.2831853f;
-      mix += (sinf(angle) + harmonic * sinf(2.0f * angle)) * level[n];
-      phase[n] += step[n];
-      if (phase[n] >= 1.0f) phase[n] -= 1.0f;
+    read_midi();
+    uint32_t held = fm1_in.notes | midi_notes;
+    uint32_t triggers, gates;
+    if (arp_on) {
+        gates = arpeggiate(held, frames, &triggers);
+    } else {
+        gates = held;
+        triggers = held & ~last_gates;
     }
-    mix *= gain;
-    if (mix > 1.0f) mix = 1.0f;    /* many keys together: clip, do not wrap */
-    if (mix < -1.0f) mix = -1.0f;
-    int32_t sample = (int32_t)(mix * FM1_AUDIO_MAX);
-    out[2 * i] = sample;      /* left */
-    out[2 * i + 1] = sample;  /* right */
-  }
+    last_gates = gates;
+    for (int n = 0; n < (int)NOTES; n++)
+        if ((triggers >> n) & 1u) voice[n].attacking = 1;
+
+    /* The settings for this block */
+    float ratio = ratios[knob[FM1_ENC_KNOB1]].value;
+    float depth = knob[FM1_ENC_KNOB2] * 0.5f; /* modulation index: 0 to 6 */
+    float decay_time = 0.1f * powf(1.55f, (float)knob[FM1_ENC_KNOB3]); /* 0.1 s to 19 s */
+    float decay = expf(-6.9f / (decay_time * FM1_AUDIO_RATE));         /* down to 1/1000 in decay_time */
+    float release = expf(-6.9f / (fminf(decay_time, 0.4f) * FM1_AUDIO_RATE)); /* after the key is up */
+    float echo = knob[FM1_ENC_KNOB4] / 12.0f;
+    float target_gain = fm1_master() / (float)FM1_MASTER_MAX;
+
+    for (int i = 0; i < frames; i++) {
+        float left = 0.0f, right = 0.0f;
+        for (int n = 0; n < (int)NOTES; n++) {
+            voice_t *v = &voice[n];
+            int gate = (gates >> n) & 1u;
+            if (gate && v->attacking) {
+                v->env += (1.0f - v->env) * 0.01f; /* about 2 ms: fast, but without a click */
+                if (v->env > 0.99f) v->attacking = 0;
+            } else {
+                v->env *= gate ? decay : release;
+            }
+            if (v->env < 0.0003f) {
+                v->env = 0.0f;
+                continue;
+            }
+
+            /* The modulation fades with the envelope, so the tone gets softer as it dies */
+            float modulation = sine(v->modulator) * depth * v->env;
+            float sample = sine(v->carrier + modulation) * v->env;
+            v->carrier += step[n];
+            v->modulator += step[n] * ratio;
+            if (v->carrier >= 1.0f) v->carrier -= 1.0f;
+            if (v->modulator >= 1.0f) v->modulator -= 1.0f;
+
+            float pan = n / (float)(NOTES - 1); /* low notes left, high notes right */
+            left += sample * (1.0f - 0.5f * pan);
+            right += sample * (0.5f + 0.5f * pan);
+        }
+        left *= 0.3f;
+        right *= 0.3f;
+
+        scope_ring[scope_pos] = tanhf(1.5f * (left + right)); /* without echo: a steadier picture */
+        scope_pos = (scope_pos + 1) & (SCOPE_RING - 1);
+
+        /* Ping-pong echo: the sound goes into the left line, which feeds the right line,
+         * which feeds the left line again. */
+        float echo_left = echo_line[0][echo_pos];
+        float echo_right = echo_line[1][echo_pos];
+        echo_tone += (echo_right - echo_tone) * 0.35f;
+        echo_line[0][echo_pos] = 0.5f * (left + right) + echo_tone * echo * 0.75f;
+        echo_line[1][echo_pos] = echo_left;
+        if (++echo_pos == ECHO_FRAMES) echo_pos = 0;
+        left += echo_left * echo * 0.6f;
+        right += echo_right * echo * 0.6f;
+
+        /* tanhf: many notes together are squashed softly instead of clipped */
+        gain += (target_gain - gain) * 0.002f;
+        out[2 * i] = (int32_t)(tanhf(left) * gain * FM1_AUDIO_MAX);
+        out[2 * i + 1] = (int32_t)(tanhf(right) * gain * FM1_AUDIO_MAX);
+    }
+    audio_blocks++;
 }
 
-/* ---- Screen and LEDs: each function draws one part, so that a change is fast ---- */
+/* ---- Drawing ---- */
 
-static void draw_volume(int parts) {
-  for (int i = 0; i < VOLUME_PARTS; i++)
-    fm1_lcd_fill_rect(8 + i * 14, 10, 12, 20, i < parts ? GREEN : GREY);
+#define BLACK RGB(0, 0, 0)
+#define DARK  RGB(45, 45, 58)    /* unlit parts */
+#define DIM   RGB(120, 120, 135) /* labels and things that are off */
+#define WHITE RGB(255, 255, 255)
+#define IVORY RGB(200, 196, 186) /* white keys */
+
+/* The layout, top to bottom */
+#define HEADER_Y 3
+#define VOLUME_Y 17
+#define SCOPE_MID 72 /* the oscilloscope: its zero line */
+#define SCOPE_AMP 46 /* and the height of a full-scale sample */
+#define KNOBS_Y 130
+#define KEYS_Y 176
+#define KEYS_H 64
+
+static uint16_t accent; /* the colour of the sound */
+
+/* fm1_lcd_fill_rect, but a rectangle without area is fine */
+static void fill(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t colour) {
+    if (w > 0 && h > 0) fm1_lcd_fill_rect(x, y, w, h, colour);
 }
 
-/* A knob is a track with a marker. The tone knob has an orange marker. */
-static void draw_knob(uint32_t e) {
-  uint32_t x = 5 + e * 33;
-  fm1_lcd_fill_rect(x, 46, 30, 20, GREY);
-  fm1_lcd_fill_rect(x + knob[e] * 2, 46, 6, 20, e == FM1_ENC_KNOB1 ? ORANGE : CYAN);
+/* The colour that is t/8 of the way from a to b. */
+static uint16_t blend(uint16_t a, uint16_t b, int t) {
+    int red = ((a >> 11) * (8 - t) + (b >> 11) * t) / 8;
+    int green = (((a >> 5) & 63) * (8 - t) + ((b >> 5) & 63) * t) / 8;
+    int blue = ((a & 31) * (8 - t) + (b & 31) * t) / 8;
+    return (uint16_t)(red << 11 | green << 5 | blue);
 }
 
-/* The buttons as on the FM-1: OCT- and OCT+ on the left, the other 12 in two rows.
- * The LED of OCT- or OCT+ is also on while the octave is shifted in its direction. */
-static void draw_button(uint32_t id, int down) {
-  int lit = down || (id == FM1_BTN_OCT_DOWN && octave < 0) || (id == FM1_BTN_OCT_UP && octave > 0);
-  uint16_t colour = down ? WHITE : lit ? CYAN : GREY;
-  if (id < 2) fm1_lcd_fill_rect(5 + id * 21, 82, 18, 44, colour);
-  else fm1_lcd_fill_rect(52 + (id - 2) % 6 * 31, 82 + (id - 2) / 6 * 23, 28, 21, colour);
-  fm1_led_key(id, lit);
+/* A 3 x 5 pixel font, drawn at twice the size. Each octal digit is one row,
+ * the top row first; in a row, 4 is the left pixel and 1 the right one. */
+static const char font_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+-.";
+static const uint16_t font[] = {
+    025755, 065656, 034443, 065556, 074647, 074644, 034553, 055755, 072227, 011152,
+    055655, 044447, 057755, 065555, 025552, 065644, 025563, 065655, 034216, 072222,
+    055557, 055552, 055775, 055255, 055222, 071247, 075557, 026227, 061247, 061216,
+    055711, 074616, 034757, 071222, 075757, 075716, 002720, 000700, 000002,
+};
+
+/* Draws text in a field of width characters (8 x 10 pixels each), blank after the text. */
+static void draw_text(uint32_t x, uint32_t y, const char *text, int width, uint16_t colour) {
+    for (int i = 0; i < width; i++, x += 8) {
+        fill(x, y, 8, 10, BLACK);
+        char c = *text ? *text++ : ' ';
+        const char *found = c == ' ' ? 0 : strchr(font_chars, c);
+        if (!found) continue;
+        uint16_t glyph = font[found - font_chars];
+        for (int row = 0; row < 5; row++)
+            for (int column = 0; column < 3; column++)
+                if ((glyph >> (3 * (4 - row) + 2 - column)) & 1u)
+                    fill(x + column * 2, y + row * 2, 2, 2, colour);
+    }
 }
 
-static void draw_note(uint32_t n, int down) {
-  fm1_lcd_fill_rect(3 + n * 26 / 3, 142, 7, 88, down ? WHITE : GREY);
-  fm1_led_key(FM1_KEY_NOTE0 + n, down);
+/* Writes value (0 to 999) as text. */
+static char *number_text(char *text, int value) {
+    char *p = text;
+    if (value >= 100) *p++ = (char)('0' + value / 100);
+    if (value >= 10) *p++ = (char)('0' + value / 10 % 10);
+    *p++ = (char)('0' + value % 10);
+    *p = 0;
+    return text;
+}
+
+/* The top line: the sound, the arpeggiator (mode and tempo) and the octave. */
+static void draw_header(void) {
+    char text[6];
+    draw_text(4, HEADER_Y, presets[knob[FM1_ENC_PRESETS]].name, 6, accent);
+
+    uint16_t arp_colour = arp_on ? WHITE : DIM;
+    draw_text(64, HEADER_Y, "ARP", 3, arp_colour);
+    draw_text(96, HEADER_Y, arp_names[knob[FM1_ENC_ALGORITHM]], 4, arp_colour);
+    draw_text(136, HEADER_Y, number_text(text, arp_tempo()), 3, arp_colour);
+
+    strcpy(text, "OCT 0");
+    if (octave) text[3] = octave > 0 ? '+' : '-';
+    text[4] = (char)('0' + (octave > 0 ? octave : -octave));
+    draw_text(200, HEADER_Y, text, 5, octave ? WHITE : DIM);
+}
+
+static void draw_volume(int width) {
+    fill(0, VOLUME_Y, width, 3, accent);
+    fill(width, VOLUME_Y, FM1_LCD_WIDTH - width, 3, DARK);
+}
+
+/* KNOB 1 to 4 (k is 0 to 3): a name, a bar and the value. */
+static void draw_knob(int k) {
+    static const char *const names[4] = { "RATIO", "BRIGHT", "DECAY", "ECHO" };
+    int value = knob[FM1_ENC_KNOB1 + k];
+    uint32_t x = 6 + k * 60;
+    char text[4];
+    draw_text(x, KNOBS_Y, names[k], 6, DIM);
+    fill(x, KNOBS_Y + 15, value * 4, 6, accent);
+    fill(x + value * 4, KNOBS_Y + 15, 48 - value * 4, 6, DARK);
+    draw_text(x, KNOBS_Y + 26, k == 0 ? ratios[value].name : number_text(text, value), 3, WHITE);
+}
+
+/* ---- Oscilloscope ---- */
+
+static uint8_t scope_top[FM1_LCD_WIDTH], scope_bottom[FM1_LCD_WIDTH]; /* the trace on the screen */
+static int scope_redraw;      /* 1: redraw all of it, in a new colour */
+static uint32_t scope_block;  /* the value of audio_blocks at the last drawing */
+
+/* Draws the latest samples, one for each column. A column is drawn only when it changes. */
+static void draw_scope(void) {
+    const uint32_t mask = SCOPE_RING - 1;
+    uint32_t start = (scope_pos - FM1_LCD_WIDTH) & mask;
+    /* Start at a rising zero crossing, so that a steady tone stands still */
+    for (uint32_t back = 0; back < 1024; back++) {
+        uint32_t i = (scope_pos - FM1_LCD_WIDTH - back) & mask;
+        if (scope_ring[(i - 1) & mask] < 0.0f && scope_ring[i] >= 0.0f) {
+            start = i;
+            break;
+        }
+    }
+    int previous = SCOPE_MID - (int)(scope_ring[(start - 1) & mask] * SCOPE_AMP);
+    for (uint32_t x = 0; x < FM1_LCD_WIDTH; x++) {
+        int y = SCOPE_MID - (int)(scope_ring[(start + x) & mask] * SCOPE_AMP);
+        int top = y < previous ? y : previous; /* a line from the previous sample */
+        int bottom = (y > previous ? y : previous) + 2;
+        previous = y;
+        if (top == scope_top[x] && bottom == scope_bottom[x] && !scope_redraw) continue;
+        fill(x, scope_top[x], 1, scope_bottom[x] - scope_top[x], BLACK);
+        if (x % 4 == 0) fill(x, SCOPE_MID, 1, 1, DARK); /* a dotted zero line */
+        fill(x, top, 1, bottom - top, accent);
+        scope_top[x] = (uint8_t)top;
+        scope_bottom[x] = (uint8_t)bottom;
+    }
+    scope_redraw = 0;
+}
+
+/* ---- Keyboard: a piano from F3 to G5, each key glows with the envelope of its note ---- */
+
+static int key_x[NOTES];
+static int key_black[NOTES];
+static int key_glow[NOTES]; /* 0 to 8, as on the screen (-1: not drawn yet) */
+
+static void layout_keys(void) {
+    int white = 0; /* white keys to the left */
+    for (int n = 0; n < (int)NOTES; n++) {
+        int name = (n + 5) % 12; /* 0 is C: note key 0 is F */
+        key_black[n] = name == 1 || name == 3 || name == 6 || name == 8 || name == 10;
+        if (key_black[n]) {
+            key_x[n] = white * 15 - 5; /* on the line between two white keys */
+        } else {
+            key_x[n] = white * 15;
+            white++;
+        }
+    }
+}
+
+static void draw_key(int n) {
+    if (key_black[n]) {
+        fill(key_x[n], KEYS_Y, 10, 40, BLACK); /* the outline */
+        fill(key_x[n] + 1, KEYS_Y, 8, 39, blend(DARK, accent, key_glow[n]));
+        return;
+    }
+    fill(key_x[n] + 1, KEYS_Y, 13, KEYS_H, blend(IVORY, accent, key_glow[n]));
+    /* That covered a part of the black keys beside it */
+    if (n > 0 && key_black[n - 1]) draw_key(n - 1);
+    if (n + 1 < (int)NOTES && key_black[n + 1]) draw_key(n + 1);
 }
 
 /* ---- Program ---- */
 
+static uint32_t shown_leds; /* the button LEDs that are on */
+static int shown_volume = -1;
+
+static void load_preset(int p) {
+    knob[FM1_ENC_PRESETS] = p;
+    knob[FM1_ENC_KNOB1] = presets[p].ratio;
+    knob[FM1_ENC_KNOB2] = presets[p].bright;
+    knob[FM1_ENC_KNOB3] = presets[p].decay;
+    knob[FM1_ENC_KNOB4] = presets[p].echo;
+    accent = presets[p].colour;
+
+    /* Everything in the colour of the sound gets drawn again */
+    draw_header();
+    for (int k = 0; k < 4; k++) draw_knob(k);
+    for (int n = 0; n < (int)NOTES; n++) key_glow[n] = -1;
+    shown_volume = -1;
+    scope_redraw = 1;
+}
+
 void setup(void) {
-  set_pitch();
-  fm1_lcd_fill_rect(0, 0, FM1_LCD_WIDTH, FM1_LCD_HEIGHT, BLACK);
-  for (uint32_t e = 0; e < FM1_NENC; e++) draw_knob(e);
-  for (uint32_t id = 0; id < BUTTONS; id++) draw_button(id, 0);
-  for (uint32_t n = 0; n < NOTES; n++) draw_note(n, 0);
+    for (int i = 0; i < SINE_SIZE; i++) sine_table[i] = sinf(i * 6.2831853f / SINE_SIZE);
+    set_pitch();
+    layout_keys();
+    fill(0, 0, FM1_LCD_WIDTH, FM1_LCD_HEIGHT, BLACK);
+    load_preset(0);
+}
+
+static void read_buttons(void) {
+    /* fm1_input_edges also gives a press that was shorter than one loop() call */
+    uint32_t pressed = fm1_input_edges(0);
+    if ((pressed & BIT(FM1_BTN_OCT_DOWN)) && octave > -2) octave--;
+    if ((pressed & BIT(FM1_BTN_OCT_UP)) && octave < 2) octave++;
+    if (pressed & BIT(FM1_BTN_ARP)) arp_on = !arp_on;
+    if (pressed & (BIT(FM1_BTN_OCT_DOWN) | BIT(FM1_BTN_OCT_UP))) set_pitch();
+    if (pressed & (BIT(FM1_BTN_OCT_DOWN) | BIT(FM1_BTN_OCT_UP) | BIT(FM1_BTN_ARP))) draw_header();
+
+    /* An LED is on while its button is down, and OCT-, OCT+ and ARP also show their state */
+    uint32_t leds = fm1_in.buttons;
+    if (octave < 0) leds |= BIT(FM1_BTN_OCT_DOWN);
+    if (octave > 0) leds |= BIT(FM1_BTN_OCT_UP);
+    if (arp_on) leds |= BIT(FM1_BTN_ARP);
+    for (uint32_t id = 0; id < BUTTONS; id++)
+        if (((leds ^ shown_leds) >> id) & 1u) fm1_led_key(id, (leds >> id) & 1u);
+    shown_leds = leds;
+}
+
+static void read_knobs(void) {
+    for (uint32_t e = 0; e < FM1_NENC; e++) {
+        int turned = fm1_enc_take(e);
+        if (!turned) continue;
+        int value = knob[e] + turned;
+        if (value < 0) value = 0;
+        if (value > knob_max[e]) value = knob_max[e];
+        if (value == knob[e]) continue;
+        knob[e] = value;
+        if (e == FM1_ENC_PRESETS) load_preset(value);
+        else if (e >= FM1_ENC_KNOB1 && e <= FM1_ENC_KNOB4) draw_knob(e - FM1_ENC_KNOB1);
+        else draw_header(); /* SELECT and ALGORITHM: the arpeggiator */
+    }
 }
 
 void loop(void) {
-  /* Buttons. fm1_input_edges also gives a press that was shorter than one loop() call. */
-  uint32_t pressed = fm1_input_edges(0);
-  uint32_t buttons = fm1_in.buttons;
-  uint32_t changed = buttons ^ shown_buttons;
-  int old_octave = octave;
-  if ((pressed & (1u << FM1_BTN_OCT_DOWN)) && octave > -2) octave--;
-  if ((pressed & (1u << FM1_BTN_OCT_UP)) && octave < 2) octave++;
-  if (octave != old_octave) {
-    set_pitch();
-    changed |= 1u << FM1_BTN_OCT_DOWN | 1u << FM1_BTN_OCT_UP;
-  }
-  for (uint32_t id = 0; id < BUTTONS; id++)
-    if ((changed >> id) & 1u) draw_button(id, (buttons >> id) & 1u);
-  shown_buttons = buttons;
+    read_buttons();
+    read_knobs();
 
-  /* MASTER */
-  int volume = (int)((fm1_master() * VOLUME_PARTS + FM1_MASTER_MAX / 2) / FM1_MASTER_MAX);
-  if (volume != shown_volume) {
-    draw_volume(volume);
-    shown_volume = volume;
-  }
+    /* MASTER: a bar in steps of 4 pixels */
+    int volume = (int)(fm1_master() * (FM1_LCD_WIDTH / 4) / FM1_MASTER_MAX) * 4;
+    if (volume != shown_volume) {
+        draw_volume(volume);
+        shown_volume = volume;
+    }
 
-  /* Knobs */
-  for (uint32_t e = 0; e < FM1_NENC; e++) {
-    int turned = fm1_enc_take(e);
-    if (!turned) continue;
-    knob[e] += turned;
-    if (knob[e] < 0) knob[e] = 0;
-    if (knob[e] > KNOB_MAX) knob[e] = KNOB_MAX;
-    draw_knob(e);
-  }
+    /* The keys glow with their envelopes; the LED of a note key is on while it sounds */
+    for (int n = 0; n < (int)NOTES; n++) {
+        int glow = (int)(voice[n].env * 8.0f + 0.5f);
+        if (glow == key_glow[n]) continue;
+        if ((glow > 0) != (key_glow[n] > 0)) fm1_led_key(FM1_KEY_NOTE0 + n, glow > 0);
+        key_glow[n] = glow;
+        draw_key(n);
+    }
 
-  /* Note keys, and the notes of a MIDI keyboard */
-  uint32_t notes = fm1_in.notes | midi_notes;
-  changed = notes ^ shown_notes;
-  for (uint32_t n = 0; n < NOTES; n++)
-    if ((changed >> n) & 1u) draw_note(n, (notes >> n) & 1u);
-  shown_notes = notes;
+    /* The oscilloscope, at about 43 pictures a second (every 4 audio blocks) */
+    if (audio_blocks - scope_block >= 4) {
+        scope_block = audio_blocks;
+        draw_scope();
+    }
 }
 </script>
 
