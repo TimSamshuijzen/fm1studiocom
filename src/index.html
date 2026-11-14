@@ -248,13 +248,13 @@
   /* The files as a list, one below the other. A folder opens and closes with a click. */
   .tree { padding: 5px 4px; font-size: 12px; line-height: 19px; overflow-x: hidden; overflow-y: auto; }
   .tree .dir, .tree .file {
-    display: block; width: 100%; padding: 0 6px 0 calc(6px + var(--depth) * 14px); border-radius: 2px;
+    display: block; width: 100%; padding: 0 6px 0 calc(6px + var(--depth) * 12px); border-radius: 2px;
     text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .tree .dir { color: var(--oled-mid); }
-  .tree .dir::before { content: "▾"; display: inline-block; width: 14px; }
+  .tree .dir::before { content: "▾"; display: inline-block; width: 12px; }
   .tree .dir.closed::before { content: "▸"; }
-  .tree .file { padding-left: calc(20px + var(--depth) * 14px); color: var(--oled); }
+  .tree .file { padding-left: calc(20px + var(--depth) * 12px); color: var(--oled); }
   .tree .file.built::after {  /* a file that the compiler gets */
     content: "BUILD"; float: right; margin-left: 8px; font-size: 9px; letter-spacing: 0.08em; color: var(--stripe-1);
   }
@@ -268,7 +268,7 @@
   .module-bar { display: flex; align-items: center; gap: 9px; min-width: 0; }
   .editor { display: grid; grid-template: minmax(0, 1fr) / auto minmax(0, 1fr); }
   .editor pre, .editor textarea {
-    margin: 0; border: 0; padding: 8px 10px; font: 14px/1.5 var(--font-mono); letter-spacing: 0;
+    margin: 0; border: 0; padding: 8px 10px; font: 12px/1.5 var(--font-mono); letter-spacing: 0;
     tab-size: 2; white-space: pre;
   }
   .gutter { overflow: hidden; background: #050a0c; border-right: 1px solid #0d2a34; }
