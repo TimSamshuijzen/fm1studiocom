@@ -1,0 +1,7 @@
+{
+  "sources": ["main.c"],
+  "include": [],
+  "define": [],
+  "flags": [],
+  "stack": 65536
+}
