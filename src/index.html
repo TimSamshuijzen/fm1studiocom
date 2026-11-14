@@ -2291,6 +2291,23 @@ const GITHUB_PROJECTS = [
     },
   },
   {
+    id: 'sloop', label: 'SLOOP', version: 'v2.8.5', about: 'a live groovebox', license: 'GPL-3.0-only', seconds: 30,
+    sources: [{
+      repo: 'isod89/sloop-fm1', ref: 'v2.8.5',
+      paths: ['firmware/', 'tests/hostsim.c', 'tests/cpu1_host.c', 'LICENSE', 'LICENSING.md', 'LICENSES/', 'README.md'],
+    }],
+    // SLOOP has no browser build of the instrument: extras/sloop.js has one, made after Felucca's
+    // (fm1studio/sloop_web.c). It numbers the buttons and encoders as Felucca's does.
+    extras: 'extras/sloop.js',
+    manifest: {
+      sources: ['fm1studio/sloop_web.c'],
+      include: ['build/gen', 'firmware/src', 'fm1studio'],
+      flags: ['-std=gnu99', '-w'],
+      stack: 1048576,
+      web: FELUCCA_WEB,
+    },
+  },
+  {
     id: 'skiff', label: 'SKIFF', version: 'v2.5.1', about: 'a six-track groovebox', license: 'GPL-3.0-only', seconds: 81,
     sources: [{ repo: 'illuminus5/skiff', ref: 'v2.5.1', paths: FELUCCA_PATHS }],
     extras: 'extras/skiff.js',
