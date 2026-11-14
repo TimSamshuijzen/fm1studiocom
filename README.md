@@ -65,7 +65,7 @@ a small FM synthesizer with an arpeggiator, an echo and its own screen.
 ### On a real FM-1
 
 The folder `firmware` builds a `.fwsc` package for a real FM-1 from a project zip (the file that SAVE
-gives): `firmwareuild.cmd PROJECT.zip` on Windows (in WSL), `firmware/build.sh PROJECT.zip` on Linux. An
+gives): `firmware\build.cmd PROJECT.zip` on Windows (in WSL), `firmware/build.sh PROJECT.zip` on Linux. An
 adapter there makes the functions of `fm1.h` from [fm1-base](https://github.com/charlesvestal/fm1-base)
 and felucca-bsp. The examples build and run in fm1-base's host simulator; no package was tried on a real
 FM-1 yet. [firmware/README.md](firmware/README.md) tells what it needs, what a program must keep to, and
