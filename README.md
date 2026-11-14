@@ -2,7 +2,7 @@
 
 A code workstation for the M-VAVE FM-1 synthesizer that runs in the browser: **[fm1studio.com](https://fm1studio.com)**.
 
-Write a program in C or C++, press COMPILE, and play it on a simulated FM-1. The compiler, the program
+Write a program in C, press COMPILE, and play it on a simulated FM-1. The compiler, the program
 and the simulator all run in the page. There is no server side and nothing to install. It is a simulation 
 of the FM-1 API, not an emulation of the CPUs. The page has no compiler for a real FM-1: the folder
 `firmware` builds an installable package from a project, on your own computer (see below).

@@ -624,7 +624,7 @@
         <button class="push" id="about-close" title="Close (Esc)">CLOSE</button>
       </header>
 
-      <p>FM-1 Studio is a code workstation for the M-VAVE FM-1 synthesizer. Write a program in C or C++,
+      <p>FM-1 Studio is a code workstation for the M-VAVE FM-1 synthesizer. Write a program in C,
         compile it, and play it on a simulated FM-1. The compiler, the program and the simulator all run
         in this page. There is no server side: your code stays in your browser. It is a simulation of 
         the FM-1 API, not an emulation of the CPUs. It has no compiler for building firmware for a real 
@@ -1485,7 +1485,7 @@ void loop(void) {
 
 <!-- ==== Compiler worker: started from this text by the page script ==== -->
 <script type="text/plain" id="compiler-worker.js">
-// Compiles an FM-1 project (C++ and C files) to a WebAssembly module, in the browser.
+// Compiles an FM-1 project (C files) to a WebAssembly module, in the browser.
 // The compiler is wasm-clang (clang 8 and wasm-ld built as WebAssembly),
 // loaded from its public demo site.
 // The page puts the constant FILES in front of this code: the text of fm1.h and fm1_runtime.c.
@@ -2573,7 +2573,7 @@ $('github').addEventListener('wheel', (event) => {
 // The name of a file type for the display, by the end of the file name. A type that is not here
 // shows as the end of the name itself.
 const FILE_TYPES = {
-  c: 'C', cc: 'C++', cpp: 'C++', cxx: 'C++', h: 'C / C++ HEADER', hh: 'C++ HEADER', hpp: 'C++ HEADER', hxx: 'C++ HEADER',
+  c: 'C', cc: 'C++', cpp: 'C++', cxx: 'C++', h: 'C HEADER', hh: 'C++ HEADER', hpp: 'C++ HEADER', hxx: 'C++ HEADER',
   s: 'ASSEMBLY', asm: 'ASSEMBLY', ld: 'LINKER SCRIPT', json: 'JSON', md: 'MARKDOWN', txt: 'TEXT',
   py: 'PYTHON', js: 'JAVASCRIPT', mjs: 'JAVASCRIPT', html: 'HTML', css: 'CSS', sh: 'SHELL SCRIPT',
   yml: 'YAML', yaml: 'YAML',
@@ -2722,7 +2722,7 @@ let compileStart = 0;     // when the compile started (Date.now())
 let compileEstimate = 1;  // the estimate of its full time, in seconds
 
 // The estimate: the time of the last compile of this project, or the measured time of a firmware
-// of the gallery, or a time from the size of the C and C++ files (2 seconds, and 9 seconds for
+// of the gallery, or a time from the size of the C files (2 seconds, and 9 seconds for
 // each million characters).
 function estimateCompile() {
   const known = compileSeconds.get(compilingName) ??
