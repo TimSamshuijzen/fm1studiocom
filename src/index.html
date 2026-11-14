@@ -380,7 +380,6 @@
 
   .api { padding: 14px 12px 8px; display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 10px; }
   .api-side { display: grid; align-content: end; justify-items: start; gap: 6px; }
-  .api-side span { font-family: var(--font-panel); font-size: 8px; font-weight: 700; letter-spacing: 0.12em; color: var(--silk-faint); }
   .lanes { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; }
   .lane {
     position: relative; display: grid; justify-items: center; align-content: start; gap: 3px; padding: 5px 2px 5px;
@@ -558,7 +557,6 @@
         <section class="section api" style="--accent: #b79cff">
           <h2 class="legend">FM-1 API</h2>
           <div class="api-side">
-            <span>PROGRAM ⇅ FM-1</span>
             <button class="push" id="api-header" title="Show fm1.h in the editor">VIEW FM1.H</button>
           </div>
           <div class="lanes" id="lanes"></div>
@@ -2169,6 +2167,8 @@ $('project-file').onchange = async () => {
 //   - The files that the build of the firmware makes with its own tools: tables, fonts and pictures
 //     as C headers. They are in a script in the folder extras/ next to this page (`extras`). It is a
 //     script because a page that is opened from disk can load a script, but cannot fetch a file.
+// A firmware can also need a change in its code before it runs here (`patches`). The changes are marked
+// with the words "FM-1 Studio" in a comment.
 
 // The numbers that the emulator of Felucca, and of the firmware made from it, has for the buttons
 // and encoders, and its pixel format (fm1.h tells more).
@@ -2181,6 +2181,8 @@ const FELUCCA_PATHS = ['firmware/', 'tests/hostsim.c', 'web/emu/', 'LICENSE', 'L
 // seconds: the time of a compile, measured on a fast computer. The progress bar of the compiler uses it.
 // sources: the repositories. `ref` is a tag or a commit. `paths` are the files to load: a path with
 //          '/' at its end is a folder with all that is in it. `to` is the folder in the project.
+// patches: changes in the loaded files. `find` is text that is in the file `path` one time, `replace`
+//          is the text that comes in its place.
 const GITHUB_PROJECTS = [
   {
     id: 'cs-1', label: 'CS-1', version: 'v0.3.4', about: 'a CS-80 in spirit', license: 'GPL-3.0-only', seconds: 3,
@@ -2242,6 +2244,50 @@ const GITHUB_PROJECTS = [
       flags: ['-std=gnu99', '-w'],
       stack: 1048576,
       web: FELUCCA_WEB,
+    },
+  },
+  {
+    id: 'grimm', label: 'GR!MM', version: 'v2.0.2', about: 'dark ambient and dungeon synth', license: 'GPL-3.0-only', seconds: 30,
+    sources: [{ repo: 'GRiMMBIENT/grimm', ref: 'v2.0.2', paths: ['firmware/', 'LICENSE', 'LICENSING.md', 'LICENSES/', 'README.md'] }],
+    extras: 'extras/grimm.js',
+    // The main loop of GR!MM, app_main(), does not return: its own browser build stops it with Asyncify,
+    // which the compiler here does not have. These changes make one call of app_main() one turn of the
+    // loop: its variables stay between calls, its start runs one time, and its loop runs one time for
+    // each call. extras/grimm.js has the functions that call it.
+    patches: [
+      {
+        path: 'firmware/src/grimm.c',
+        find: '/* SPDX-License-Identifier: GPL-3.0-only */\n',
+        replace: '/* SPDX-License-Identifier: GPL-3.0-only */\n' +
+          '/* FM-1 Studio changed app_main() in this file in November 2026, when it loaded the file: see fm1studio/grimm_web.c. */\n',
+      },
+      {
+        path: 'firmware/src/grimm.c',
+        find: 'static void app_main(void)\n{\n    uint32_t prev = 0,',
+        replace: 'static void app_main(void)                      /* FM-1 Studio: one call is one turn of the main loop */\n' +
+          '{\n    static uint32_t prev = 0,',
+      },
+      { path: 'firmware/src/grimm.c', find: '    int8_t oct_before = 0;', replace: '    static int8_t oct_before = 0;' },
+      {
+        path: 'firmware/src/grimm.c',
+        find: '    ima_init();',
+        replace: '    static int studio_started;                  /* FM-1 Studio: the variables above are static; the start runs one time */\n' +
+          '    if (!studio_started) {\n    studio_started = 1;\n    ima_init();',
+      },
+      {
+        path: 'firmware/src/grimm.c',
+        find: '\n    for (;;) {\n        uint32_t keys, down, up, rel',
+        replace: '\n    }\n    for (int studio_turn = 0; !studio_turn; studio_turn = 1) {   /* FM-1 Studio: was for (;;) */\n' +
+          '        uint32_t keys, down, up, rel',
+      },
+    ],
+    manifest: {
+      sources: ['fm1studio/grimm_web.c'],
+      include: ['firmware/src', 'firmware/gen'],
+      define: ['GRIMM_WEB', 'APP_VER="2.0"'],  // the version on the screen, as web/build_web.sh gives it
+      flags: ['-std=gnu99', '-w'],
+      stack: 1048576,
+      web: {},
     },
   },
   {
@@ -2344,6 +2390,12 @@ async function loadGitHub(entry, card) {
       setStatus(`${entry.label} from GitHub…`);
       await Promise.all(entry.sources.map((source) => loadGitHubSource(source, files, progress)));
       if (entry.extras) for (const [path, content] of Object.entries(await loadExtras(entry.extras))) files.set(path, content);
+      for (const { path, find, replace } of entry.patches ?? []) {
+        const parts = files.get(path)?.split(find) ?? [];
+        // The file in the repository is then not the one that the change was made for.
+        if (parts.length !== 2) throw new Error(`the text to change in ${path} was not found`);
+        files.set(path, parts.join(replace));
+      }
       files.set(MANIFEST, formatJson(entry.manifest) + '\n');
       githubFiles.set(entry.id, files);
     }
