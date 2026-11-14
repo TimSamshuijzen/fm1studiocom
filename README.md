@@ -4,7 +4,8 @@ A code workstation for the M-VAVE FM-1 synthesizer that runs in the browser: **[
 
 Write a program in C or C++, press COMPILE, and play it on a simulated FM-1. The compiler, the program
 and the simulator all run in the page. There is no server side and nothing to install. It is a simulation 
-of the FM-1 API, not an emulation of the CPUs. It has no compiler for building firmware for a real FM-1. 
+of the FM-1 API, not an emulation of the CPUs. The page has no compiler for a real FM-1: the folder
+`firmware` builds an installable package from a project, on your own computer (see below).
 Code that works in this simulator does not guarantee it will work on a real FM-1.
 
 - **Code editor** with a file list, syntax colours and projects of more than one file.
@@ -61,8 +62,14 @@ The screen and input functions have the names and signatures of
 [felucca-bsp](https://github.com/hugelton/felucca-bsp). The demo project `main.c` uses all of the API:
 a small FM synthesizer with an arpeggiator, an echo and its own screen.
 
-Programs written against `fm1.h` run in the simulator only. The adapter that would run them on a real
-FM-1 does not exist yet.
+### On a real FM-1
+
+The folder `firmware` builds a `.fwsc` package for a real FM-1 from a project zip (the file that SAVE
+gives): `firmwareuild.cmd PROJECT.zip` on Windows (in WSL), `firmware/build.sh PROJECT.zip` on Linux. An
+adapter there makes the functions of `fm1.h` from [fm1-base](https://github.com/charlesvestal/fm1-base)
+and felucca-bsp. The examples build and run in fm1-base's host simulator; no package was tried on a real
+FM-1 yet. [firmware/README.md](firmware/README.md) tells what it needs, what a program must keep to, and
+what to do when an install goes wrong.
 
 ### fm1project.json
 
@@ -160,6 +167,7 @@ src/extras/                    files for the firmware of the gallery
 src/error.html                 the page for an address that does not exist
 src/staticwebapp.config.json   configuration of the host
 .github/workflows/             deployment
+firmware/                      the build for a real FM-1 (not deployed)
 ```
 
 A push to `main` deploys `src` to Azure Static Web Apps as it is.

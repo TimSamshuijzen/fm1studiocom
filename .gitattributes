@@ -1,0 +1,5 @@
+# The firmware build runs in Linux (WSL): its scripts keep Unix line ends on every computer.
+firmware/**/*.sh text eol=lf
+firmware/*.sh text eol=lf
+firmware/*.py text eol=lf
+firmware/*.cmd text eol=crlf

@@ -666,7 +666,8 @@
  *
  * A program defines three functions: setup(), audio() and loop().
  * In the browser, the simulator calls them. On a real FM-1, an adapter on top
- * of felucca-bsp would call them (that adapter does not exist yet).
+ * of fm1-base and felucca-bsp calls them (the folder firmware of FM-1 Studio's
+ * repository builds a program with it).
  *
  * The screen and input functions have the names and signatures of felucca-bsp
  * (fm1_lcd.h, fm1_input.h). The button and encoder names after OCT_UP are ours.
