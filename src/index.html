@@ -2308,6 +2308,36 @@ const GITHUB_PROJECTS = [
     },
   },
   {
+    id: 'felucca', label: 'FELUCCA', version: 'v1.8.2', about: 'a multi-engine synthesizer', license: 'GPL-3.0-only', seconds: 38,
+    sources: [
+      {
+        repo: 'hugelton/Felucca', ref: 'v1.8.2',
+        paths: ['firmware/', 'tests/hostsim.c', 'LICENSE', 'LICENSING.md', 'LICENSES/', 'README.md'],
+      },
+      // v1.8.2 has no browser emulator. This is the emulator of v1.8.1, not changed: the firmware of
+      // v1.8.2 is that of v1.8.1 with one more flash chip.
+      { repo: 'hugelton/Felucca', ref: 'v1.8.1', paths: ['web/emu/felucca_web.c'] },
+      // The engines and the hardware layer are submodules of Felucca: these are the commits that v1.8.2 uses.
+      {
+        repo: 'hugelton/Felucca-Engines', ref: 'd0260074ce100a47675814b7f38d61f11176c926',
+        paths: ['src/', 'LICENSE', 'README.md'], to: 'firmware/engines/',
+      },
+      {
+        repo: 'hugelton/felucca-bsp', ref: '5942e68b89ab9ccd23f2c541d712ca38fe635f11',
+        paths: ['chip/', 'boards/fm1/', 'LICENSE', 'NOTICE', 'README.md'], to: 'firmware/bsp/',
+      },
+    ],
+    extras: 'extras/felucca.js',
+    manifest: {
+      sources: ['web/emu/felucca_web.c'],
+      include: ['build/gen', 'firmware/src', 'firmware/hal', 'firmware/bsp/chip', 'firmware/bsp/boards/fm1', 'fm1studio'],
+      define: ['FELUCCA_VERSION="v1.8.2"'],
+      flags: ['-std=gnu99', '-w', '-ffp-contract=off'],  // -ffp-contract=off: as web/emu/build.sh of v1.8.1
+      stack: 1048576,
+      web: FELUCCA_WEB,
+    },
+  },
+  {
     id: 'skiff', label: 'SKIFF', version: 'v2.5.1', about: 'a six-track groovebox', license: 'GPL-3.0-only', seconds: 81,
     sources: [{ repo: 'illuminus5/skiff', ref: 'v2.5.1', paths: FELUCCA_PATHS }],
     extras: 'extras/skiff.js',
