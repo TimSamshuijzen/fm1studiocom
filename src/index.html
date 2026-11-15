@@ -521,7 +521,7 @@
               <button class="push" id="project-new" title="Start again with the demo project">NEW</button>
               <button class="push" id="project-load" title="Load a project from a zip file (or drop the zip file on the page)">LOAD</button>
               <button class="push" id="project-save" title="Download the project as a zip file">SAVE</button>
-              <button class="push" id="project-firmware" title="Make and download a .fwsc package of the project for a real M-VAVE FM-1. You can load it onto your FM-1 with M-Flasher. Make sure you have m-bootloader installed on your device first.">FIRMWARE</button>
+              <button class="push" id="project-firmware" title="Build and download project as a .fwsc package. You can load this .fwsc package onto your FM-1 with M-Flasher, at your own risk. Make sure you have m-bootloader installed on your device first.">FIRMWARE</button>
               <button class="push file-buttons" id="file-new" title="Add a file to the project">+ FILE</button>
               <button class="push" id="file-delete" title="Delete the file in the editor from the project">DELETE</button>
             </div>
@@ -3479,7 +3479,7 @@ function firmwareMessage(data) {
 
 $('project-firmware').onclick = () => {
   if (firmwareName) return;
-  if (!compiling) $('log').textContent = ''; // (a compile that runs now keeps its lines)
+  if (!compiling) $('log').textContent = '';
   if (location.protocol === 'file:') {
     log('FIRMWARE needs the page from a web server (fm1studio.com, or a server on this computer):\n' +
       'a page that is opened from disk cannot load the compiler for the FM-1.\n');
