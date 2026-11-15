@@ -2,4 +2,8 @@
 firmware/**/*.sh text eol=lf
 firmware/*.sh text eol=lf
 firmware/*.py text eol=lf
+firmware/**/*.py text eol=lf
+# The files of the FIRMWARE button are made by firmware/web: Git must not change a byte of them.
+src/fwsc/llvm.js -text
+src/fwsc/platform.json -text
 firmware/*.cmd text eol=crlf

@@ -17,6 +17,12 @@ The result is in `build/fwsc/NAME/`:
 
 A second argument gives the name on the FM-1's start screen: `firmware\build.cmd my.zip "MY SYNTH"`.
 
+**There is a second way: the FIRMWARE button of the page.** It makes a package in the browser, with
+another compiler (an open one, built as WebAssembly), and it needs nothing on your computer. This build
+here uses JieLi's own compiler, and it also runs the program in a simulator of fm1-base.
+[web/README.md](web/README.md) tells the differences. The rest of this page is true for the packages of
+both ways, but "How it works" and "One time: WSL" are about this build.
+
 > **Status: not tried on an FM-1.** The three examples (NEON REEF, GLOAMING, GWAVE) build to a package, pass
 > the checks of fm1-base's build, and run in fm1-base's host simulator with the right pictures and sound
 > (November 2026). No package was installed on a real FM-1 yet. The first one you install is the test. Read
@@ -43,6 +49,7 @@ in the simulator: it makes the functions of `fm1.h` from fm1-base's platform.
 | `adapter/app.h`, `adapter/app.c` | The adapter |
 | `adapter/fm1_names.h` | Gives the program's names a prefix: felucca-bsp has functions with the names of `fm1.h` |
 | `adapter/libc/`, `adapter/fm1_libc.c` | `math.h`, `string.h` and `stdlib.h`: the FM-1's compiler has no C library |
+| `web/` | The scripts that make the files of the page's FIRMWARE button (`src/fwsc`) |
 
 The build downloads these, one time, into `~/.cache/fm1studio` (in WSL: inside WSL, not in this folder):
 

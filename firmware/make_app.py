@@ -36,6 +36,13 @@ MANIFEST = "fm1project.json"
 MAX_FILES = 570          # as the simulator's compiler
 MAX_BYTES = 8 << 20      # of one file
 
+# words.tsv. (web/make_platform.py makes the header of these words for the build in the browser.)
+WORDS = """\
+# The words of a screen reader (fm1-reader). An fm1.h program says nothing to it,
+# and no words are published at this address.
+# url: https://fm1studio.com/words/
+"""
+
 SMOKE = """\
 # The program in fm1-base's host simulator (tools/build.py APP_DIR --host):
 # it starts, takes keys and knobs, draws and makes sound. The pictures and the
@@ -197,10 +204,7 @@ def main():
         "/* made by make_app.py: in front of each file of the program */\n"
         '#include "adapter/fm1_names.h"\n' + "".join(line + "\n" for line in defines), encoding="utf-8", newline="\n")
 
-    (out / "words.tsv").write_text(
-        "# The words of a screen reader (fm1-reader). An fm1.h program says nothing to it,\n"
-        "# and no words are published at this address.\n"
-        "# url: https://fm1studio.com/words/\n", newline="\n")
+    (out / "words.tsv").write_text(WORDS, newline="\n")
     (out / "tests").mkdir()
     (out / "tests" / "smoke.txt").write_text(SMOKE, newline="\n")
     (out / "name.txt").write_text(file_id + "\n", newline="\n")

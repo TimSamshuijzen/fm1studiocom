@@ -4,8 +4,8 @@ A code workstation for the M-VAVE FM-1 synthesizer that runs in the browser: **[
 
 Write a program in C, press COMPILE, and play it on a simulated FM-1. The compiler, the program
 and the simulator all run in the page. There is no server side and nothing to install. It is a simulation 
-of the FM-1 API, not an emulation of the CPUs. The page has no compiler for a real FM-1: the folder
-`firmware` builds an installable package from a project, on your own computer (see below).
+of the FM-1 API, not an emulation of the CPUs. The FIRMWARE button makes an installable package for a
+real FM-1 from a project, also in the page (see below).
 Code that works in this simulator does not guarantee it will work on a real FM-1.
 
 - **Code editor** with a file list, syntax colours and projects of more than one file.
@@ -16,6 +16,8 @@ Code that works in this simulator does not guarantee it will work on a real FM-1
 - **MIDI input** from the keyboards and controllers of the computer (Web MIDI).
 - **Firmware gallery**: loads the source code of open-source FM-1 firmware from GitHub, compiles it and
   runs it.
+- **Firmware for a real FM-1**: a second compiler in the page, clang for the FM-1's processor, makes a
+  `.fwsc` package of a project.
 
 ## Use
 
@@ -64,12 +66,18 @@ a small FM synthesizer with an arpeggiator, an echo and its own screen.
 
 ### On a real FM-1
 
-The folder `firmware` builds a `.fwsc` package for a real FM-1 from a project zip (the file that SAVE
-gives): `firmware\build.cmd PROJECT.zip` on Windows (in WSL), `firmware/build.sh PROJECT.zip` on Linux. An
-adapter there makes the functions of `fm1.h` from [fm1-base](https://github.com/charlesvestal/fm1-base)
-and felucca-bsp. The examples build and run in fm1-base's host simulator; no package was tried on a real
-FM-1 yet. [firmware/README.md](firmware/README.md) tells what it needs, what a program must keep to, and
-what to do when an install goes wrong.
+The FIRMWARE button makes a `.fwsc` package of the project and downloads it. The first time, it loads a
+second compiler (52 MB, less when the server compresses it); after that, a package takes some seconds. The NAME of the
+project gives the name on the FM-1's start screen. An adapter makes the functions of `fm1.h` from
+[fm1-base](https://github.com/charlesvestal/fm1-base) and felucca-bsp. The program must be C, with `float`
+and no `double`; the compiler panel tells when a program does not fit the FM-1.
+
+**No package was tried on a real FM-1 yet.** Read [firmware/README.md](firmware/README.md) before you
+install one: it tells what a program must keep to, and what to do when an install goes wrong.
+
+The folder `firmware` builds the same kind of package on your own computer, from a project zip (the file
+that SAVE gives), with JieLi's own compiler: `firmware\build.cmd PROJECT.zip` on Windows (in WSL),
+`firmware/build.sh PROJECT.zip` on Linux. That build also runs the program in fm1-base's host simulator.
 
 ### fm1project.json
 
@@ -126,8 +134,8 @@ Three things that such a repository does not have come from this one:
 
 ## How it works
 
-All of the application is one file, `src/index.html`. It has the styles, the page script, and five text
-blocks that the page script reads:
+The application is one file, `src/index.html`, and the files of the FIRMWARE button in `src/fwsc`. The
+page has the styles, the page script, and six text blocks that the page script reads:
 
 | Block | What |
 |---|---|
@@ -136,6 +144,7 @@ blocks that the page script reads:
 | `fm1project.json`, `main.c` | The demo project |
 | `compiler-worker.js` | The compiler worker |
 | `fm1-worklet.js` | The audio worklet that runs the program |
+| `firmware-worker.js` | The worker of the FIRMWARE button |
 
 1. The page starts the **compiler worker**. It loads
    [wasm-clang](https://github.com/binji/wasm-clang) (clang 8) from `binji.github.io/wasm-clang` and
@@ -149,7 +158,16 @@ blocks that the page script reads:
    the keys, encoders, MASTER position and MIDI messages to the worklet.
 
 The page is made so that it also works when `index.html` is opened from disk: the worker and the worklet
-start from text in the page, and the extras are scripts.
+start from text in the page, and the extras are scripts. Only the FIRMWARE button needs a web server.
+
+The **firmware worker** starts at the first click on FIRMWARE. It loads `src/fwsc/llvm.wasm` (clang 23
+and ld.lld for the FM-1's pi32v2 processor, built from
+[pi32v2-llvm](https://github.com/jvitkauskas/pi32v2-llvm)) and `src/fwsc/platform.json` (the sources of
+fm1-base and felucca-bsp, the adapter, the update loader and three files of JieLi's SDK). Then it does
+what `firmware/make_app.py` and fm1-base's `tools/build.py` do: it compiles the platform and the program,
+links them, checks the result and packs it. The package is the same bytes as the one that fm1-base's
+build makes with this compiler. [firmware/web/README.md](firmware/web/README.md) tells how the files of
+`src/fwsc` are made, and how to compare.
 
 ## Run it here
 
@@ -164,10 +182,12 @@ Then open `http://127.0.0.1:8765`. The page needs the internet for the compiler 
 ```
 src/index.html                 the application
 src/extras/                    files for the firmware of the gallery
+src/fwsc/                      the compiler and the platform for the FIRMWARE button
 src/error.html                 the page for an address that does not exist
 src/staticwebapp.config.json   configuration of the host
 .github/workflows/             deployment
-firmware/                      the build for a real FM-1 (not deployed)
+firmware/                      the build for a real FM-1 on your own computer (not deployed)
+firmware/web/                  the scripts that make src/fwsc
 ```
 
 A push to `main` deploys `src` to Azure Static Web Apps as it is.
@@ -191,6 +211,8 @@ in its build also needs an extras file: a script that calls `fm1Extras({ path: t
   a firmware uses one such request for each item in its `sources` (four for FELUCCA). After that, the
   page has the files until it is closed.
 - The LEDs are on or off: the dim levels of some firmware are not shown.
+- FIRMWARE is for `fm1.h` programs in C. A firmware of the gallery has its own build in its repository.
+  The package has no USB audio and no Bluetooth; USB MIDI in works.
 
 ## Licence
 
@@ -209,3 +231,9 @@ from that code, and their licences apply to them.
 
 The compiler is [wasm-clang](https://github.com/binji/wasm-clang) by Ben Smith, loaded from its demo
 site.
+
+The folder `src/fwsc` has work of others, for the FIRMWARE button: LLVM with the pi32v2 target of
+Julius Vitkauskas (Apache-2.0 with LLVM exceptions), built with Emscripten; the sources of fm1-base and
+felucca-bsp (MPL-2.0); and three files of JieLi's AC79 SDK (Apache-2.0). A package that the button makes
+has code of fm1-base and felucca-bsp and those three files. [src/fwsc/README.md](src/fwsc/README.md)
+lists the parts, their versions and their licences. Not affiliated with M-VAVE or JieLi.

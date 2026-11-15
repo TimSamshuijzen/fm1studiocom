@@ -521,6 +521,7 @@
               <button class="push" id="project-new" title="Start again with the demo project">NEW</button>
               <button class="push" id="project-load" title="Load a project from a zip file (or drop the zip file on the page)">LOAD</button>
               <button class="push" id="project-save" title="Download the project as a zip file">SAVE</button>
+              <button class="push" id="project-firmware" title="Make a .fwsc package of the project for a real M-VAVE FM-1 (it loads a second compiler: about 20 MB the first time)">FIRMWARE</button>
               <button class="push file-buttons" id="file-new" title="Add a file to the project">+ FILE</button>
               <button class="push" id="file-delete" title="Delete the file in the editor from the project">DELETE</button>
             </div>
@@ -1696,6 +1697,603 @@ onmessage = async (event) => {
 };
 </script>
 
+<!-- ==== Firmware worker: started from this text by the page script ==== -->
+<script type="text/plain" id="firmware-worker.js">
+// Makes a .fwsc package of an fm1.h project, for a real M-VAVE FM-1, in the browser.
+//
+// It does what firmware/build.sh does on a Linux computer, with the files of the folder fwsc/:
+//   llvm.js, llvm.wasm   clang and ld.lld for the FM-1's processor (pi32v2), built as WebAssembly from
+//                        github.com/jvitkauskas/pi32v2-llvm (firmware/web/build_compiler.sh)
+//   platform.json        fm1-base and felucca-bsp (the platform of the firmware), the adapter of
+//                        firmware/adapter, the update loader, and three files of JieLi's SDK
+//                        (firmware/web/make_platform.py)
+// The steps are those of firmware/make_app.py and of fm1-base's tools/build.py, with the same file
+// names and compiler flags: the package is the same bytes as the one that build.py makes with this
+// compiler (firmware/web/reference.sh makes that one, to compare).
+// The page puts two constants in front of this code: BASE (the address of fwsc/) and FM1_H (fm1.h).
+
+const APP = 'apps/web/fm1app';   // the app in the compiler's file system, below /work (as in ~/.cache/fm1studio)
+const OUT = APP + '/build';
+const MANIFEST = 'fm1project.json';
+const APP_XIP = 0x02000120;      // the address of the program in the flash, as the processor sees it
+const APP_SLOT = 0x8DFBC;        // the room for the program in the flash
+const FLASH_SIZE = 0x93000;
+const CHIP_KEY = 0x980F;
+const SRAM_SPARE = 8192;         // bytes of memory that must stay free
+const LEVEL = '-Os';             // for the files of the program (firmware/web/README.md tells why not -O2)
+const HASHED = new Set(['.c', '.h', '.S', '.toml', '.ld']); // the files that give the build its number
+
+const encoder = new TextEncoder();
+const log = (text) => postMessage({ type: 'log', text });
+
+// ---- The files of fwsc/, loaded one time ----
+
+const fixed = new Map();   // the files that each compiler run gets: path -> bytes
+const blobs = {};          // ota.bin and the SDK files
+const platformText = {};   // the text files of fm1-base and felucca-bsp: path below fm1-base/ -> text
+let about = {};
+let llvmModule = null;     // llvm.wasm, compiled
+let loading = null;
+
+async function fetchOk(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Cannot load ${url} (HTTP ${response.status})`);
+  return response;
+}
+
+const load = () => (loading ||= (async () => {
+  log('load the platform\n');
+  const platform = await (await fetchOk(BASE + 'platform.json')).json();
+  about = platform.about;
+  for (const [key, text] of Object.entries(platform.text)) {
+    const bytes = encoder.encode(text);
+    if (key.startsWith('fm1-base/')) {
+      fixed.set('/work/' + key, bytes);
+      platformText[key.slice(9)] = text;
+    } else if (key.startsWith('app/')) fixed.set(`/work/${APP}/${key.slice(4)}`, bytes);
+    else if (key.startsWith('gen/')) fixed.set(`/work/${OUT}/gen/${key.slice(4)}`, bytes);
+    else fixed.set('/' + key, bytes); // res/
+  }
+  for (const [key, base64] of Object.entries(platform.binary)) {
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    if (key.startsWith('rt/')) fixed.set('/' + key, bytes);
+    else blobs[key] = bytes;
+  }
+  importScripts(BASE + 'llvm.js'); // defines createLLVM
+  log('load the compiler (52 MB the first time)\n');
+  try {
+    llvmModule = await WebAssembly.compileStreaming(fetchOk(BASE + 'llvm.wasm'));
+  } catch (error) { // a server that does not say that the file is WebAssembly
+    llvmModule = await WebAssembly.compile(await (await fetchOk(BASE + 'llvm.wasm')).arrayBuffer());
+  }
+})());
+
+// ---- One run of a tool ----
+
+const dirname = (path) => path.slice(0, path.lastIndexOf('/'));
+
+// Runs clang or ld.lld one time, in a new instance of the program (a tool cannot run two times in
+// one instance). The instance gets the fixed files and `files`. Returns the exit code, the text
+// that the tool wrote, and those of the files `outputs` that it made.
+async function run(args, files, outputs = []) {
+  let text = '';
+  const llvm = await createLLVM({
+    instantiateWasm(imports, done) {
+      WebAssembly.instantiate(llvmModule, imports).then((instance) => done(instance, llvmModule));
+      return {};
+    },
+    print: (line) => { text += line + '\n'; },
+    printErr: (line) => { text += line + '\n'; },
+  });
+  for (const map of [fixed, files]) {
+    for (const [path, bytes] of map) {
+      llvm.FS.mkdirTree(dirname(path));
+      llvm.FS.writeFile(path, bytes);
+    }
+  }
+  for (const path of outputs) llvm.FS.mkdirTree(dirname(path));
+  llvm.FS.chdir('/work');
+  let code;
+  try {
+    code = llvm.callMain(args);
+  } catch (error) {
+    if (typeof error.status !== 'number') throw error;
+    code = error.status; // the tool called exit()
+  }
+  const made = new Map();
+  for (const path of outputs) {
+    try { made.set(path, llvm.FS.readFile(path)); } catch (error) { /* the tool did not make it */ }
+  }
+  return { code, text, made };
+}
+
+// A failed step: its text is in the log already.
+class Stopped extends Error {}
+
+// Shows the text of a tool: without colour codes, and without the folder of the project, which
+// the user does not know.
+function show(text) {
+  if (text.trim()) log(text.replace(/\x1b\[[0-9;]*m/g, '').replaceAll(`${APP}/project/`, '').replaceAll(`${APP}/`, ''));
+}
+
+// Compiles one C or assembly file. clang's driver cannot start a process here. So "clang -###"
+// gives its jobs (each a line of quoted words: "<program>" "clang" "-cc1" ...), and each job is a
+// run of its own. A job can make a file in /tmp for the next one (the assembly after its #includes).
+async function compileUnit(args, files) {
+  const target = '/work/' + args[args.indexOf('-o') + 1];
+  const list = await run(['clang', '-###', '-resource-dir', '/res', ...args], files);
+  const jobs = list.text.split('\n').filter((line) => line.startsWith(' "')).map((line) =>
+    [...line.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((word) => word[1].replace(/\\(.)/g, '$1')));
+  if (list.code || !jobs.length) {
+    show(list.text);
+    throw new Stopped();
+  }
+  const temporary = [];
+  for (const job of jobs) {
+    const made = job.filter((word) => word.startsWith('/tmp/'));
+    const result = await run(job.slice(1), files, [target, ...made]);
+    show(result.text);
+    if (result.code) throw new Stopped();
+    for (const [path, bytes] of result.made) files.set(path, bytes);
+    temporary.push(...made);
+  }
+  for (const path of temporary) files.delete(path);
+  if (!files.has(target)) throw new Error(`The compiler made no ${target}.`);
+}
+
+// ---- ELF files (32-bit, low byte first) ----
+
+function elfSections(data) {
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const at = view.getUint32(0x20, true), size = view.getUint16(0x2E, true);
+  const heads = Array.from({ length: view.getUint16(0x30, true) }, (_, index) =>
+    Array.from({ length: 10 }, (_, field) => view.getUint32(at + index * size + field * 4, true)));
+  const strings = heads[view.getUint16(0x32, true)][4];
+  const name = (from) => {
+    let end = strings + from;
+    while (data[end]) end++;
+    return new TextDecoder().decode(data.subarray(strings + from, end));
+  };
+  return heads.map((head) => ({ name: name(head[0]), type: head[1], offset: head[4], size: head[5], link: head[6] }));
+}
+
+// The bytes of a section: what "objcopy -O binary -j NAME" gives.
+function elfSection(data, name) {
+  const found = elfSections(data).find((section) => section.name === name && section.type !== 8); // 8: no bytes
+  return found ? data.subarray(found.offset, found.offset + found.size) : new Uint8Array(0);
+}
+
+// The symbols: name -> address.
+function elfSymbols(data) {
+  const sections = elfSections(data);
+  const table = sections.find((section) => section.type === 2);
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const strings = sections[table.link].offset;
+  const symbols = new Map();
+  for (let at = table.offset; at < table.offset + table.size; at += 16) {
+    let end = strings + view.getUint32(at, true);
+    const start = end;
+    while (data[end]) end++;
+    if (end > start) symbols.set(new TextDecoder().decode(data.subarray(start, end)), view.getUint32(at + 4, true));
+  }
+  return symbols;
+}
+
+// ---- The package ----
+// This part (to packageFile) is felucca-bsp's tools/fm1pkg.py and fm1-base's tools/fm1pkg_make.py
+// in JavaScript. Those files are MPL-2.0, Copyright (C) 2026 Leo Kuroshita (@kurogedelic),
+// Hügelton Instruments, and Copyright (C) 2026 Charles Vestal. This part can be used under
+// MPL-2.0 too (https://mozilla.org/MPL/2.0/).
+
+const CRC16 = Uint16Array.from({ length: 256 }, (_, n) => {
+  let crc = n << 8;
+  for (let bit = 0; bit < 8; bit++) crc = crc & 0x8000 ? (crc << 1) ^ 0x1021 : crc << 1;
+  return crc;
+});
+
+function crc16(bytes) {
+  let crc = 0;
+  for (const byte of bytes) crc = ((crc << 8) & 0xFFFF) ^ CRC16[(crc >> 8) ^ byte];
+  return crc;
+}
+
+// JieLi's ENC cipher, in place.
+function enc(bytes, from, size, key = 0xFFFF) {
+  for (let i = 0; i < size; i++) {
+    bytes[from + i] ^= key & 0xFF;
+    key = ((key << 1) ^ (key & 0x8000 ? 0x1021 : 0)) & 0xFFFF;
+  }
+}
+
+// The SFC cipher: ENC for each 32 bytes, the key mixed with the address of the block.
+function sfc(bytes, key) {
+  for (let i = 0; i < bytes.length; i += 32) enc(bytes, i, Math.min(bytes.length - i, 32), key ^ (i >> 2));
+}
+
+const join = (...parts) => {
+  const all = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
+  let at = 0;
+  for (const part of parts) { all.set(part, at); at += part.length; }
+  return all;
+};
+
+// An entry of JieLi's file system: 32 bytes. `name` is a text, or the 16 bytes of the name field.
+function entry(dataCrc, offset, size, flags, reserved, index, name) {
+  const all = new Uint8Array(32).fill(0xFF, 16);
+  const view = new DataView(all.buffer);
+  view.setUint16(2, dataCrc, true);
+  view.setUint32(4, offset >>> 0, true);
+  view.setUint32(8, size >>> 0, true);
+  view.setUint8(12, flags);
+  view.setUint8(13, reserved);
+  view.setUint16(14, index, true);
+  all.set(typeof name === 'string' ? encoder.encode(name + '\0') : name, 16);
+  view.setUint16(0, crc16(all.subarray(2)), true);
+  return all;
+}
+
+const hex = (text) => Uint8Array.from(text.match(/../g), (pair) => parseInt(pair, 16));
+
+// The flash image: the head (never written by the update loader), and the program area.
+function flashImage(program) {
+  const spl = blobs['sdk/uboot.boot'], tool = blobs['sdk/cfg_tool.bin'], eq = blobs['sdk/eq_cfg_hw.bin'];
+  // 32 bytes from which the boot code gets the chip key, their CRC, and a name
+  const keyBytes = new Uint8Array(32).fill(0x10, 0, 16);
+  for (let i = 0; i < 16; i++) keyBytes[16 + i] = keyBytes[15 - i] ^ (CHIP_KEY >> i & 1 ? 0x00 : 0xFF);
+  const isd = join(keyBytes, Uint8Array.of(crc16(keyBytes) & 0xFF, crc16(keyBytes) >> 8), encoder.encode('[FELUCCA]\r\n'));
+  const flash = new Uint8Array(FLASH_SIZE).fill(0xFF);
+  const splAt = 0xA0, isdAt = splAt + spl.length;
+  if (isdAt + isd.length > 0x4000) throw new Error('The boot code does not fit the head of the flash.');
+  const splEnc = spl.slice();
+  enc(splEnc, 0, 16);
+  enc(splEnc, 16, spl.length - 16);
+  flash.set(splEnc, splAt);
+  flash.set(isd, isdAt);
+  const header = hex('20022f104cc900f00f001010a4ff4e5d0b41e0cd781dc856417fb367cf9f'); // JieLi's SDK values
+  const head = join(Uint8Array.of(crc16(header) & 0xFF, crc16(header) >> 8), header,
+    entry(crc16(spl), splAt, spl.length, 0x00, 0x00, 0, 'uboot.boot'),
+    entry(crc16(isd), isdAt, isd.length, 0x02, 0x80, 0, 'isd_config.ini'),
+    entry(0xFFFF, 0x4000, 0xFFFFFFFF, 0x81, 0xFF, 0, 'app_dir_head'),
+    entry(0xFFFF, 0xFF000, 0x1000, 0x12, 0x01, 0xFFFF, 'key_mac'));
+  for (let at = 0; at < head.length; at += 32) enc(head, at, 32);
+  flash.set(head, 0);
+  // the program area: plain first, then the SFC cipher
+  const block = 0x120 + APP_SLOT + tool.length;
+  const area = new Uint8Array(block).fill(0xFF);
+  area.set(program, 0x120);
+  area.set(tool, 0x120 + APP_SLOT);
+  area.set(join(
+    entry(crc16(area.subarray(0x120, 0x120 + APP_SLOT)), 0x120, APP_SLOT, 0x82, 0xFF, 0, 'app.bin'),
+    entry(crc16(tool), 0x120 + APP_SLOT, tool.length, 0x82, 0xFF, 0, 'cfg_tool.bin'),
+    // the regions of the flash; the bytes after the names are fields of the SDK's packer
+    entry(0xFFFF, 0x93000, 352256, 0x12, 0x80, 0, hex('564d00ffffffffffffffffff00800000')),
+    entry(0xFFFF, 0, FLASH_SIZE, 0x92, 0x82, 0, hex('5052435400ffffffffffffff434f4445')),
+    entry(0xFFFF, 0xE9000, 0x1000, 0x92, 0x80, 0, hex('4254494600ffffffffffffff4155544f')),
+    entry(0xFFFF, 0xEA000, 0x12000, 0x92, 0x81, 1, 'USR')), 32);
+  area.set(entry(crc16(area.subarray(32)), 0x02000120, block, 0x83, 0xFF, 0, 'app_area_head'), 0);
+  const eqBody = join(entry(crc16(eq), 0x40, eq.length, 0x82, 0xFF, 1, 'eq_cfg_hw.bin'), eq);
+  const region = join(area, entry(crc16(eqBody), 0x20, 0x20 + eqBody.length, 0x83, 0xFF, 1, 'cfg'), eqBody);
+  sfc(region, CHIP_KEY);
+  flash.set(region, 0x4000);
+  return flash;
+}
+
+// The .fwsc file: the flash image and the update loader, with the identity of the package.
+function packageFile(flash, loader, identity) {
+  const files = [[0, 'flash.bin', flash], [100, 'ota.bin', loader]];
+  let at = 0x400;
+  const list = new Uint8Array(0x50 * files.length);
+  files.forEach(([type, name, data], index) => {
+    at = (at + 0xFF) & ~0xFF;
+    const item = new Uint8Array(0x50);
+    const view = new DataView(item.buffer);
+    view.setUint16(0, type, true);
+    view.setUint16(2, index, true);
+    view.setUint16(4, crc16(data), true);
+    view.setUint32(8, at, true);
+    view.setUint32(12, data.length, true);
+    view.setUint32(16, (data.length + 31) & ~31, true);
+    item.set(encoder.encode(name), 0x40);
+    enc(item, 0, 0x50);
+    list.set(item, index * 0x50);
+    files[index].push(at);
+    at += data.length;
+  });
+  const header = new Uint8Array(0x40);
+  const view = new DataView(header.buffer);
+  view.setUint32(4, at, true);
+  view.setUint16(8, files.length, true);
+  view.setUint16(10, 0x0004, true); // as the SDK's packer writes them
+  view.setUint16(12, 0x0200, true);
+  header.set(encoder.encode('AC791N'), 16);
+  view.setUint16(2, crc16(list), true);
+  view.setUint16(0, crc16(header.subarray(2)), true);
+  enc(header, 0, 0x40);
+  const logical = new Uint8Array(at).fill(0xFF);
+  logical.set(header, 0);
+  logical.set(list, 0x40);
+  for (const [, , data, place] of files) logical.set(data, place);
+  // one more byte after each of the first 20 blocks of 0x2F bytes: the identity
+  const all = new Uint8Array(at + 20);
+  for (let i = 0; i < 20; i++) {
+    all.set(logical.subarray(i * 0x2F, (i + 1) * 0x2F), i * 0x30);
+    all[i * 0x30 + 0x2F] = i < identity.length ? (identity.charCodeAt(i) + i + 1) & 0xFF : 0x7D;
+  }
+  all.set(logical.subarray(20 * 0x2F), 20 * 0x30);
+  return all;
+}
+
+// ---- The checks of fm1-base's build that the program can fail ----
+
+// Hardware addresses are for felucca-bsp only (mmio_check of tools/build.py): no pointer cast to
+// volatile, no assembly, and no register name of felucca-bsp in a file of the program.
+function registerErrors(texts) {
+  const strip = (source) => source
+    .replace(/\/\*[\s\S]*?\*\//g, (comment) => '\n'.repeat(comment.split('\n').length - 1))
+    .replace(/\/\/[^\n]*/g, '');
+  const bodies = new Map();
+  for (const path of Object.keys(platformText).sort()) {
+    if (!/^bsp\/(chip|boards\/fm1)\/[^/]+\.h$/.test(path)) continue;
+    for (const define of strip(platformText[path]).matchAll(/^#define\s+(\w+)(?:\([^)]*\))?\s+(.*)$/gm)) {
+      bodies.set(define[1], define[2]);
+    }
+  }
+  const registers = new Set([...bodies].filter(([, body]) => /\bvolatile\b/.test(body)).map(([name]) => name));
+  for (let more = true; more;) { // the names that are made from register names
+    more = false;
+    for (const [name, body] of bodies) {
+      if (!registers.has(name) && (body.match(/\w+/g) ?? []).some((word) => registers.has(word))) {
+        registers.add(name);
+        more = true;
+      }
+    }
+  }
+  const errors = [];
+  for (const [path, text] of texts) {
+    if (!/\.[ch]$/.test(path)) continue;
+    strip(text).split(/\r\n|\r|\n/).forEach((line, index) => {
+      const cast = line.match(/\(\s*(?:const\s+)?volatile\b[^()]*\*\s*\)(?!\s*&)/);
+      if (cast) errors.push(`${path}:${index + 1}: a pointer cast to volatile (${cast[0].trim()}): the hardware is for felucca-bsp only`);
+      if (/\b(?:__asm__|asm)\b(?!\s+volatile\s*\(\s*""\s*:::\s*"memory"\s*\))/.test(line)) {
+        errors.push(`${path}:${index + 1}: assembly in a C file`);
+      }
+      const used = (line.match(/\b[A-Z_][A-Z0-9_]*\b/g) ?? []).filter((word) => registers.has(word)).sort()[0];
+      if (used) errors.push(`${path}:${index + 1}: ${used} is a register name of felucca-bsp`);
+    });
+  }
+  return errors;
+}
+
+// A double in the code brings in these routines: the FM-1 has no hardware for them.
+const SOFT_DOUBLE = /^__(?:add|sub|mul|div|neg|cmp|eq|ne|lt|le|gt|ge|un|extendsf|truncdf|fixdf|fixunsdf|floatsidf|floatunsidf|floatdidf)\w*df\w*$/;
+// The sections that an object file of the program can have. Others go to parts of the memory that
+// are for the platform (code that runs from RAM while the flash is written, for example).
+const PROGRAM_SECTION = /^$|^\.(text|rodata|data|sdata|bss|sbss|comment|note|symtab|strtab|shstrtab|rel|rela|llvm_addrsig|debug)([._]|$)/;
+
+// ---- The build ----
+
+async function digest(algorithm, bytes) {
+  return new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
+}
+
+// "a/./b/../c" -> "a/c"
+function tidy(path) {
+  const parts = [];
+  for (const part of path.split('/')) {
+    if (part === '..') parts.pop();
+    else if (part !== '' && part !== '.') parts.push(part);
+  }
+  return parts.join('/');
+}
+
+function readManifest(texts) {
+  if (!texts.has(MANIFEST)) return {};
+  let manifest;
+  try {
+    manifest = JSON.parse(texts.get(MANIFEST));
+  } catch (error) {
+    throw new Error(`${MANIFEST}: ${error.message}`);
+  }
+  if (manifest === null || typeof manifest !== 'object' || Array.isArray(manifest)) throw new Error(`${MANIFEST}: must be an object.`);
+  for (const key of ['sources', 'include', 'define', 'flags']) {
+    const list = manifest[key] ?? [];
+    if (!Array.isArray(list) || list.some((item) => typeof item !== 'string')) {
+      throw new Error(`${MANIFEST}: "${key}" must be a list of texts.`);
+    }
+  }
+  return manifest;
+}
+
+// `files` has the text of each project file by its path, `zip` is the name of the project's zip
+// file (it gives the name of the firmware, as with firmware/build.sh).
+// Returns the name of the package file and its bytes.
+async function build(files, zip) {
+  await load();
+
+  // 1. The app, as firmware/make_app.py makes it.
+  const texts = new Map(); // the files of the project that are text
+  for (const [path, text] of Object.entries(files)) {
+    if (text.includes('\0')) continue; // a picture or a sound: the compiler cannot use it
+    if (/[*?["\\:]/.test(path)) throw new Error(`A file name with one of * ? [ " \\ : cannot be built: ${path}`);
+    texts.set(path, text);
+  }
+  const manifest = readManifest(texts);
+  if (manifest.web != null) {
+    throw new Error(`${MANIFEST} has "web": this project is a firmware with its own FM-1 inside. Its own repository builds its .fwsc.`);
+  }
+  const sources = manifest.sources?.length ? manifest.sources
+    : [...texts.keys()].filter((path) => /\.(c|cc|cpp|cxx)$/i.test(path)).sort();
+  if (!sources.length) throw new Error('The project has no .c file.');
+  for (const path of sources) {
+    if (!texts.has(path)) throw new Error(`${MANIFEST}: the project has no file ${path}.`);
+    if (!path.toLowerCase().endsWith('.c')) {
+      throw new Error(`${path}: a real FM-1 build takes C only (the FM-1's compiler has no C++ library).`);
+    }
+  }
+  // The names: on the start screen (capitals and digits: the large font has no more), and of the files.
+  const shown = zip.replace(/\.zip$/i, '').toUpperCase().replace(/[^A-Z0-9 +-]/g, ' ').replace(/ +/g, ' ')
+    .trim().slice(0, 14).trim() || 'PROGRAM';
+  const name = shown.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'program';
+  // The identity of the package: FM-1_58 and a digit from the name, then 00 (not a release).
+  const nameHash = [...await digest('SHA-256', encoder.encode(name))].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  const identity = `FM-1_58${BigInt('0x' + nameHash) % 10n}`;
+  const product = identity + '00';
+
+  const defines = (manifest.define ?? []).map((define) => {
+    const equals = define.indexOf('=');
+    const macro = equals < 0 ? define : define.slice(0, equals);
+    if (!/^[A-Za-z_]\w*(\([^)]*\))?$/.test(macro)) throw new Error(`${MANIFEST}: "define" ${JSON.stringify(define)} is not NAME or NAME=VALUE.`);
+    return `#define ${macro} ${equals < 0 ? 1 : define.slice(equals + 1)}\n`;
+  });
+  const tomlList = (items) => {
+    for (const item of items) {
+      if (/["\n]/.test(item)) throw new Error(`${JSON.stringify(item)} cannot be a flag or a folder here (a quote); put it in the "define" of ${MANIFEST}.`);
+    }
+    return '[' + items.map((item) => `"${item}"`).join(', ') + ']';
+  };
+  const include = ['project', ...(manifest.include ?? []).map((folder) => 'project/' + folder.replace(/^\/+|\/+$/g, ''))];
+  const app = new Map(); // the files of the app that are made here: path in the app -> text
+  for (const [path, text] of texts) app.set('project/' + path, text);
+  app.set('fm1.h', FM1_H);
+  app.set('fm1_app_name.h', `/* made by make_app.py */\n#define APP_NAME "${shown}"\n`);
+  app.set('fm1_prefix.h', '/* made by make_app.py: in front of each file of the program */\n' +
+    '#include "adapter/fm1_names.h"\n' + defines.join(''));
+  app.set('fm1.toml', `# made by make_app.py from ${zip}: the settings of fm1-base's tools/build.py
+name = "${name}"
+id_prefix = "${identity}"
+usb_manufacturer = "FM-1 Studio"
+usb_product = "${shown}"
+o2 = ${tomlList([...sources.map((path) => 'project/' + path), 'adapter/fm1_libc.c'])}
+o2_include = ["fm1_prefix.h"]
+o2_cflags = ${tomlList(manifest.flags ?? [])}
+include = ${tomlList(include)}
+device_include = ["adapter/libc"]
+mmio_skip = ["project/"]
+words = "words.tsv"
+ram_layout = "packed"
+usb_audio_in = false
+usb_audio_out = false
+tagline = "an FM-1 Studio program"
+repo = "https://github.com/TimSamshuijzen/fm1studiocom"
+licence = "GPL-3.0-only"
+`);
+  const work = new Map(); // the files of this build in the compiler's file system: path -> bytes
+  for (const [path, text] of app) work.set(`/work/${APP}/${path}`, encoder.encode(text));
+
+  // 2. The number of the build (build_id of tools/build.py): a hash of the sources of the app, of
+  // fm1-base and of the chip layer. A crash record on the FM-1 names the build with it.
+  const hashed = [];
+  for (const folder of [`/work/${APP}/`, '/work/fm1-base/device/', '/work/fm1-base/include/', '/work/fm1-base/bsp/chip/']) {
+    const found = [];
+    for (const map of [fixed, work]) {
+      for (const [path, bytes] of map) {
+        if (!path.startsWith(folder)) continue;
+        const parts = path.slice(folder.length).split('/');
+        const file = parts.at(-1), dot = file.lastIndexOf('.');
+        if (dot > 0 && HASHED.has(file.slice(dot)) && !parts.includes('build')) found.push([parts, bytes]);
+      }
+    }
+    found.sort(([a], [b]) => { // as Python sorts paths: part by part
+      for (let i = 0; i < a.length && i < b.length; i++) if (a[i] !== b[i]) return a[i] < b[i] ? -1 : 1;
+      return a.length - b.length;
+    });
+    for (const [parts, bytes] of found) hashed.push(encoder.encode(parts.join('/')), bytes);
+  }
+  const buildNumber = new DataView((await digest('SHA-1', join(...hashed))).buffer).getUint32(0, true);
+  const buildHex = buildNumber.toString(16).padStart(8, '0');
+
+  // 3. Compile, with the flags of build_app of tools/build.py.
+  const flags = (level) => ['-std=gnu11', '-target', 'pi32v2', level, '-ffunction-sections', '-fno-builtin', '-Wall',
+    '-Wno-unused-function', '-mcpu=r3', '-ffp-contract=off',
+    '-Ifm1-base/bsp/chip', '-Ifm1-base/bsp/boards/fm1', '-Ifm1-base/device', '-Ifm1-base/include', '-Ifm1-base/lib',
+    `-I${APP}`, `-I${OUT}/gen`, ...include.map((folder) => `-I${tidy(`${APP}/${folder}`)}`), `-I${APP}/adapter/libc`,
+    '-DFM1B_UAC=0', '-DFM1B_UAC_OUT=0', '-DFELUCCA_UAC_MIDI_LAST=1', `-DFELUCCA_ID="${product}"`,
+    '-DFELUCCA_USB_MANUFACTURER="FM-1 Studio"', `-DFELUCCA_USB_PRODUCT="${shown}"`, `-DFM1B_BUILD=0x${buildHex}u`];
+  const objects = [];
+  for (const unit of ['crt0', 'fm1_vec', 'fm1_isr']) {
+    objects.push(`${OUT}/${unit}.o`);
+    await compileUnit(['-target', 'pi32v2', '-c', `fm1-base/bsp/chip/${unit}.S`, '-o', objects.at(-1)], work);
+  }
+  log('compile the platform\n');
+  objects.push(`${OUT}/unity.o`);
+  await compileUnit([...flags('-Os'), '-c', 'fm1-base/device/unity.c', '-o', objects.at(-1)], work);
+  const programObjects = [];
+  for (const path of [...sources.map((source) => 'project/' + source), 'adapter/fm1_libc.c']) {
+    const program = path.startsWith('project/');
+    if (program) log(`compile ${path.slice(8)}\n`);
+    const object = `${OUT}/o2/${path.slice(0, path.lastIndexOf('.')).replaceAll('/', '_')}.o`;
+    await compileUnit([...flags(program ? LEVEL : '-O2'), ...(manifest.flags ?? []), '-include', `${APP}/fm1_prefix.h`,
+      `-I${dirname(`${APP}/${path}`)}`, '-c', `${APP}/${path}`, '-o', object], work);
+    objects.push(object);
+    programObjects.push(object);
+  }
+
+  // 4. Link, and make the image: the program code, then the RAM code and the data at their load addresses.
+  log(`link ${name}.elf\n`);
+  const elfPath = `/work/${OUT}/${name}.elf`;
+  const link = await run(['ld.lld', '--gc-sections', '-e', '_start', '-T', 'fm1-base/device/app_packed.ld', ...objects,
+    '-o', elfPath.slice(6), '/rt/libclang_rt.builtins.a'], work, [elfPath]);
+  show(link.text);
+  if (link.code || !link.made.has(elfPath)) {
+    if (link.text.includes("fit in region 'SRAM'")) log('  FAIL  the program needs more memory than the FM-1 has: 464 KB for the program and the platform\n');
+    if (link.text.includes("fit in region 'XIP'")) log('  FAIL  the program is larger than the FM-1 has room for: 581 KB for the program and the platform\n');
+    throw new Stopped();
+  }
+  const elf = link.made.get(elfPath);
+  const symbols = elfSymbols(elf);
+  const symbol = (id) => symbols.get(id) ?? 0;
+  let image = elfSection(elf, '.text');
+  for (const [section, loadSymbol] of [['.ram_text', '_rt_load'], ['.data', '_data_load']]) {
+    const bytes = elfSection(elf, section);
+    const at = symbol(loadSymbol) - APP_XIP;
+    if (!bytes.length) continue;
+    if (symbol(loadSymbol) % 4 || at < image.length) throw new Error(`${section} is not after the code in the image.`);
+    image = join(image, new Uint8Array(at - image.length).fill(0xFF), bytes);
+  }
+  image = join(image, new Uint8Array(-image.length & 3).fill(0xFF));
+
+  // 5. The checks.
+  const errors = [], notes = [];
+  if (symbol('_start') !== APP_XIP) errors.push(`_start is not at 0x${APP_XIP.toString(16)}`);
+  if (image[0] !== 0x04 || image[1] !== 0x81 || image[2] !== 0x80 || image[3] !== 0x00) errors.push('the image does not start with the entry code');
+  for (const object of programObjects) {
+    const bad = elfSections(work.get('/work/' + object)).find((section) => !PROGRAM_SECTION.test(section.name));
+    if (bad) errors.push(`${object.slice(OUT.length + 4)}: the section ${bad.name} is not for a program`);
+  }
+  if (image.length > APP_SLOT) errors.push(`the image is ${image.length} bytes: ${image.length - APP_SLOT} more than the FM-1 has room for`);
+  const soft = [...symbols.keys()].filter((id) => SOFT_DOUBLE.test(id)).sort();
+  if (soft.length) errors.push(`a double in the code (it needs ${soft.slice(0, 6).join(', ')}): the FM-1 has float only. Write 0.5f, sinf, powf.`);
+  else notes.push('no double in the code (the FM-1 has float only)');
+  const size = symbol('_sram_end') - symbol('_sram_start'), used = symbol('_pool_end') - symbol('_sram_start');
+  notes.push(`image ${image.length} B; memory ${used} B of ${size}: RAM code ${symbol('_rt_end') - symbol('_rt_start')} B, ` +
+    `data ${symbol('_bss_end') - symbol('_data_start')} B, pool ${symbol('_pool_end') - symbol('_pool_start')} B; ` +
+    `free ${size - used} B (${SRAM_SPARE} kept spare)`);
+  if (size - used < SRAM_SPARE) errors.push(`the program needs ${SRAM_SPARE - (size - used)} bytes of memory more than the FM-1 has`);
+  const registers = registerErrors(texts);
+  errors.push(...registers);
+  if (!registers.length) notes.push('no hardware address in the program');
+  for (const note of notes) log(`  ok    ${note}\n`);
+  for (const error of errors) log(`  FAIL  ${error}\n`);
+  if (errors.length) throw new Stopped();
+
+  // 6. The package.
+  const fwsc = packageFile(flashImage(image), blobs['ota.bin'], product);
+  log(`${name}.fwsc: ${fwsc.length} bytes, identity ${product}, build ${buildHex.toUpperCase()}\n`);
+  log(`made with fm1-base ${about['fm1-base'].slice(0, 7)}, felucca-bsp ${about['felucca-bsp'].slice(0, 7)}, pi32v2-llvm ${about['pi32v2-llvm'].slice(0, 7)}\n`);
+  return { name: `${name}.fwsc`, fwsc: fwsc.buffer, image: image.buffer };
+}
+
+onmessage = async ({ data }) => {
+  let made = { name: '', fwsc: null, image: null };
+  try {
+    made = await build(data.files, data.zip);
+  } catch (error) {
+    if (!(error instanceof Stopped)) log(`Error: ${error.message}\n`);
+  }
+  postMessage({ type: 'done', ...made }, made.fwsc ? [made.fwsc, made.image] : []);
+};
+</script>
+
 <!-- ==== Audio worklet: loaded from this text by the page script ==== -->
 <script type="text/plain" id="fm1-worklet.js">
 // Runs a compiled FM-1 program on the browser's audio thread.
@@ -2853,6 +3451,62 @@ document.addEventListener('keydown', (event) => {
     compile();
   }
 });
+
+// ---- Firmware: a .fwsc package of the project, for a real FM-1 ----
+
+// The firmware worker (the firmware-worker.js block) has its own compiler: clang for the FM-1's
+// processor. It starts at the first click on FIRMWARE, because it loads about 20 MB.
+let firmware = null;      // the worker
+let firmwareName = '';    // the name of the project that it builds now, or '' when it does nothing
+let firmwareMade = null;  // the last package: { name, fwsc, image } (the bytes as ArrayBuffer)
+
+function firmwareMessage(data) {
+  if (data.type === 'log') { log(data.text); return; }
+  $('project-firmware').disabled = false;
+  const built = firmwareName;
+  firmwareName = '';
+  if (!data.fwsc) { setStatus('The firmware was not made: see the compiler panel'); return; }
+  firmwareMade = data;
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([data.fwsc], { type: 'application/octet-stream' }));
+  link.download = data.name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+  log('This package is not tried on a real FM-1. Before you install it, read "If it goes wrong" in\n' +
+    'firmware/README.md of github.com/TimSamshuijzen/fm1studiocom, and keep M-VAVE\'s FM-1.fwsc.\n');
+  setStatus(`Firmware of ${built}: ${data.name}`);
+}
+
+$('project-firmware').onclick = () => {
+  if (firmwareName) return;
+  if (!compiling) $('log').textContent = ''; // (a compile that runs now keeps its lines)
+  if (location.protocol === 'file:') {
+    log('FIRMWARE needs the page from a web server (fm1studio.com, or a server on this computer):\n' +
+      'a page that is opened from disk cannot load the compiler for the FM-1.\n');
+    return;
+  }
+  if (!firmware) {
+    const url = URL.createObjectURL(new Blob(
+      [`const BASE = ${JSON.stringify(new URL('fwsc/', location.href).href)};\n`,
+        `const FM1_H = ${JSON.stringify(text('fm1.h'))};\n`, text('firmware-worker.js')],
+      { type: 'text/javascript' }));
+    firmware = new Worker(url);
+    firmware.onmessage = ({ data }) => firmwareMessage(data);
+    firmware.onerror = (event) => {
+      log(`Firmware error: ${event.message}\n`);
+      firmwareMessage({ type: 'done', fwsc: null });
+    };
+  }
+  firmwareName = project.name || 'project';
+  $('project-firmware').disabled = true;
+  setStatus(`Making the firmware of ${firmwareName}…`);
+  log(`firmware of ${firmwareName}\n`);
+  // The name of the zip file gives the name of the firmware, as with firmware/build.sh.
+  firmware.postMessage({
+    files: Object.fromEntries(project.files),
+    zip: `${project.name.replace(/[\\/:*?"<>|]/g, '') || 'project'}.zip`,
+  });
+};
 
 // ---- Program: the compiled module, which runs in the audio worklet ----
 
