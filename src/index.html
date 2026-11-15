@@ -446,6 +446,14 @@
   .pcb.running .smd-led.run { fill: #4cff7a; filter: drop-shadow(0 0 4px #4cff7a); }
   .pcb.trap .smd-led.red { fill: #ff4a35; filter: drop-shadow(0 0 4px #ff3a2a); }
 
+  /* ---- A file that is dragged above the page: a frame shows that the page takes it ---- */
+  body.dropping::after {
+    content: "DROP A PROJECT ZIP FILE TO LOAD IT"; position: fixed; z-index: 100; inset: 10px;
+    display: grid; place-items: center; pointer-events: none;
+    border: 3px dashed var(--stripe-1); border-radius: 12px; background: #000000b0;
+    color: var(--stripe-1); font-size: 22px; font-weight: 700; letter-spacing: 0.12em;
+  }
+
   /* ---- About: a modal dialog. It is in the device, so that it gets --scale: it has the scale of
      the device, and it is in the middle of the window as the device is. ---- */
   .about {
@@ -511,7 +519,7 @@
             <label class="field">NAME <input class="oled-input" id="project-name" spellcheck="false" autocomplete="off"></label>
             <div class="buttons">
               <button class="push" id="project-new" title="Start again with the demo project">NEW</button>
-              <button class="push" id="project-load" title="Load a project from a zip file">LOAD</button>
+              <button class="push" id="project-load" title="Load a project from a zip file (or drop the zip file on the page)">LOAD</button>
               <button class="push" id="project-save" title="Download the project as a zip file">SAVE</button>
               <button class="push file-buttons" id="file-new" title="Add a file to the project">+ FILE</button>
               <button class="push" id="file-delete" title="Delete the file in the editor from the project">DELETE</button>
@@ -642,7 +650,7 @@
         <li>COMPILE, or <kbd>Ctrl</kbd> + <kbd>Enter</kbd>, compiles the project and runs the program.</li>
         <li>VIEW FM1.H shows the API that a program is written against, with its documentation.</li>
         <li>The page keeps nothing between visits. SAVE downloads the project as a zip file, and LOAD
-          reads it back.</li>
+          reads it back. You can also drop a project zip file on the page.</li>
         <li>The cards in the PROJECT panel load open-source FM-1 firmware from GitHub. Each firmware is
           the work of its authors and has its own licence.</li>
       </ul>
@@ -2233,17 +2241,48 @@ $('project-save').onclick = () => {
 
 $('project-load').onclick = () => { if (canReplace()) $('project-file').click(); };
 
-$('project-file').onchange = async () => {
-  const [file] = $('project-file').files;
-  $('project-file').value = '';
-  if (!file) return;
+// Replaces the project with that of a zip file (a File).
+async function loadZip(file) {
   try {
     setProject(file.name.replace(/\.zip$/i, ''), await zipRead(await file.arrayBuffer()));
     compileNew();
   } catch (error) {
     log(`Cannot load ${file.name}: ${error.message}\n`);
   }
+}
+
+$('project-file').onchange = () => {
+  const [file] = $('project-file').files;
+  $('project-file').value = '';
+  if (file) loadZip(file);
 };
+
+// A zip file that is dropped on the page is loaded, as with LOAD. The page takes each drag of files,
+// so that the browser does not open a file that is dropped next to the target.
+const dragsFiles = (event) => event.dataTransfer.types.includes('Files');
+
+window.addEventListener('dragover', (event) => {
+  if (!dragsFiles(event)) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'copy';
+  document.body.classList.add('dropping');
+});
+
+// The drag goes out of the window when there is no element that it goes to.
+window.addEventListener('dragleave', (event) => {
+  if (!event.relatedTarget) document.body.classList.remove('dropping');
+});
+
+window.addEventListener('drop', (event) => {
+  if (!dragsFiles(event)) return;
+  event.preventDefault();
+  document.body.classList.remove('dropping');
+  const files = [...event.dataTransfer.files];
+  const file = files.find((file) => /\.zip$/i.test(file.name));
+  if (!file) log(`Cannot load ${files[0]?.name ?? 'this'}: only a project zip file can be dropped here\n`);
+  else if (githubBusy) log(`Cannot load ${file.name}: a download from GitHub is in progress\n`);
+  else if (canReplace()) loadZip(file);
+});
 
 // ---- Projects from GitHub ----
 // The LOAD button of a GITHUB card loads the code of a firmware from its repository on GitHub, as
