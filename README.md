@@ -282,8 +282,8 @@ in its build also needs an extras file: a script that calls `fm1Extras({ path: t
   a firmware uses one such request for each item in its `sources` (four for FELUCCA). After that, the
   page has the files until it is closed.
 - The LEDs are on or off: the dim levels of some firmware are not shown.
-- FIRMWARE is for `fm1.h` programs in C. A firmware of the gallery has its own build in its repository.
-  The package has no USB audio and no Bluetooth; USB MIDI in works.
+- FIRMWARE is for `fm1.h` programs in C. A firmware of the gallery has its own build in its repository:
+  the button is off for it, and its hint tells why. The package has no USB audio and no Bluetooth; USB MIDI in works.
 
 ## Licence
 
