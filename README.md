@@ -72,12 +72,50 @@ project gives the name on the FM-1's start screen. An adapter makes the function
 [fm1-base](https://github.com/charlesvestal/fm1-base) and felucca-bsp. The program must be C, with `float`
 and no `double`; the compiler panel tells when a program does not fit the FM-1.
 
-**No package was tried on a real FM-1 yet.** Read [firmware/README.md](firmware/README.md) before you
-install one: it tells what a program must keep to, and what to do when an install goes wrong.
+**No package was tried on a real FM-1 yet.** Read this section to its end before you install one.
+[firmware/README.md](firmware/README.md) tells what a program must keep to on the FM-1.
 
 The folder `firmware` builds the same kind of package on your own computer, from a project zip (the file
 that SAVE gives), with JieLi's own compiler: `firmware\build.cmd PROJECT.zip` on Windows (in WSL),
 `firmware/build.sh PROJECT.zip` on Linux. That build also runs the program in fm1-base's host simulator.
+
+#### Install the package
+
+The tools for this are felucca-bsp's and M-VAVE's, not ours:
+
+- `tools/fm1_install.py PACKAGE.fwsc` of felucca-bsp installs over USB MIDI. It needs Python with `mido`
+  and `python-rtmidi`. Run it in Windows, not in WSL: WSL does not see the FM-1.
+- felucca-bsp's notes say that M-VAVE's own updater (M-UPGRADE) takes such packages too.
+
+The package holds the program and fm1-base's update loader. After the install, the FM-1 runs only this
+program, until you install another firmware.
+
+#### Which FM-1
+
+The FM-1 was made with two flash chips: the Puya P25Q80 (ID 856014) and, in units sold since autumn 2026,
+the UC25HQ80 (ID B36014). The fm1-base version that a package is built on takes both
+(`device/fm1_flash_ok.h`), and so does the package. A firmware that knows only the first chip starts on a
+unit with the second one, but then cannot be replaced over USB: that is why this matters.
+
+The update loader in the package writes only the program area of the flash, not the boot loader below
+it. M-VAVE's stock firmware exists as V15 and V16, each with its own boot loader. fm1-base says it starts
+under either. We did not try a package on either chip or under either boot loader.
+
+#### If it goes wrong
+
+This is what fm1-base and felucca-bsp say about their own safety nets. We did not try them.
+
+- A firmware built on fm1-base keeps the update entry: an installer can replace it while it runs.
+- **REC held at power-on** goes to the chip's own update mode, if the firmware starts at all. That mode
+  is the one that `fm1_rescue` (below) talks to: do not go there without need.
+- After two starts that fail, the FM-1 goes to a safe mode that makes no sound and takes an update. If
+  safe mode fails too, it goes to the chip's update mode.
+- `fm1_install.py FM-1.fwsc`, with M-VAVE's official file, puts the stock firmware back. fm1-base's
+  installer page has the link to that file.
+- For an FM-1 that is in the chip's update mode and takes nothing else, felucca-bsp has `fm1_rescue`.
+  That tool is for macOS only. We know of no such tool for Windows.
+
+Keep M-VAVE's `FM-1.fwsc` on your computer before you install anything.
 
 ### fm1project.json
 
@@ -160,14 +198,47 @@ page has the styles, the page script, and six text blocks that the page script r
 The page is made so that it also works when `index.html` is opened from disk: the worker and the worklet
 start from text in the page, and the extras are scripts. Only the FIRMWARE button needs a web server.
 
+### The firmware worker
+
 The **firmware worker** starts at the first click on FIRMWARE. It loads `src/fwsc/llvm.wasm` (clang 23
 and ld.lld for the FM-1's pi32v2 processor, built from
 [pi32v2-llvm](https://github.com/jvitkauskas/pi32v2-llvm)) and `src/fwsc/platform.json` (the sources of
-fm1-base and felucca-bsp, the adapter, the update loader and three files of JieLi's SDK). Then it does
-what `firmware/make_app.py` and fm1-base's `tools/build.py` do: it compiles the platform and the program,
-links them, checks the result and packs it. The package is the same bytes as the one that fm1-base's
-build makes with this compiler. [firmware/web/README.md](firmware/web/README.md) tells how the files of
-`src/fwsc` are made, and how to compare.
+fm1-base and felucca-bsp, the adapter, the update loader and three files of JieLi's SDK).
+[src/fwsc/README.md](src/fwsc/README.md) tells how a page calls this compiler.
+
+Then the worker does the steps of `firmware/make_app.py` and of `build_app` in fm1-base's
+`tools/build.py`, with the same file names and compiler flags:
+
+1. It makes the app: the files of the project, `fm1.h`, the adapter, `fm1.toml` and two small headers.
+2. It calculates the number of the build, a hash of the sources, as `build.py` does.
+3. It compiles three assembly files, `device/unity.c` (the platform and the adapter), each C file of the
+   program, and `fm1_libc.c`.
+4. It links them with fm1-base's linker script.
+5. It makes the image from three sections of the ELF file.
+6. It runs the checks.
+7. It packs the image, the update loader and the SDK files (`fm1pkg_make.py` of fm1-base, in JavaScript).
+
+The package is the same bytes as the one that fm1-base's build makes with this compiler.
+[firmware/web/README.md](firmware/web/README.md) tells how the files of `src/fwsc` are made, and how to
+compare.
+
+The worker has the checks of fm1-base's build that a program can fail:
+
+| Check of fm1-base's build | In the worker |
+| --- | --- |
+| The entry point and the first bytes of the image | yes |
+| No `double` routines | yes |
+| The image fits the flash; 8 KB of memory stays free | yes |
+| No hardware access in the program (pointer cast to `volatile`, assembly, register names) | yes |
+| No calls in the RAM code | no: a program cannot put code there |
+| No address of the chip's ROM | no |
+| 64-bit multiplies beside loads (a note) | no: the program is compiled at `-Os` |
+
+The platform is the same source for each program, and it passes all checks in the build of
+`firmware/web/reference.sh`. The worker checks that an object file of the program has only sections for
+code and data: so a program cannot put code or data in the parts of the memory that are for the platform.
+A project can add `"flags": ["-O2"]` to its `fm1project.json`: then build it with `reference.sh` too, and
+read the note.
 
 ## Run it here
 
@@ -182,11 +253,11 @@ Then open `http://127.0.0.1:8765`. The page needs the internet for the compiler 
 ```
 src/index.html                 the application
 src/extras/                    files for the firmware of the gallery
-src/fwsc/                      the compiler and the platform for the FIRMWARE button
+src/fwsc/                      a compiler for the FM-1 as WebAssembly, and the platform (for FIRMWARE)
 src/error.html                 the page for an address that does not exist
 src/staticwebapp.config.json   configuration of the host
 .github/workflows/             deployment
-firmware/                      the build for a real FM-1 on your own computer (not deployed)
+firmware/                      fm1.h on a real FM-1: the adapter, and the build on a computer (not deployed)
 firmware/web/                  the scripts that make src/fwsc
 ```
 

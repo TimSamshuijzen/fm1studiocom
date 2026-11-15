@@ -180,4 +180,4 @@ if command -v wslpath >/dev/null 2>&1; then
     echo "          $(wslpath -w "$DEST/$NAME.fwsc")"
 fi
 echo "host run  $DEST/host (pictures of the screen, sound.wav)"
-echo "Read firmware/README.md before you install it on an FM-1."
+echo "Read \"On a real FM-1\" in README.md before you install it on an FM-1."

@@ -20,7 +20,7 @@ make_platform.py uses the functions of this file too, for the update loader.
     objdump   JieLi's own (for the checks of build.py: it reads the same ELF files)
 
 FM1_PROGRAM_LEVEL=-Os compiles the files of the program (APP_DIR/project) at that level in place of -O2:
-the level that the page uses (README.md tells why).
+the level that the page uses (src/fwsc/README.md tells why).
 Folders: FM1_WASM (default ~/.cache/fm1studio/wasm), FM1_JIELI (default ~/.cache/fm1studio/jieli/toolchain).
 """
 import os

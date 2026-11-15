@@ -1720,7 +1720,7 @@ const APP_SLOT = 0x8DFBC;        // the room for the program in the flash
 const FLASH_SIZE = 0x93000;
 const CHIP_KEY = 0x980F;
 const SRAM_SPARE = 8192;         // bytes of memory that must stay free
-const LEVEL = '-Os';             // for the files of the program (firmware/web/README.md tells why not -O2)
+const LEVEL = '-Os';             // for the files of the program (src/fwsc/README.md tells why not -O2)
 const HASHED = new Set(['.c', '.h', '.S', '.toml', '.ld']); // the files that give the build its number
 
 const encoder = new TextEncoder();
@@ -3473,7 +3473,7 @@ function firmwareMessage(data) {
   link.click();
   setTimeout(() => URL.revokeObjectURL(link.href), 10000);
   log('This package is not tried on a real FM-1. Before you install it, read "If it goes wrong" in\n' +
-    'firmware/README.md of github.com/TimSamshuijzen/fm1studiocom, and keep M-VAVE\'s FM-1.fwsc.\n');
+    'README.md of github.com/TimSamshuijzen/fm1studiocom, and keep M-VAVE\'s FM-1.fwsc.\n');
   setStatus(`Firmware of ${built}: ${data.name}`);
 }
 
