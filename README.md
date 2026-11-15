@@ -104,7 +104,8 @@ own installer, not changed: [src/install/README.md](src/install/README.md).
 The first step of the INSTALL dialog has a second selection: the firmware of M-VAVE. Download
 [FM-1.fwsc](https://yms-file-store.oss-cn-hongkong.aliyuncs.com/software/firmware/FM-1.fwsc) from M-VAVE
 (version 16 in November 2026), select the file in the dialog, and do the same steps. This works when the
-firmware on the FM-1 starts, or the FM-1 is in its safe mode.
+firmware on the FM-1 starts, or the FM-1 is in its safe mode. INSTALL is off while a firmware of the
+gallery is open: open an `fm1.h` project first.
 
 The page takes a file only when it tells that it is M-VAVE's firmware (identity `FM-1_0` and two digits)
 and its checksums are good. For versions 15 and 16 it must be M-VAVE's own file, byte for byte: fm1-base's
@@ -318,8 +319,8 @@ in its build also needs an extras file: a script that calls `fm1Extras({ path: t
   page has the files until it is closed.
 - The LEDs are on or off: the dim levels of some firmware are not shown.
 - FIRMWARE is for `fm1.h` programs in C. A firmware of the gallery has its own build in its repository:
-  FIRMWARE is off for it, and its hint tells why; INSTALL then offers only the firmware of M-VAVE. The
-  package has no USB audio and no Bluetooth; USB MIDI in works.
+  FIRMWARE and INSTALL are off for it, and their hints tell why. To put the firmware of M-VAVE back,
+  open an `fm1.h` project first. The package has no USB audio and no Bluetooth; USB MIDI in works.
 - INSTALL needs Chrome or Edge on a computer (Web MIDI). No install was done on a real FM-1 yet.
 
 ## Licence

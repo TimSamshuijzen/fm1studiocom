@@ -860,8 +860,9 @@ void loop(void) { }                         /* again and again: controls and scr
         <li>GitHub gives the list of files of a repository 60 times in an hour to one address. A firmware
           of the gallery uses one or more of these for its first load.</li>
         <li>FIRMWARE is for <code>fm1.h</code> programs in C. A firmware of the gallery has its own build in
-          its repository: FIRMWARE is off for it, and its hint tells why. INSTALL then offers only the
-          firmware of M-VAVE. A package has no USB audio and no Bluetooth; USB MIDI in works.</li>
+          its repository: FIRMWARE and INSTALL are off for it, and their hints tell why. To put the
+          firmware of M-VAVE back, open an <code>fm1.h</code> project first. A package has no USB audio
+          and no Bluetooth; USB MIDI in works.</li>
         <li>INSTALL needs Chrome or Edge on a computer, and the page from a web server.</li>
       </ul>
 
@@ -3880,9 +3881,8 @@ function showFirmware() {
   $('firmware').classList.toggle('lit', busy);
   $('firmware').title = hint(block) || FIRMWARE_HINT;
   for (const bar of firmwareBars) bar.classList.toggle('busy', busy);
-  // INSTALL also puts M-VAVE's firmware back: a project that cannot be built does not stop that.
-  const installBlock = location.protocol === 'file:' ? block
-    : navigator.requestMIDIAccess ? '' : 'INSTALL needs Web MIDI: use Chrome or Edge on a computer.';
+  // INSTALL is off for a project that FIRMWARE cannot build, also for the firmware of M-VAVE.
+  const installBlock = block || (navigator.requestMIDIAccess ? '' : 'INSTALL needs Web MIDI: use Chrome or Edge on a computer.');
   // During an install, the button shows the dialog again.
   $('install-open').disabled = !installer.writing && (busy || installBlock !== '');
   $('install-open').title = hint(installBlock) || INSTALL_HINT;
@@ -4058,23 +4058,19 @@ async function installCode() {
 }
 
 // INSTALL opens the dialog at its first step, and makes the package of the project while the user
-// reads. A project that FIRMWARE cannot build has no package: the dialog is then for M-VAVE's
-// firmware only.
+// reads. The button is disabled for a project that FIRMWARE cannot build (see showFirmware()).
 $('install-open').onclick = async () => {
   if (installer.writing) {  // the dialog was closed during an install: show it again
     install.showModal();
     return;
   }
-  const block = firmwareBlock();
   installer.project = null;
   $('install-agree').checked = false;
-  $('install-project').disabled = block !== '';
-  $(block ? 'install-stock' : 'install-project').checked = true;
-  installSay('install-package', block ? `Not available: ${block}` : `Making the package of ${project.name || 'project'}…`);
+  $('install-project').checked = true;
+  installSay('install-package', `Making the package of ${project.name || 'project'}…`);
   showInstallChoice();
   showInstallStep('read');
   install.showModal();
-  if (block) return;
   try {
     const code = await installCode();
     const made = await makeFirmware();
