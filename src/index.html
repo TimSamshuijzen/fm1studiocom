@@ -1180,8 +1180,8 @@ void audio(int32_t *out, int frames) {
     float decay = expf(-6.9f / (decay_time * FM1_AUDIO_RATE));         /* down to 1/1000 in decay_time */
     float release = expf(-6.9f / (fminf(decay_time, 0.4f) * FM1_AUDIO_RATE)); /* after the key is up */
     float echo = knob[FM1_ENC_KNOB4] / 12.0f;
-    float target_gain = fm1_master() / (float)FM1_MASTER_MAX;
-
+    float master = fm1_master() / (float)FM1_MASTER_MAX;
+    float target_gain = master * master * master * 0.25f; /* audio taper, max 12 dB quieter */
     for (int i = 0; i < frames; i++) {
         float left = 0.0f, right = 0.0f;
         for (int n = 0; n < (int)NOTES; n++) {
