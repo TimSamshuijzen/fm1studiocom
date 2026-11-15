@@ -569,6 +569,7 @@
   .dialog-text .state.bad { color: #ffb4a6; }
   .dialog-text .state.good { color: #9dffb4; }
   .dialog-text .progress { width: 100%; height: 12px; margin: 0 0 12px; border-radius: 6px; }
+  .dialog-text .check + .state + .progress { width: auto; margin: 8px 0 0 25px; }  /* the build of the package, below its display */
   .dialog-text .ports { margin: 0 0 12px; padding: 0; list-style: none; }
   .dialog-text .ports li { display: flex; align-items: center; gap: 12px; margin: 6px 0; }
   .dialog-text .ports .push { height: 24px; padding: 0 12px; font-size: 10px; }
@@ -946,6 +947,8 @@ void loop(void) { }                         /* again and again: controls and scr
         <label class="check"><input type="radio" name="install-what" id="install-project" value="project" checked>
           The program of the project</label>
         <p class="state" id="install-package" role="status"></p>
+        <div class="progress" id="install-package-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+          aria-label="Package progress, an estimate" title="Package progress (an estimate)"><i></i></div>
         <label class="check"><input type="radio" name="install-what" id="install-stock" value="stock">
           The firmware of M-VAVE, to go back to it</label>
         <div data-for="stock" hidden>
@@ -3724,7 +3727,8 @@ function setCompiling(busy) {
 // ---- Progress of a compile, and of a firmware build ----
 // The compiler gives no progress during a file, and a firmware is one large file. Thus the bar
 // below the COMPILE button shows the time of the compile against an estimate of its full time.
-// The bar below the FIRMWARE button does the same for a firmware build.
+// The bar below the FIRMWARE button does the same for a firmware build, and so does the bar below
+// the package in the INSTALL dialog.
 
 // `part` is 0 to 1.
 function setProgress(bar, part) {
@@ -3832,7 +3836,9 @@ document.addEventListener('keydown', (event) => {
 let firmware = null;      // the worker
 let firmwareName = '';    // the name of the project that it builds now, or '' when it does nothing
 let firmwareMade = null;  // the last package: { name, fwsc, image } (the bytes as ArrayBuffer)
-let firmwareTimer = 0;    // moves the progress bar during a build
+let firmwareTimer = 0;    // moves the progress bars during a build
+// The bars that show a build: below the FIRMWARE button, and below the package in the INSTALL dialog.
+const firmwareBars = [$('firmware-progress'), $('install-package-progress')];
 let firmwareStart = 0;    // when the build started (Date.now())
 let firmwareDone = null;  // gives the result of the build to makeFirmware()'s promise
 const firmwareSeconds = new Map(); // project name -> the time of its last good build on this computer
@@ -3873,7 +3879,7 @@ function showFirmware() {
   $('firmware').disabled = busy || block !== '';
   $('firmware').classList.toggle('lit', busy);
   $('firmware').title = hint(block) || FIRMWARE_HINT;
-  $('firmware-progress').classList.toggle('busy', busy);
+  for (const bar of firmwareBars) bar.classList.toggle('busy', busy);
   // INSTALL also puts M-VAVE's firmware back: a project that cannot be built does not stop that.
   const installBlock = location.protocol === 'file:' ? block
     : navigator.requestMIDIAccess ? '' : 'INSTALL needs Web MIDI: use Chrome or Edge on a computer.';
@@ -3899,7 +3905,7 @@ function firmwareMessage(data) {
   const built = firmwareName;
   firmwareName = '';
   showFirmware();
-  setProgress($('firmware-progress'), 0);
+  for (const bar of firmwareBars) setProgress(bar, 0);
   if (!data.fwsc) {
     setStatus('The firmware was not made: see the log');
     firmwareDone(null);
@@ -3935,7 +3941,7 @@ function makeFirmware() {
   const full = estimateFirmware();
   const showTime = () => {
     const seconds = Math.round((Date.now() - firmwareStart) / 1000);
-    showProgress($('firmware-progress'), seconds + 1, full); // the bar moves to this position during the next second
+    for (const bar of firmwareBars) showProgress(bar, seconds + 1, full); // the bars move to this position during the next second
   };
   showTime();
   firmwareTimer = setInterval(showTime, 1000);
