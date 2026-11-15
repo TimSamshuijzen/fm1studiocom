@@ -5,7 +5,8 @@ A code workstation for the M-VAVE FM-1 synthesizer that runs in the browser: **[
 Write a program in C, press COMPILE, and play it on a simulated FM-1. The compiler, the program
 and the simulator all run in the page. There is no server side and nothing to install. It is a simulation 
 of the FM-1 API, not an emulation of the CPUs. The FIRMWARE button makes an installable package for a
-real FM-1 from a project, also in the page (see below).
+real FM-1 from a project, also in the page. The INSTALL button writes it to an FM-1 over USB, and can
+put the firmware of M-VAVE back (see below).
 Code that works in this simulator does not guarantee it will work on a real FM-1.
 
 - **Code editor** with a file list, syntax colours and projects of more than one file.
@@ -17,7 +18,7 @@ Code that works in this simulator does not guarantee it will work on a real FM-1
 - **Firmware gallery**: loads the source code of open-source FM-1 firmware from GitHub, compiles it and
   runs it.
 - **Firmware for a real FM-1**: a second compiler in the page, clang for the FM-1's processor, makes a
-  `.fwsc` package of a project.
+  `.fwsc` package of a project. The page can install it on an FM-1 over USB MIDI (Chrome or Edge).
 
 ## Use
 
@@ -81,7 +82,39 @@ that SAVE gives), with JieLi's own compiler: `firmware\build.cmd PROJECT.zip` on
 
 #### Install the package
 
-The tools for this are felucca-bsp's and M-VAVE's, not ours:
+The INSTALL button builds the project and writes the package to an FM-1, over USB MIDI. A dialog shows
+the steps:
+
+1. **Read.** You select what to install: the program of the project, or the firmware of M-VAVE (see
+   "Back to the firmware of M-VAVE" below). The page makes the package of the project and checks it.
+   You read what an install does, and agree.
+2. **Connect.** Connect the FM-1 with a USB cable that carries data, and let it run as it is. CONNECT
+   asks the browser for MIDI with SysEx messages, finds the FM-1, and tells which firmware it runs.
+3. **Install.** INSTALL NOW starts the install. The firmware on the FM-1 checks the package and starts
+   the update loader of the package. The loader writes the program, and the FM-1 starts again. The
+   page then asks the FM-1 for its identity and compares it with the package.
+
+The button needs Chrome or Edge (Web MIDI), and the page from `https:` or `localhost`. Do not disconnect
+the cable during the install. An install that stops after the FM-1 went to update mode can continue:
+connect the cable again and go through the steps again. The code that talks to the FM-1 is fm1-base's
+own installer, not changed: [src/install/README.md](src/install/README.md).
+
+##### Back to the firmware of M-VAVE
+
+The first step of the INSTALL dialog has a second selection: the firmware of M-VAVE. Download
+[FM-1.fwsc](https://yms-file-store.oss-cn-hongkong.aliyuncs.com/software/firmware/FM-1.fwsc) from M-VAVE
+(version 16 in November 2026), select the file in the dialog, and do the same steps. This works when the
+firmware on the FM-1 starts, or the FM-1 is in its safe mode.
+
+The page takes a file only when it tells that it is M-VAVE's firmware (identity `FM-1_0` and two digits)
+and its checksums are good. For versions 15 and 16 it must be M-VAVE's own file, byte for byte: fm1-base's
+installer has their SHA-256. The update loader of M-VAVE writes all of the flash memory, also the boot
+loader. We do not know if version 15 knows the newer flash chip (see "Which FM-1"): use the file from
+the link.
+
+##### Other tools
+
+Other tools install the file that FIRMWARE downloads. They are felucca-bsp's and M-VAVE's, not ours:
 
 - `tools/fm1_install.py PACKAGE.fwsc` of felucca-bsp installs over USB MIDI. It needs Python with `mido`
   and `python-rtmidi`. Run it in Windows, not in WSL: WSL does not see the FM-1.
@@ -110,8 +143,8 @@ This is what fm1-base and felucca-bsp say about their own safety nets. We did no
   is the one that `fm1_rescue` (below) talks to: do not go there without need.
 - After two starts that fail, the FM-1 goes to a safe mode that makes no sound and takes an update. If
   safe mode fails too, it goes to the chip's update mode.
-- `fm1_install.py FM-1.fwsc`, with M-VAVE's official file, puts the stock firmware back. fm1-base's
-  installer page has the link to that file.
+- The INSTALL dialog, with M-VAVE's official file `FM-1.fwsc`, puts the stock firmware back (see "Back
+  to the firmware of M-VAVE" above). `fm1_install.py FM-1.fwsc` does the same.
 - For an FM-1 that is in the chip's update mode and takes nothing else, felucca-bsp has `fm1_rescue`.
   That tool is for macOS only. We know of no such tool for Windows.
 
@@ -172,8 +205,8 @@ Three things that such a repository does not have come from this one:
 
 ## How it works
 
-The application is one file, `src/index.html`, and the files of the FIRMWARE button in `src/fwsc`. The
-page has the styles, the page script, and six text blocks that the page script reads:
+The application is one file, `src/index.html`, the files of the FIRMWARE button in `src/fwsc`, and the
+files of the INSTALL button in `src/install`. The page has the styles, the page script, and six text blocks that the page script reads:
 
 | Block | What |
 |---|---|
@@ -196,7 +229,8 @@ page has the styles, the page script, and six text blocks that the page script r
    the keys, encoders, MASTER position and MIDI messages to the worklet.
 
 The page is made so that it also works when `index.html` is opened from disk: the worker and the worklet
-start from text in the page, and the extras are scripts. Only the FIRMWARE button needs a web server.
+start from text in the page, and the extras are scripts. Only the FIRMWARE and INSTALL buttons need a
+web server.
 
 ### The firmware worker
 
@@ -254,6 +288,7 @@ Then open `http://127.0.0.1:8765`. The page needs the internet for the compiler 
 src/index.html                 the application
 src/extras/                    files for the firmware of the gallery
 src/fwsc/                      a compiler for the FM-1 as WebAssembly, and the platform (for FIRMWARE)
+src/install/                   the installer of fm1-base (for INSTALL)
 src/error.html                 the page for an address that does not exist
 src/staticwebapp.config.json   configuration of the host
 .github/workflows/             deployment
@@ -283,7 +318,9 @@ in its build also needs an extras file: a script that calls `fm1Extras({ path: t
   page has the files until it is closed.
 - The LEDs are on or off: the dim levels of some firmware are not shown.
 - FIRMWARE is for `fm1.h` programs in C. A firmware of the gallery has its own build in its repository:
-  the button is off for it, and its hint tells why. The package has no USB audio and no Bluetooth; USB MIDI in works.
+  FIRMWARE is off for it, and its hint tells why; INSTALL then offers only the firmware of M-VAVE. The
+  package has no USB audio and no Bluetooth; USB MIDI in works.
+- INSTALL needs Chrome or Edge on a computer (Web MIDI). No install was done on a real FM-1 yet.
 
 ## Licence
 
@@ -308,3 +345,6 @@ Julius Vitkauskas (Apache-2.0 with LLVM exceptions), built with Emscripten; the 
 felucca-bsp (MPL-2.0); and three files of JieLi's AC79 SDK (Apache-2.0). A package that the button makes
 has code of fm1-base and felucca-bsp and those three files. [src/fwsc/README.md](src/fwsc/README.md)
 lists the parts, their versions and their licences. Not affiliated with M-VAVE or JieLi.
+
+The folder `src/install` has the installer of fm1-base (MPL-2.0), for the INSTALL button:
+[src/install/README.md](src/install/README.md).

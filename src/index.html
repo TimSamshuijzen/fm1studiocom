@@ -125,6 +125,11 @@
     border-style: solid; border-width: 7px 6px 0 6px; border-color: currentColor transparent transparent transparent;
   }
   .big-button.down i::after { content: ""; position: absolute; left: -7px; top: 2px; width: 14px; height: 2px; background: currentColor; }
+  .big-button.send i {  /* an arrow to a line at its right: to the FM-1 */
+    position: relative; width: 0; height: 0; margin-right: 4px; background: none;
+    border-style: solid; border-width: 6px 0 6px 7px; border-color: transparent transparent transparent currentColor;
+  }
+  .big-button.send i::after { content: ""; position: absolute; left: 2px; top: -7px; width: 2px; height: 14px; background: currentColor; }
   /* COMPILE is a clear red and FIRMWARE a clear amber, with less shadow than the other big buttons. */
   .big-button.red, .big-button.amber {
     box-shadow: 0 0 0 2px #0b0a09, 0 0 0 4px #3b3833, 0 3px 0 4px #0b0a09, inset 0 2px 0 #ffffff40;
@@ -212,7 +217,7 @@
   .main { display: grid; grid-template-columns: minmax(0, 1fr) 800px; gap: var(--gap); min-height: 0; }
   .column { display: grid; gap: var(--gap); min-width: 0; min-height: 0; }
   /* The left column has two panels in its bottom row: FIRMWARE, then LOG. */
-  .column.left { grid-template: 172px minmax(0, 1fr) 108px / 150px minmax(0, 1fr); }
+  .column.left { grid-template: 172px minmax(0, 1fr) 108px / 190px minmax(0, 1fr); }
   .column.left > :nth-child(-n+2) { grid-column: 1 / -1; }
   .column.right { grid-template-rows: auto auto minmax(0, 1fr); }
   .column > :nth-child(1) { --legend: var(--panel-high); }
@@ -305,9 +310,13 @@
   #highlight .p { color: #f47a8c; }  /* preprocessor */
   #highlight .a { color: #8fe3ff; }  /* FM-1 API */
 
-  /* ---- Firmware: the button that makes a package for a real FM-1, and the progress of its build ---- */
+  /* ---- Firmware: the buttons that make a package for a real FM-1 and install it, and the progress
+     of the build ---- */
 
   .firmware { display: grid; }
+  .firmware .transport { grid-template-columns: auto auto; justify-content: center; gap: 14px 20px; }
+  /* One bar below the two buttons: each of them starts a build. It is as wide as the two buttons. */
+  .firmware .progress { grid-column: 1 / -1; justify-self: stretch; width: auto; margin: 0 -2px; }
 
   /* ---- Log: a display for the output of the compilers and the messages of the program ---- */
 
@@ -467,12 +476,12 @@
     color: var(--stripe-1); font-size: 22px; font-weight: 700; letter-spacing: 0.12em;
   }
 
-  /* ---- About: a modal dialog, in the middle of the window. It is in the device, so that it gets
-     --scale. On a large window it grows with the device. On a small window it does not get smaller
-     than its own size, so that its text stays easy to read: then it takes the room that the window
-     has. Its head is a part of the device. The text below the head is a sheet of paper: dark text on
-     a light background, with the look of a README. ---- */
-  .about {
+  /* ---- Dialogs (ABOUT and INSTALL): a modal dialog, in the middle of the window. It is in the
+     device, so that it gets --scale. On a large window it grows with the device. On a small window
+     it does not get smaller than its own size, so that its text stays easy to read: then it takes
+     the room that the window has. Its head is a part of the device. The text below the head is a
+     sheet of paper: dark text on a light background, with the look of a README. ---- */
+  .dialog {
     position: fixed; inset: 50% auto auto 50%; margin: 0; padding: 0; max-width: none;
     width: min(880px, 100vw - 24px); max-height: min(840px, 100vh - 24px);
     transform: translate(-50%, -50%) scale(max(1, var(--scale, 1)));
@@ -480,47 +489,88 @@
     background: linear-gradient(180deg, var(--panel-high), var(--panel));
     box-shadow: 0 0 0 1px #000, 0 30px 60px #000c;
   }
-  .about[open] { display: flex; flex-direction: column; }
-  .about::backdrop { background: #000000b0; }
-  .about-head { flex: none; display: flex; align-items: center; gap: 20px; padding: 14px 22px; }
-  .about-head h2, .about-head p { margin: 0; }
-  @media (max-width: 620px) { .about-head .brand-text { display: none; } }
-  .about-text {
+  .dialog[open] { display: flex; flex-direction: column; }
+  .dialog::backdrop { background: #000000b0; }
+  .dialog-head { flex: none; display: flex; align-items: center; gap: 20px; padding: 14px 22px; }
+  .dialog-head h2, .dialog-head p { margin: 0; }
+  @media (max-width: 620px) { .dialog-head .brand-text { display: none; } }
+  .dialog-text {
     --ink: #24211d; --ink-dim: #5d574d; --paper: #f8f5ee; --paper-rule: #d9d3c5; --paper-code: #ebe6da; --link: #0b55a8;
     flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 26px clamp(16px, 5vw, 44px) 34px; color-scheme: light;
     background: var(--paper); color: var(--ink); font: 16px/1.6 var(--font-label);
     user-select: text; -webkit-user-select: text; scrollbar-color: #b3ab9b transparent;
   }
-  .about-text:focus-visible { outline-offset: -3px; outline-color: var(--link); }
-  .about-text > :first-child { margin-top: 0; }
-  .about-text > :last-child { margin-bottom: 0; }
-  .about-text h3 {
+  .dialog-text:focus-visible { outline-offset: -3px; outline-color: var(--link); }
+  .dialog-text > :first-child { margin-top: 0; }
+  .dialog-text > :last-child { margin-bottom: 0; }
+  .dialog-text h3 {
     margin: 30px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--paper-rule);
     font: 700 21px/1.3 var(--font-label);
   }
-  .about-text p, .about-text ul, .about-text ol, .about-text table, .about-text pre { margin: 0 0 12px; }
-  .about-text ul, .about-text ol { padding-left: 26px; }
-  .about-text li { margin: 4px 0; }
-  .about-text a { color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
-  .about-text a:hover { color: #083b78; }
-  .about-text a:focus-visible { outline-color: var(--link); }
-  .about-text a.ref { font-size: 13px; text-decoration: none; white-space: nowrap; }  /* [1]: a number of REFERENCES */
-  .about-text code, .about-text pre, .about-text kbd { font-family: var(--font-mono); font-size: 14px; }
-  .about-text code { padding: 1px 4px; border-radius: 3px; background: var(--paper-code); }
-  .about-text pre { padding: 12px 14px; border-radius: 6px; background: var(--paper-code); line-height: 1.5; overflow-x: auto; }
-  .about-text kbd {  /* a key of the computer keyboard */
+  .dialog-text p, .dialog-text ul, .dialog-text ol, .dialog-text table, .dialog-text pre { margin: 0 0 12px; }
+  .dialog-text ul, .dialog-text ol { padding-left: 26px; }
+  .dialog-text li { margin: 4px 0; }
+  .dialog-text a { color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
+  .dialog-text a:hover { color: #083b78; }
+  .dialog-text a:focus-visible { outline-color: var(--link); }
+  .dialog-text a.ref { font-size: 13px; text-decoration: none; white-space: nowrap; }  /* [1]: a number of REFERENCES */
+  .dialog-text code, .dialog-text pre, .dialog-text kbd { font-family: var(--font-mono); font-size: 14px; }
+  .dialog-text code { padding: 1px 4px; border-radius: 3px; background: var(--paper-code); }
+  .dialog-text pre { padding: 12px 14px; border-radius: 6px; background: var(--paper-code); line-height: 1.5; overflow-x: auto; }
+  .dialog-text kbd {  /* a key of the computer keyboard */
     padding: 1px 6px; border: 1px solid #bdb6a6; border-bottom-width: 2px; border-radius: 4px; background: #fff; white-space: nowrap;
   }
-  .about-text table { width: 100%; border-collapse: collapse; font-size: 15px; }
-  .about-text th, .about-text td { padding: 6px 10px; border: 1px solid var(--paper-rule); text-align: left; vertical-align: top; }
-  .about-text th { background: var(--paper-code); }
+  .dialog-text table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  .dialog-text th, .dialog-text td { padding: 6px 10px; border: 1px solid var(--paper-rule); text-align: left; vertical-align: top; }
+  .dialog-text th { background: var(--paper-code); }
   @media (max-width: 620px) {  /* a narrow window: a long name in a table can break */
-    .about-text table { font-size: 14px; }
-    .about-text th, .about-text td { padding: 5px 6px; overflow-wrap: anywhere; }
+    .dialog-text table { font-size: 14px; }
+    .dialog-text th, .dialog-text td { padding: 5px 6px; overflow-wrap: anywhere; }
   }
-  .about-text .lead { font-size: 18px; }
-  .about-text .note { padding: 10px 14px; border-left: 4px solid var(--stripe-3); border-radius: 0 6px 6px 0; background: #fbe7d9; }
-  .about-text .small { font-size: 14px; color: var(--ink-dim); }
+  .dialog-text .lead { font-size: 18px; }
+  .dialog-text .note { padding: 10px 14px; border-left: 4px solid var(--stripe-3); border-radius: 0 6px 6px 0; background: #fbe7d9; }
+  .dialog-text .small { font-size: 14px; color: var(--ink-dim); }
+
+  /* ---- Install: the steps of an install on a real FM-1. The page script shows one step at a time. ---- */
+  .install { width: min(680px, 100vw - 24px); }
+  .dialog-text .steps {  /* the names of the steps, in one line: the step that shows now is dark */
+    display: flex; gap: 8px; margin: 0 0 20px; padding: 0; list-style: none; counter-reset: step;
+    font: 700 12px/1 var(--font-panel); letter-spacing: 0.14em; color: #a59d8c;
+  }
+  .dialog-text .steps li {
+    flex: 1 1 0; display: flex; align-items: center; gap: 8px; margin: 0; padding: 0 0 8px;
+    border-bottom: 3px solid var(--paper-rule); counter-increment: step;
+  }
+  .dialog-text .steps li::before {
+    content: counter(step); display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--paper-rule); color: var(--paper); letter-spacing: 0;
+  }
+  .dialog-text .steps li.current { color: var(--ink); border-color: var(--stripe-2); }
+  .dialog-text .steps li.current::before { background: var(--stripe-2); }
+  .dialog-text .steps li.done { color: var(--ink-dim); border-color: #6d9c63; }
+  .dialog-text .steps li.done::before { content: "✓"; background: #6d9c63; }
+  .dialog-text .push { height: 32px; padding: 0 18px; font-size: 12px; }
+  .dialog-text .push.go {  /* the button that writes to the FM-1: amber, as FIRMWARE */
+    color: #241000; background: linear-gradient(#f79a3e, var(--stripe-2) 45%, #cc6410);
+    box-shadow: 0 0 0 1px #000, 0 2px 0 #000, inset 0 1px 0 #ffffff59;
+  }
+  .dialog-text .actions { display: flex; align-items: center; gap: 12px; margin: 18px 0 0; }
+  .dialog-text .check { display: flex; align-items: baseline; gap: 9px; margin-top: 16px; font-weight: 700; cursor: pointer; }
+  .dialog-text .check input { flex: none; width: 16px; height: 16px; margin: 0; translate: 0 2px; accent-color: var(--stripe-2); }
+  .dialog-text .check + .state, .dialog-text .check + div { margin: 8px 0 0 25px; }  /* below a selection, in line with its text */
+  .dialog-text .check:has(input:disabled) { color: var(--ink-dim); cursor: default; }
+  .dialog-text input[type="file"] { font: inherit; max-width: 100%; }
+  .install .note { margin-top: 18px; }
+  .dialog-text .state {  /* what the page does or found now, on a small display */
+    margin: 0 0 12px; padding: 9px 12px; border-radius: 6px; background: #14110e; color: var(--oled);
+    font: 13px/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .dialog-text .state.bad { color: #ffb4a6; }
+  .dialog-text .state.good { color: #9dffb4; }
+  .dialog-text .progress { width: 100%; height: 12px; margin: 0 0 12px; border-radius: 6px; }
+  .dialog-text .ports { margin: 0 0 12px; padding: 0; list-style: none; }
+  .dialog-text .ports li { display: flex; align-items: center; gap: 12px; margin: 6px 0; }
+  .dialog-text .ports .push { height: 24px; padding: 0 12px; font-size: 10px; }
 </style>
 </head>
 <body>
@@ -592,6 +642,7 @@
           <h2 class="legend">FIRMWARE</h2>
           <div class="transport">
             <button class="big-button amber down" id="firmware" title="Build and download project as a .fwsc package. You can load this .fwsc package onto your FM-1 with M-Flasher, at your own risk. Make sure you have m-bootloader installed on your device first."><i></i>FIRMWARE</button>
+            <button class="big-button send" id="install-open" title="Install the project on a real FM-1 over USB, or put the firmware of M-VAVE back, at your own risk. A dialog shows the steps." aria-haspopup="dialog"><i></i>INSTALL</button>
             <div class="progress" id="firmware-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
               aria-label="Firmware progress, an estimate" title="Firmware progress (an estimate)"><i></i></div>
           </div>
@@ -671,8 +722,8 @@
   <!-- ABOUT: the dialog that the ABOUT button opens. Its text is a short README of the application.
        A number in brackets is a link to the item with that number in REFERENCES. The page script
        fills the table of the firmware gallery from GITHUB_PROJECTS. -->
-  <dialog class="about" id="about" aria-labelledby="about-title">
-    <header class="about-head">
+  <dialog class="dialog" id="about" aria-labelledby="about-title">
+    <header class="dialog-head">
       <h2 class="logo" id="about-title">FM-1 STUDIO</h2>
       <p class="brand-text">
         <span class="model">CODE WORKSTATION</span>
@@ -682,7 +733,7 @@
       <button class="push" id="about-close" title="Close (Esc)">CLOSE</button>
     </header>
 
-    <div class="about-text" id="about-text" tabindex="0">
+    <div class="dialog-text" id="about-text" tabindex="0">
       <p class="lead">FM-1 Studio is a code workstation for the M-VAVE FM-1 synthesizer that runs in the
         browser. Write a program in C, compile it, and play it on a simulated FM-1.</p>
       <p>The compiler, the program and the simulator all run in this page. There is no server side: your
@@ -754,6 +805,13 @@ void loop(void) { }                         /* again and again: controls and scr
         <a class="ref" href="https://github.com/charlesvestal/fm1-base" target="_blank" rel="noopener" title="fm1-base">[3]</a>,
         the open platform for FM-1 firmware, and felucca-bsp
         <a class="ref" href="https://github.com/hugelton/felucca-bsp" target="_blank" rel="noopener" title="felucca-bsp">[4]</a>.</p>
+      <p>The INSTALL button makes the same package and writes it to an FM-1 over USB. A dialog shows the
+        steps: read, connect the FM-1, install. It uses Web MIDI, so it needs Chrome or Edge. The firmware
+        on the FM-1 checks the package and starts the update loader of the package, and that loader writes
+        the program. The code that talks to the FM-1 is the installer of fm1-base
+        <a class="ref" href="https://github.com/charlesvestal/fm1-base" target="_blank" rel="noopener" title="fm1-base">[3]</a>.
+        The same dialog puts the firmware of M-VAVE back: select it in the first step, with the file
+        <code>FM-1.fwsc</code> from M-VAVE.</p>
       <p class="note"><strong>No package was tried on a real FM-1 yet.</strong> Before you install one, read
         <a href="https://github.com/TimSamshuijzen/fm1studiocom#on-a-real-fm-1" target="_blank" rel="noopener">"On a real FM-1"</a>
         in the README: how to install a package, which FM-1 units it is for, and what to do when an install
@@ -788,7 +846,7 @@ void loop(void) { }                         /* again and again: controls and scr
           It does the steps of fm1-base's own build. For the projects that were compared, the package is
           the same bytes as the one from that build with the same compiler.</li>
       </ol>
-      <p>The application is one HTML file, and the files of the second compiler. The README
+      <p>The application is one HTML file, the files of the second compiler, and the installer. The README
         <a class="ref" href="https://github.com/TimSamshuijzen/fm1studiocom#how-it-works" target="_blank" rel="noopener" title="README of FM-1 Studio">[1]</a>
         tells more.</p>
 
@@ -800,8 +858,9 @@ void loop(void) { }                         /* again and again: controls and scr
         <li>GitHub gives the list of files of a repository 60 times in an hour to one address. A firmware
           of the gallery uses one or more of these for its first load.</li>
         <li>FIRMWARE is for <code>fm1.h</code> programs in C. A firmware of the gallery has its own build in
-          its repository: the button is off for it, and its hint tells why. A package has no USB audio
-          and no Bluetooth; USB MIDI in works.</li>
+          its repository: FIRMWARE is off for it, and its hint tells why. INSTALL then offers only the
+          firmware of M-VAVE. A package has no USB audio and no Bluetooth; USB MIDI in works.</li>
+        <li>INSTALL needs Chrome or Edge on a computer, and the page from a web server.</li>
       </ul>
 
       <h3>Source code and documents</h3>
@@ -817,6 +876,8 @@ void loop(void) { }                         /* again and again: controls and scr
           <td>The compiler for the FM-1 as WebAssembly: how another page can use it</td></tr>
         <tr><td><a href="https://github.com/TimSamshuijzen/fm1studiocom/blob/main/firmware/web/README.md" target="_blank" rel="noopener">firmware/web/README.md</a></td>
           <td>How that compiler is built, and how to check a package</td></tr>
+        <tr><td><a href="https://github.com/TimSamshuijzen/fm1studiocom/blob/main/src/install/README.md" target="_blank" rel="noopener">src/install/README.md</a></td>
+          <td>The installer of fm1-base: how an install goes, and how another page can use it</td></tr>
       </table>
 
       <h3>Licence</h3>
@@ -835,7 +896,8 @@ void loop(void) { }                         /* again and again: controls and scr
           Ben Smith. clang and wasm-ld as WebAssembly: the compiler of the simulator.</li>
         <li><a href="https://github.com/charlesvestal/fm1-base" target="_blank" rel="noopener">fm1-base</a>,
           Charles Vestal. The open platform for FM-1 firmware: screen, keys, LEDs, sound, USB MIDI, update
-          entry, safe mode, and the build tool. MPL-2.0.</li>
+          entry, safe mode, the build tool, and the installer of the INSTALL button (with work of Leo
+          Kuroshita and Chris Farrell). MPL-2.0.</li>
         <li><a href="https://github.com/hugelton/felucca-bsp" target="_blank" rel="noopener">felucca-bsp</a>,
           Leo Kuroshita, Hügelton Instruments. The chip and board layer of the FM-1, the update loader, the
           package format and the install tools. MPL-2.0.</li>
@@ -851,6 +913,108 @@ void loop(void) { }                         /* again and again: controls and scr
         <li><a href="https://llvm.org" target="_blank" rel="noopener">LLVM</a>. clang and lld: the base of
           both compilers.</li>
       </ol>
+    </div>
+  </dialog>
+
+  <!-- INSTALL: the dialog that the INSTALL button opens. It has three steps, and the page script shows
+       one of them at a time: read (the user selects the package: the one that the page makes of the
+       project during this step, or a file with M-VAVE's firmware), connect (the page finds the FM-1 on
+       USB MIDI), write (the page writes the package, and tells the result). -->
+  <dialog class="dialog install" id="install" aria-labelledby="install-title">
+    <header class="dialog-head">
+      <h2 class="logo" id="install-title">INSTALL</h2>
+      <p class="brand-text">
+        <span class="model">ON A REAL FM-1</span>
+        <span class="tagline">over USB, with Web MIDI</span>
+      </p>
+      <div class="stripes"><i></i><i></i><i></i><i></i></div>
+      <button class="push" id="install-close" title="Close (Esc)">CLOSE</button>
+    </header>
+
+    <div class="dialog-text" id="install-text" tabindex="0">
+      <ol class="steps" id="install-steps" aria-label="Steps of the install">
+        <li data-step="read">READ</li>
+        <li data-step="connect">CONNECT</li>
+        <li data-step="write">INSTALL</li>
+      </ol>
+
+      <section data-step="read">
+        <p class="lead">This writes a firmware to a real M-VAVE FM-1, in place of the firmware that the FM-1
+          has now. Select what to install:</p>
+        <!-- The two packages. The page script shows the parts with data-for for the selected one only. -->
+        <label class="check"><input type="radio" name="install-what" id="install-project" value="project" checked>
+          The program of the project</label>
+        <p class="state" id="install-package" role="status"></p>
+        <label class="check"><input type="radio" name="install-what" id="install-stock" value="stock">
+          The firmware of M-VAVE, to go back to it</label>
+        <div data-for="stock" hidden>
+          <ol>
+            <li>Download <a href="https://yms-file-store.oss-cn-hongkong.aliyuncs.com/software/firmware/FM-1.fwsc" target="_blank" rel="noopener">FM-1.fwsc</a>
+              from M-VAVE, if you do not have it.</li>
+            <li><label for="install-file">Select the file:</label>
+              <input type="file" id="install-file" accept=".fwsc"></li>
+          </ol>
+          <p class="state" id="install-stock-state" role="status">No file is selected.</p>
+        </div>
+        <p class="note"><strong>No install from this page was done on a real FM-1 yet.</strong> You install
+          at your own risk. An install that goes wrong can give an FM-1 that does not start.</p>
+        <ul>
+          <li data-for="project">After the install, the FM-1 runs only this program, until you install
+            another firmware.</li>
+          <li data-for="project">Get M-VAVE's <code>FM-1.fwsc</code> before you install. With that file, the
+            second selection above puts the firmware of M-VAVE back, when the program on the FM-1 starts
+            or the FM-1 is in its safe mode.
+            <a href="https://github.com/TimSamshuijzen/fm1studiocom#if-it-goes-wrong" target="_blank" rel="noopener">"If it goes wrong"</a>
+            in the README tells what to do with an FM-1 that does not start.</li>
+          <li data-for="stock" hidden>This is for an FM-1 that runs a program from FM-1 Studio or another firmware on
+            fm1-base. The firmware on the FM-1 must start, or the FM-1 must be in its safe mode.</li>
+          <li data-for="stock" hidden>The update loader of M-VAVE writes all of the flash memory, also the part that
+            starts the FM-1.</li>
+          <li data-for="stock" hidden>Use the file from the link above. An older file (version 15) possibly does not
+            know the flash chip of a newer FM-1.</li>
+          <li>The sounds and settings that the FM-1 has saved can be lost.</li>
+          <li>You need Chrome or Edge on a computer, and a USB cable that carries data.</li>
+        </ul>
+        <label class="check"><input type="checkbox" id="install-agree"> I read this, and I install at my own risk.</label>
+        <p class="actions"><button class="push" id="install-next" disabled>NEXT</button></p>
+      </section>
+
+      <section data-step="connect" hidden>
+        <ol>
+          <li>Connect the FM-1 to this computer with the USB cable, without a hub between them.</li>
+          <li>Switch the FM-1 on and let it start. Do not put it in an update mode.</li>
+          <li>Close other programs and browser tabs that use MIDI: they can keep the FM-1 busy.</li>
+          <li>Click CONNECT. The browser asks to let this page use MIDI devices: allow it.</li>
+        </ol>
+        <p class="state" id="install-device" role="status">The FM-1 is not connected to the page.</p>
+        <!-- The page script adds the MIDI ports that it did not ask, each with a TRY button. -->
+        <div id="install-other" hidden>
+          <p>The page asks only the MIDI ports that have a usual name of an FM-1. If your FM-1 is one of
+            these other ports, click TRY on it:</p>
+          <ul class="ports" id="install-ports"></ul>
+        </div>
+        <p class="actions">
+          <button class="push" id="install-connect">CONNECT</button>
+          <button class="push" id="install-ready" disabled>NEXT</button>
+        </p>
+      </section>
+
+      <section data-step="write" hidden>
+        <table>
+          <tr><th>Package</th><td id="install-from"></td></tr>
+          <tr><th>FM-1</th><td id="install-to"></td></tr>
+        </table>
+        <p class="note" id="install-warning"><strong>Do not disconnect the USB cable and do not switch the
+          FM-1 off</strong> until this page says that the install is done. The install can take some
+          minutes. During it, the screen of the FM-1 shows UPDATING and a bar, or it stays dark.</p>
+        <div class="progress" id="install-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+          aria-label="Install progress"><i></i></div>
+        <p class="state" id="install-state" role="status">Nothing is written yet.</p>
+        <p class="actions">
+          <button class="push go" id="install-go">INSTALL NOW</button>
+          <button class="push" id="install-again" hidden>CONNECT AGAIN</button>
+        </p>
+      </section>
     </div>
   </dialog>
 </div>
@@ -3669,6 +3833,7 @@ let firmwareName = '';    // the name of the project that it builds now, or '' w
 let firmwareMade = null;  // the last package: { name, fwsc, image } (the bytes as ArrayBuffer)
 let firmwareTimer = 0;    // moves the progress bar during a build
 let firmwareStart = 0;    // when the build started (Date.now())
+let firmwareDone = null;  // gives the result of the build to makeFirmware()'s promise
 const firmwareSeconds = new Map(); // project name -> the time of its last good build on this computer
 const FIRMWARE_HINT = $('firmware').title;
 const FIRMWARE_LOAD_SECONDS = 10;   // the load of the compiler: a guess, it changes with the connection
@@ -3697,16 +3862,23 @@ function firmwareBlock() {
     : 'The firmware\'s own repository builds its .fwsc.');
 }
 
-// Shows on the FIRMWARE button if it can be used, with the reason in its hint when it cannot: a
-// build is busy, or the button is not available for the project. showTree() calls this after
-// each change of the project.
+// Shows on the FIRMWARE and INSTALL buttons if they can be used, with the reason in the hint when
+// one cannot: a build is busy, the button is not available for the project, or (INSTALL) the
+// browser has no Web MIDI. showTree() calls this after each change of the project.
 function showFirmware() {
   const busy = firmwareName !== '';
-  const block = busy ? 'Making the firmware… please wait' : firmwareBlock();
-  $('firmware').disabled = block !== '';
+  const hint = (block) => (busy ? 'Making the firmware… please wait' : block && `Not available: ${block}`);
+  const block = firmwareBlock();
+  $('firmware').disabled = busy || block !== '';
   $('firmware').classList.toggle('lit', busy);
-  $('firmware').title = block ? (busy ? block : `Not available: ${block}`) : FIRMWARE_HINT;
+  $('firmware').title = hint(block) || FIRMWARE_HINT;
   $('firmware-progress').classList.toggle('busy', busy);
+  // INSTALL also puts M-VAVE's firmware back: a project that cannot be built does not stop that.
+  const installBlock = location.protocol === 'file:' ? block
+    : navigator.requestMIDIAccess ? '' : 'INSTALL needs Web MIDI: use Chrome or Edge on a computer.';
+  // During an install, the button shows the dialog again.
+  $('install-open').disabled = !installer.writing && (busy || installBlock !== '');
+  $('install-open').title = hint(installBlock) || INSTALL_HINT;
 }
 
 // The estimate of the time of a build, in seconds: the time of the last build of this project, or
@@ -3727,22 +3899,22 @@ function firmwareMessage(data) {
   firmwareName = '';
   showFirmware();
   setProgress($('firmware-progress'), 0);
-  if (!data.fwsc) { setStatus('The firmware was not made: see the log'); return; }
+  if (!data.fwsc) {
+    setStatus('The firmware was not made: see the log');
+    firmwareDone(null);
+    return;
+  }
   // The first build has the load of the compiler in its time: it is no estimate for the next one.
   if (firmwareMade) firmwareSeconds.set(built, Math.max(1, (Date.now() - firmwareStart) / 1000));
   firmwareMade = data;
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(new Blob([data.fwsc], { type: 'application/octet-stream' }));
-  link.download = data.name;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(link.href), 10000);
-  log('This package is not tried on a real FM-1. Before you install it, read "If it goes wrong" in\n' +
-    'README.md of github.com/TimSamshuijzen/fm1studiocom, and keep M-VAVE\'s FM-1.fwsc.\n');
   setStatus(`Firmware of ${built}: ${data.name}`);
+  firmwareDone(data);
 }
 
-// The button is disabled during a build, and for a project that it cannot build (see showFirmware()).
-$('firmware').onclick = () => {
+// Makes the package of the project. Gives a promise of the package ({ name, fwsc, image }), or of
+// null when it was not made: the log then tells why. FIRMWARE and INSTALL call this. They are
+// disabled during a build, and for a project that cannot be built (see showFirmware()).
+function makeFirmware() {
   if (!compiling) $('log').textContent = '';
   if (!firmware) {
     const url = URL.createObjectURL(new Blob(
@@ -3773,6 +3945,351 @@ $('firmware').onclick = () => {
     files: Object.fromEntries(project.files),
     zip: `${project.name.replace(/[\\/:*?"<>|]/g, '') || 'project'}.zip`,
   });
+  return new Promise((resolve) => { firmwareDone = resolve; });
+}
+
+// FIRMWARE makes the package and downloads it.
+$('firmware').onclick = async () => {
+  const made = await makeFirmware();
+  if (!made) return;
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([made.fwsc], { type: 'application/octet-stream' }));
+  link.download = made.name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+  log('This package is not tried on a real FM-1. Before you install it, read "If it goes wrong" in\n' +
+    'README.md of github.com/TimSamshuijzen/fm1studiocom, and keep M-VAVE\'s FM-1.fwsc.\n');
+};
+
+// ---- Install: writes the package of the project to a real FM-1, over USB MIDI ----
+//
+// The FM-1 takes a firmware with the update protocol of M-VAVE's own updater, in SysEx messages:
+//   1. The firmware that runs on the FM-1 reads parts of the package, and starts the update loader
+//      that is in the package.
+//   2. The loader reads the package and writes the program area of the flash memory.
+//   3. The FM-1 starts again, and tells the identity of the package.
+// The package is the one of the project, or a file with M-VAVE's own firmware: that one puts the
+// FM-1 back as it was, and its loader writes all of the flash memory.
+// In each step the FM-1 asks for parts of the package, and the computer answers. The code for this
+// is the installer of fm1-base, the platform of the package: the files of the folder install/, not
+// changed (install/README.md). The page gives it the package and Web MIDI, and shows its steps in
+// the INSTALL dialog.
+
+const install = $('install');
+// A package is { name, product, image, stock, sha256 }: the file name, the identity (the FM-1 tells
+// it after the install), the package as the FM-1 reads it (Uint8Array), true for M-VAVE's firmware,
+// and for that one the SHA-256 of the file.
+const installer = {
+  code: null,        // what install/fm1ota.js and install/fm1pkg.js export
+  project: null,     // the package of the project, or null when there is none
+  stock: null,       // the package of M-VAVE's firmware that the user selected, or null
+  package: null,     // the one of those two that the user installs
+  access: null,      // Web MIDI with SysEx
+  tried: new Set(),  // the MIDI ports that the user let the page ask with TRY
+  device: null,      // the FM-1 that CONNECT found: { id, name }
+  writing: false,    // an install is busy
+};
+const INSTALL_HINT = $('install-open').title;
+const INSTALL_ERRORS = {
+  denied: 'The browser did not let the page use MIDI devices. Allow MIDI for this site in the settings ' +
+    'of the browser (the icon at the left of the address), then click CONNECT.',
+  notfound: 'No FM-1 answered. Make sure that the USB cable carries data and that no other program or ' +
+    'tab uses MIDI, then click CONNECT.',
+  model: 'This device is not an FM-1. Nothing was written.',
+  open: 'This FM-1 runs M-VAVE\'s Open firmware. That firmware takes only the firmware of M-VAVE itself: ' +
+    'put the stock firmware back first. Nothing was written.',
+  foreign: 'This FM-1 is in the update mode of M-VAVE\'s own firmware, and the package is not for that ' +
+    'mode. Finish that update with the updater of M-VAVE first. Nothing was written.',
+  noloader: 'The FM-1 did not come back in update mode. Disconnect the USB cable and connect it again, ' +
+    'then click CONNECT AGAIN: the FM-1 stays in update mode until an install is done.',
+  noreturn: 'The package was written, but the FM-1 did not come back. Switch the FM-1 off and on.',
+  mismatch: 'The package was written, but the FM-1 tells another identity:',
+  badreq: 'The FM-1 asked for data that is not in the package. The install stopped.',
+};
+const installError = (code) => Object.assign(new Error(code), { code });
+const isLoader = (id) => /^ota-/i.test(id.model);  // the FM-1 is in update mode: its update loader answers
+
+// Shows `text` on one of the small displays of the dialog. `kind` is '', 'good' or 'bad'.
+function installSay(id, text, kind = '') {
+  $(id).textContent = text;
+  $(id).className = `state ${kind}`;
+}
+
+// Shows one step of the dialog: 'read', 'connect' or 'write'. 'end' shows no change of step, with
+// all steps done.
+function showInstallStep(step) {
+  const steps = [...$('install-steps').children];
+  const at = step === 'end' ? steps.length : steps.findIndex((item) => item.dataset.step === step);
+  steps.forEach((item, i) => { item.className = i < at ? 'done' : i === at ? 'current' : ''; });
+  if (step === 'end') return;
+  for (const part of install.querySelectorAll('section')) part.hidden = part.dataset.step !== step;
+  $('install-text').scrollTop = 0;
+}
+
+// The version of M-VAVE's own firmware from its identity ("FM-1_0" and two digits), or null for
+// another firmware. FM-1_099 is the installer of m-bootloader. (This is IS_STOCK of
+// install/fm1ota.js, which that file does not export.)
+const stockVersion = (product) => (product === 'FM-1_099' ? null : /^FM-1_0(\d\d)$/.exec(product)?.[1] ?? null);
+
+// Shows the parts of the first step for the selected package, and NEXT when that package is
+// there and the user agreed.
+function showInstallChoice() {
+  const what = $('install-stock').checked ? 'stock' : 'project';
+  for (const part of install.querySelectorAll('[data-for]')) part.hidden = part.dataset.for !== what;
+  installer.package = installer[what];
+  $('install-next').disabled = !(installer.package && $('install-agree').checked);
+}
+$('install-project').onchange = $('install-stock').onchange = $('install-agree').onchange = showInstallChoice;
+
+// The modules of fm1-base's installer, loaded one time.
+async function installCode() {
+  if (!installer.code) {
+    const [ota, pkg] = await Promise.all(['fm1ota.js', 'fm1pkg.js'].map((file) => import(new URL('install/' + file, location.href))));
+    installer.code = { ...ota, ...pkg };
+  }
+  return installer.code;
+}
+
+// INSTALL opens the dialog at its first step, and makes the package of the project while the user
+// reads. A project that FIRMWARE cannot build has no package: the dialog is then for M-VAVE's
+// firmware only.
+$('install-open').onclick = async () => {
+  if (installer.writing) {  // the dialog was closed during an install: show it again
+    install.showModal();
+    return;
+  }
+  const block = firmwareBlock();
+  installer.project = null;
+  $('install-agree').checked = false;
+  $('install-project').disabled = block !== '';
+  $(block ? 'install-stock' : 'install-project').checked = true;
+  installSay('install-package', block ? `Not available: ${block}` : `Making the package of ${project.name || 'project'}…`);
+  showInstallChoice();
+  showInstallStep('read');
+  install.showModal();
+  if (block) return;
+  try {
+    const code = await installCode();
+    const made = await makeFirmware();
+    if (!made) {
+      installSay('install-package', 'The package was not made. Close this dialog: the LOG panel tells why.', 'bad');
+      return;
+    }
+    // The checks that fm1-base's installer does on a package before it sends it.
+    const fwsc = new Uint8Array(made.fwsc);
+    const image = code.logicalImage(fwsc);
+    code.checkUfw(image);
+    installer.project = { name: made.name, product: code.productOf(fwsc), image, stock: false };
+    installSay('install-package', `Package: ${made.name}\n${fwsc.length} bytes, identity ${installer.project.product}`, 'good');
+  } catch (error) {
+    installSay('install-package', `The package cannot be installed: ${error.message}`, 'bad');
+  }
+  showInstallChoice();
+};
+
+// The file with M-VAVE's firmware that the user selected. It must tell that it is M-VAVE's, and
+// its checksums must be good. For the versions that fm1-base's installer has the SHA-256 of, it
+// must be that file, byte for byte.
+$('install-file').onchange = async () => {
+  const file = $('install-file').files[0];
+  installer.stock = null;
+  showInstallChoice();
+  if (!file) { installSay('install-stock-state', 'No file is selected.'); return; }
+  try {
+    const code = await installCode();
+    const fwsc = new Uint8Array(await file.arrayBuffer());
+    const product = code.productOf(fwsc);
+    const version = stockVersion(product);
+    if (version === null) throw new Error(`this is not the firmware of M-VAVE (it tells the identity ${JSON.stringify(product)}).`);
+    const image = code.logicalImage(fwsc);
+    code.checkUfw(image);
+    const sha256 = await code.sha256hex(fwsc);
+    const known = code.stockChecksum(product, fwsc.length, sha256);  // stops for a known version with another checksum
+    installer.stock = { name: file.name, product, image, stock: true, sha256 };
+    installSay('install-stock-state', `M-VAVE's firmware, version ${Number(version)}: ${file.name}\n${fwsc.length} bytes. ` +
+      (known ? 'It is M-VAVE\'s own file: the checksum is the known one.'
+        : 'No checksum is known for this version. The FM-1 checks the file before it writes.'), 'good');
+  } catch (error) {
+    installSay('install-stock-state', `This file cannot be installed: ${error.message}`, 'bad');
+  }
+  showInstallChoice();
+};
+
+// Esc and CLOSE close the dialog, but not during an install. A click outside it does nothing.
+install.oncancel = (event) => { if (installer.writing) event.preventDefault(); };
+$('install-close').onclick = () => install.close();
+addEventListener('beforeunload', (event) => { if (installer.writing) event.preventDefault(); });
+
+// The step 'connect', with no FM-1 found yet.
+function showConnectStep() {
+  installer.device = null;
+  installSay('install-device', 'The FM-1 is not connected to the page.');
+  $('install-other').hidden = true;
+  $('install-ready').disabled = true;
+  showInstallStep('connect');
+}
+$('install-next').onclick = showConnectStep;
+$('install-again').onclick = showConnectStep;
+
+// An updater of fm1-base's installer. It asks only the MIDI ports with a usual name of an FM-1,
+// those that answer as a firmware on fm1-base, and those that the user let it ask with TRY.
+function newUpdater() {
+  const updater = new installer.code.Updater(installer.access);
+  for (const name of installer.tried) updater.allow(name);
+  return updater;
+}
+
+// Tells what the FM-1 runs, from the identity that it gave. `block` is the code of INSTALL_ERRORS
+// when the package cannot be written to it. The update mode of M-VAVE's firmware, and M-VAVE's
+// Open firmware, take only M-VAVE's own firmware.
+function describeDevice(id) {
+  const stock = installer.package.stock;
+  if (isLoader(id)) {
+    if (!stock && installer.code.IS_MVAVE_LOADER(id)) return { block: 'foreign' };
+    return { text: 'It is in update mode: an install was not finished. The install of this package finishes it.' };
+  }
+  if (id.model !== 'FM-1') return { block: 'model' };
+  if (id.open) return stock ? { text: 'It runs M-VAVE\'s Open firmware.' } : { block: 'open' };
+  const version = stockVersion(id.text);
+  if (version !== null) return { text: `It runs M-VAVE's firmware, version ${Number(version)}.` };
+  return { text: 'It runs a firmware that is not M-VAVE\'s.' };
+}
+
+// Finds the FM-1 and shows what it is. With `only`, it asks that MIDI port only (TRY).
+async function connectFm1(only) {
+  $('install-connect').disabled = $('install-ready').disabled = true;
+  installer.device = null;
+  installSay('install-device', 'Looking for the FM-1…');
+  try {
+    try {
+      installer.access ??= await navigator.requestMIDIAccess({ sysex: true });
+    } catch {
+      throw installError('denied');
+    }
+    if (only) installer.tried.add(only);
+    const updater = newUpdater();
+    // An FM-1 in update mode comes first: an install on it was not finished.
+    const found = only ? await updater.find(null, only)
+      : await updater.find(isLoader) ?? await updater.findAny((id) => !isLoader(id));
+    if (!found) throw installError('notfound');
+    found.link.close();
+    const what = describeDevice(found.id);
+    installSay('install-device', `Found on the MIDI port "${found.name}": ${found.id.text}\n` +
+      (what.block ? INSTALL_ERRORS[what.block] : what.text), what.block ? 'bad' : 'good');
+    if (!what.block) installer.device = { id: found.id, name: found.name };
+    $('install-other').hidden = true;
+  } catch (error) {
+    installSay('install-device', INSTALL_ERRORS[error.code] ?? `Error: ${error.message}`, 'bad');
+    if (error.code === 'notfound') showOtherPorts();
+  }
+  $('install-connect').disabled = false;
+  $('install-ready').disabled = !installer.device;
+}
+$('install-connect').onclick = () => connectFm1();
+
+// After "no FM-1 answered": the MIDI ports that the page did not ask, each with a TRY button.
+// A computer can show an FM-1 under another name.
+function showOtherPorts() {
+  const updater = newUpdater();
+  const names = updater.ports().filter((name) => !updater.askable(name));
+  $('install-ports').replaceChildren(...names.map((name) => {
+    const item = document.createElement('li');
+    const button = Object.assign(document.createElement('button'), { className: 'push', textContent: 'TRY' });
+    button.title = `Ask the MIDI port "${name}" if it is an FM-1`;
+    button.onclick = () => connectFm1(name);
+    item.append(button, name);
+    return item;
+  }));
+  $('install-other').hidden = names.length === 0;
+}
+
+// The step 'write', with nothing written yet.
+$('install-ready').onclick = () => {
+  $('install-from').textContent = `${installer.package.name}, identity ${installer.package.product}`;
+  $('install-to').textContent = `${installer.device.id.text}, on the MIDI port "${installer.device.name}"`;
+  setProgress($('install-progress'), 0);
+  installSay('install-state', 'Nothing is written yet.');
+  $('install-warning').hidden = $('install-go').hidden = false;
+  $('install-go').disabled = false;
+  $('install-again').hidden = true;
+  showInstallStep('write');
+};
+
+// INSTALL NOW writes the package to the FM-1.
+$('install-go').onclick = async () => {
+  const { image, product, name, stock, sha256 } = installer.package;
+  installer.writing = true;
+  $('install-go').disabled = $('install-close').disabled = true;
+  showFirmware();
+  let updateMode = false;  // the FM-1 went to update mode: an install that stops after this can continue later
+  // The progress is the number of bytes that the FM-1 read, against what it reads for this package
+  // (as on fm1-base's installer page). Step 1: the head of the package, and the update loader.
+  // Step 2: the head, the full flash image for a check, then the program area again to write it.
+  const parts = installer.code.ufwEntries(image), flash = parts[0], loader = parts[100];
+  const check = 0x400 + 0x400 + (loader ? loader.len - 0x20 : 0);
+  const write = flash && flash.len > 0x4000 && flash.len <= 0x100000 ? 0x400 + 0x20 + flash.len + (flash.len - 0x4000) : image.length;
+  const show = (text, part) => {
+    if (part !== undefined) setProgress($('install-progress'), part);
+    installSay('install-state', text);
+    setStatus(`Install: ${text}`);
+  };
+  // The steps that the updater tells. For 'write', `percent` comes from a loader that writes only
+  // the parts of the flash that changed.
+  const step = (kind, a, bytes, percent) => {
+    if (kind === 'start') show(`Starting the install on ${a}…`, 0);
+    else if (kind === 'verify') show('The FM-1 checks the package…', Math.min(bytes, check) / (check + write));
+    else if (kind === 'loader') { updateMode = true; show('The FM-1 goes to update mode…'); }
+    else if (kind === 'mode') log(`install: the loader writes ${a === 'fast' ? 'only the parts that changed' : 'the full package'}\n`);
+    else if (kind === 'write') {
+      const part = Math.min(0.99, (check + (percent === undefined ? bytes : percent / 100 * write)) / (check + write));
+      show(`Writing… ${Math.floor(part * 100)}%`, part);
+    } else if (kind === 'reboot') show('The FM-1 starts again…', 0.99);
+  };
+  log(`install of ${name} on ${installer.device.id.text}\n`);
+  try {
+    const updater = newUpdater();
+    const waiting = await updater.find(isLoader);
+    if (waiting) {  // the FM-1 is in update mode: finish the install that was not finished
+      waiting.link.close();
+      updateMode = true;
+      if (!await updater.resume(image, step, product)) throw installError('stopped');
+    } else {
+      await updater.install(image, product, step, sha256);
+    }
+    installDone();
+  } catch (error) {
+    // M-VAVE's firmware can tell its identity in another way than its package does.
+    if (stock && error.code === 'mismatch') installDone();
+    else installStopped(error);
+  }
+  installer.writing = false;
+  $('install-close').disabled = false;
+  showFirmware();
+
+  function installDone() {
+    setProgress($('install-progress'), 1);
+    installSay('install-state', (stock ? 'Done. The FM-1 started again with the firmware of M-VAVE.'
+      : `Done. The FM-1 runs ${name.replace(/\.fwsc$/, '')} (${product}).`) + '\nYou can disconnect the USB cable.', 'good');
+    setStatus(`Installed ${name} on the FM-1`);
+    log(`install: done, the FM-1 runs ${stock ? 'the firmware of M-VAVE' : product}\n`);
+    $('install-warning').hidden = $('install-go').hidden = true;
+    showInstallStep('end');
+  }
+
+  function installStopped(error) {
+    // 'stopped' and 'lost': the FM-1 gave no answer, or its MIDI port went away. For these, the
+    // text tells if the FM-1 is in update mode now.
+    const cut = { stopped: 'The FM-1 stopped before the end. ', lost: 'The USB connection was lost. ' }[error.code];
+    const text = error.code === 'mismatch' ? `${INSTALL_ERRORS.mismatch} ${error.detail}`
+      : cut === undefined ? INSTALL_ERRORS[error.code] ?? `Error: ${error.message}`
+      : cut + (updateMode ? 'The FM-1 stays in update mode until an install is done: disconnect the USB cable and connect it again, then click CONNECT AGAIN.'
+        : 'Nothing was written. Click CONNECT AGAIN to try again.');
+    installSay('install-state', text, 'bad');
+    setStatus('The install stopped: see the INSTALL dialog');
+    log(`install: ${text}\n`);
+    $('install-go').hidden = true;
+    $('install-again').hidden = false;
+  }
 };
 
 // ---- Program: the compiled module, which runs in the audio worklet ----
