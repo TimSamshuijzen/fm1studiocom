@@ -381,7 +381,8 @@ void audio(int32_t *out, int frames) {
         start_song(music_wanted);
         music_wanted = -1;
     }
-    float target_gain = fm1_master() / (float)FM1_MASTER_MAX;
+    float master = fm1_master() / (float)FM1_MASTER_MAX;
+    float target_gain = master * master * master * 0.25f; /* audio taper, max 12 dB quieter */
     float step_samples = FM1_AUDIO_RATE * 15.0f / songs[song].tempo; /* a 16th note */
     int playing = song != SONG_NONE && !music_paused;
     float waver = 1.0f + 0.006f * sinf(audio_blocks * 0.22f); /* 6 times a second */

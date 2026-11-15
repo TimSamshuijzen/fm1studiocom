@@ -612,7 +612,8 @@ static float next_sample(void) {
 }
 
 void audio(int32_t *out, int frames) {
-    float target_gain = fm1_master() / (float)FM1_MASTER_MAX;
+    float master = fm1_master() / (float)FM1_MASTER_MAX;
+    float target_gain = master * master * master * 0.25f; /* audio taper, max 12 dB quieter */
     /* TONE: from about 1.5 kHz (0) to open (12) */
     int tk = tone_knob;
     float lp_coef = tk >= 12 ? 1.0f : 1.0f - expf(-6.2831853f * 1500.0f * powf(1.3f, (float)tk) / FM1_AUDIO_RATE);

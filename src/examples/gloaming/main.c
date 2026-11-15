@@ -233,7 +233,8 @@ void audio(int32_t *out, int frames) {
         alarm_wait = 0;
     }
 
-    float target_gain = fm1_master() / (float)FM1_MASTER_MAX;
+    float master = fm1_master() / (float)FM1_MASTER_MAX;
+    float target_gain = master * master * master * 0.25f; /* audio taper, max 12 dB quieter */
     float target_thrust = snd_thrust ? 0.11f : 0.0f;
 
     for (int i = 0; i < frames; i++) {
