@@ -3659,6 +3659,24 @@ function firmwareMessage(data) {
 $('project-firmware').onclick = () => {
   if (firmwareName) return;
   if (!compiling) $('log').textContent = '';
+  // A firmware with its own FM-1 inside (the web_ interface) is no fm1.h program: the firmware worker
+  // stops on it. Say so now, before the worker loads its compiler.
+  let web = null;
+  try {
+    web = JSON.parse(project.files.get(MANIFEST)).web ?? null;
+  } catch {
+    // There is no fm1project.json, or it is not correct. The firmware worker gives the message for that.
+  }
+  if (web !== null) {
+    const entry = GITHUB_PROJECTS.find(({ id }) => id === project.github);
+    const label = entry?.label ?? (project.name || 'this project');
+    log(`${label} is a firmware with its own FM-1 inside (${MANIFEST} has "web"), not an fm1.h program.\n` +
+      'FIRMWARE makes a .fwsc of an fm1.h program only. ' + (entry
+        ? `The .fwsc of ${label} comes from its own repository:\nhttps://github.com/${entry.sources[0].repo}\n`
+        : 'The firmware\'s own repository builds its .fwsc.\n'));
+    setStatus(`No firmware of ${label} here: see the compiler panel`);
+    return;
+  }
   if (location.protocol === 'file:') {
     log('FIRMWARE needs the page from a web server (fm1studio.com, or a server on this computer):\n' +
       'a page that is opened from disk cannot load the compiler for the FM-1.\n');
