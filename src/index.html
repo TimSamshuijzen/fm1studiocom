@@ -130,7 +130,8 @@
     border-style: solid; border-width: 6px 0 6px 7px; border-color: transparent transparent transparent currentColor;
   }
   .big-button.send i::after { content: ""; position: absolute; left: 2px; top: -7px; width: 2px; height: 14px; background: currentColor; }
-  /* COMPILE is a clear red and FIRMWARE a clear amber, with less shadow than the other big buttons. */
+  /* COMPILE and INSTALL are a clear red and FIRMWARE a clear amber, with less shadow than the other
+     big buttons. */
   .big-button.red, .big-button.amber {
     box-shadow: 0 0 0 2px #0b0a09, 0 0 0 4px #3b3833, 0 3px 0 4px #0b0a09, inset 0 2px 0 #ffffff40;
   }
@@ -550,9 +551,9 @@
   .dialog-text .steps li.done { color: var(--ink-dim); border-color: #6d9c63; }
   .dialog-text .steps li.done::before { content: "✓"; background: #6d9c63; }
   .dialog-text .push { height: 32px; padding: 0 18px; font-size: 12px; }
-  .dialog-text .push.go {  /* the button that writes to the FM-1: amber, as FIRMWARE */
-    color: #241000; background: linear-gradient(#f79a3e, var(--stripe-2) 45%, #cc6410);
-    box-shadow: 0 0 0 1px #000, 0 2px 0 #000, inset 0 1px 0 #ffffff59;
+  .dialog-text .push.go {  /* the button that writes to the FM-1: red, as INSTALL */
+    color: #ffd6cc; background: linear-gradient(#d12a1c, #b01a10 60%, #8e110a);
+    box-shadow: 0 0 0 1px #000, 0 2px 0 #000, inset 0 1px 0 #ffffff40;
   }
   .dialog-text .actions { display: flex; align-items: center; gap: 12px; margin: 18px 0 0; }
   .dialog-text .check { display: flex; align-items: baseline; gap: 9px; margin-top: 16px; font-weight: 700; cursor: pointer; }
@@ -642,7 +643,7 @@
           <h2 class="legend">FIRMWARE</h2>
           <div class="transport">
             <button class="big-button amber down" id="firmware" title="Build and download project as a .fwsc package. You can load this .fwsc package onto your FM-1 with M-Flasher, at your own risk. Make sure you have m-bootloader installed on your device first."><i></i>FIRMWARE</button>
-            <button class="big-button send" id="install-open" title="Install the project on a real FM-1 over USB, or put the firmware of M-VAVE back, at your own risk. A dialog shows the steps." aria-haspopup="dialog"><i></i>INSTALL</button>
+            <button class="big-button red send" id="install-open" title="Install the project on a real FM-1 over USB, or put the firmware of M-VAVE back, at your own risk. A dialog shows the steps." aria-haspopup="dialog"><i></i>INSTALL</button>
             <div class="progress" id="firmware-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
               aria-label="Firmware progress, an estimate" title="Firmware progress (an estimate)"><i></i></div>
           </div>
