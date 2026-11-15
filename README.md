@@ -70,7 +70,7 @@ The FIRMWARE button makes a `.fwsc` package of the project and downloads it. The
 second compiler (52 MB, less when the server compresses it); after that, a package takes some seconds. The NAME of the
 project gives the name on the FM-1's start screen. An adapter makes the functions of `fm1.h` from
 [fm1-base](https://github.com/charlesvestal/fm1-base) and felucca-bsp. The program must be C, with `float`
-and no `double`; the compiler panel tells when a program does not fit the FM-1.
+and no `double`; the LOG panel tells when a program does not fit the FM-1.
 
 **No package was tried on a real FM-1 yet.** Read this section to its end before you install one.
 [firmware/README.md](firmware/README.md) tells what a program must keep to on the FM-1.
