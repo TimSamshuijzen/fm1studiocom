@@ -1005,10 +1005,13 @@ void loop(void) { }                         /* again and again: controls and scr
         </div>
         <!-- When CONNECT found an FM-1 that is not in m-bootloader's MIDI mode: the page cannot see its boot loader. -->
         <div id="install-mboot" hidden>
-          <p class="note"><strong>The page did not find m-bootloader.</strong> It sees m-bootloader only in its
-            MIDI mode (step 2 above). FM-1 Studio was tested on an FM-1 with m-bootloader: it has a recovery menu,
-            and a way back to the USB download mode when a firmware does not start.</p>
-          <p>To install m-bootloader:</p>
+          <p class="note"><strong>The page cannot see if m-bootloader is installed.</strong> A firmware that runs
+            does not tell its boot loader: the page sees m-bootloader only in m-bootloader's MIDI mode. FM-1 Studio
+            was tested on an FM-1 with m-bootloader: it has a recovery menu, and a way back to the USB download mode
+            when a firmware does not start.</p>
+          <p><strong>If m-bootloader is installed</strong> (M-Flasher shows it): switch the FM-1 off, hold PLAY while
+            you switch it on, choose MIDI MODE in its menu, and click CONNECT again.</p>
+          <p><strong>If it is not installed</strong>, install it:</p>
           <ol>
             <li>Download M-Flasher:
               <a href="https://jvitkauskas.github.io/m-apps/flasher/" target="_blank" rel="noopener">jvitkauskas.github.io/m-apps/flasher</a>.
