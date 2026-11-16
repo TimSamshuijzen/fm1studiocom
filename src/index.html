@@ -5076,8 +5076,8 @@ function releaseComputerKey(code) {
 
 document.addEventListener('keydown', (event) => {
   if (heldCodes.has(event.code)) { event.preventDefault(); return; } // the key repeats
-  // The keys do not play while the cursor is in a text field, or while the ABOUT dialog is open.
-  const typing = ['TEXTAREA', 'SELECT', 'INPUT'].includes(event.target.tagName) || about.open;
+  // The keys do not play while the cursor is in a text field, or while the ABOUT or INSTALL dialog is open.
+  const typing = ['TEXTAREA', 'SELECT', 'INPUT'].includes(event.target.tagName) || about.open || install.open;
   if (!(event.code in COMPUTER_KEYS) || typing || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
   event.preventDefault();
   heldCodes.add(event.code);
