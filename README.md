@@ -89,14 +89,12 @@ the steps:
 
 1. **Read.** The page makes the package of the project and checks it. You read what an install does,
    and agree. For a firmware of the gallery (AURORA, CS-1, FM-106), you also agree that it is the work of its
-   authors and that you keep to its licence; the box links to its repository.
-2. **Connect.** Connect the FM-1 with a USB cable that carries data. CONNECT asks the browser for MIDI
-   with SysEx messages, finds the FM-1, and tells which firmware it runs. The page sees
-   [m-bootloader](https://github.com/jvitkauskas/m-bootloader) only in m-bootloader's MIDI mode (hold PLAY
-   while you switch the FM-1 on, then choose MIDI MODE): it then tells its version and the flash chip, and
-   m-bootloader writes the package. A running firmware does not tell its boot loader: for such an FM-1, the
-   dialog tells how to install m-bootloader with [M-Flasher](https://github.com/jvitkauskas/m-flasher), and
-   you tick a box to continue without it, at your own risk.
+   authors and that you keep to its licence; the box links to its repository. The dialog tells you to work
+   with [M-Flasher](https://github.com/jvitkauskas/m-flasher) first: make a backup, check the flash chip and
+   the boot loader, and install [m-bootloader](https://github.com/jvitkauskas/m-bootloader). The page cannot
+   see the boot loader: a firmware that runs does not tell it.
+2. **Connect.** Connect the FM-1 with a USB cable that carries data, and let it run as it is. CONNECT
+   asks the browser for MIDI with SysEx messages, finds the FM-1, and tells which firmware it runs.
 3. **Install.** INSTALL NOW starts the install. The firmware on the FM-1 checks the package and starts
    the update loader of the package. The loader writes the program, and the FM-1 starts again. The
    page then asks the FM-1 for its identity and compares it with the package.
