@@ -105,7 +105,7 @@ The first step of the INSTALL dialog has a second selection: the firmware of M-V
 [FM-1.fwsc](https://yms-file-store.oss-cn-hongkong.aliyuncs.com/software/firmware/FM-1.fwsc) from M-VAVE
 (version 16 in November 2026), select the file in the dialog, and do the same steps. This works when the
 firmware on the FM-1 starts, or the FM-1 is in its safe mode. INSTALL is off while a firmware of the
-gallery is open: open an `fm1.h` project first.
+gallery other than AURORA is open: open an `fm1.h` project or AURORA first.
 
 The page takes a file only when it tells that it is M-VAVE's firmware (identity `FM-1_0` and two digits)
 and its checksums are good. For versions 15 and 16 it must be M-VAVE's own file, byte for byte: fm1-base's
@@ -151,6 +151,18 @@ This is what fm1-base and felucca-bsp say about their own safety nets. We did no
 
 Keep M-VAVE's `FM-1.fwsc` on your computer before you install anything.
 
+#### AURORA on a real FM-1
+
+AURORA of the gallery is the one firmware of the gallery that FIRMWARE and INSTALL can build. The
+`device` part of its `fm1project.json` tells the firmware worker to do the steps of AURORA's own
+`tools/build.py`, with the files of the project: changes that you make in its files go into the package.
+The package has AURORA's own update loader (it knows both flash chips) and the identity `FM-1_4747`.
+
+It is not AURORA's released package: AURORA's author builds with JieLi's compiler, the page with the open
+compiler. For AURORA 0.9.1 unchanged, and with a change, the page's package is the same bytes as the one
+that AURORA's own `build.py` makes with the page's compiler, and that build passes all its checks
+(`firmware/web/reference_device.sh`). No such package was tried on a real FM-1 yet.
+
 ### fm1project.json
 
 Without this file, each `.c` and `.cpp` file of the project is compiled. With it, a project says how it
@@ -163,12 +175,16 @@ is built. All parts are optional:
   "define":  ["APP_VER=\"1.0\""],
   "flags":   ["-Wno-unused-function"],
   "stack":   1048576,
-  "web":     { }
+  "web":     { },
+  "device":  { "build": "dinghy", "name": "aurora", "product": "FM-1_4747",
+               "sources": ["firmware/src/aurora.c"], "define": ["APP_VER=\"0.9.1\""] }
 }
 ```
 
-`web` is for firmware that has its own browser emulator (see below). The file list marks the files that
-the compiler gets with BUILD.
+`web` is for firmware that has its own browser emulator (see below). `device` is the build of such a
+firmware for a real FM-1: FIRMWARE and INSTALL then make its package with the steps of its own build.
+`"dinghy"`, the build of AURORA, is the only one known now; `fm1.h` tells which files it takes. The file
+list marks the files that the compiler gets with BUILD.
 
 ## Firmware gallery
 
@@ -275,6 +291,15 @@ code and data: so a program cannot put code or data in the parts of the memory t
 A project can add `"flags": ["-O2"]` to its `fm1project.json`: then build it with `reference.sh` too, and
 read the note.
 
+For a project with `device` in its `fm1project.json` (AURORA), the worker does the steps of that
+firmware's own `tools/build.py` in place of the steps above: it compiles and links the update loader and
+packs it as LZ4 blocks, compiles the firmware's three assembly files and C file, links them with the
+firmware's linker script, makes the image, and packs it as AURORA's `fm1pkg_make.py` does. As with
+JieLi's toolchain, the link has no helper routines of the compiler. Its checks are those of AURORA's
+`build.py` but the three that need a disassembly (no calls from RAM code into the flash, no calls in the
+loop of the second core, no address of the chip's ROM). `firmware/web/reference_device.sh` runs AURORA's
+`build.py` with the page's compiler and all its checks; the page's package must have the same hash.
+
 ## Run it here
 
 There is no build step. Serve the folder `src`:
@@ -318,9 +343,12 @@ in its build also needs an extras file: a script that calls `fm1Extras({ path: t
   a firmware uses one such request for each item in its `sources` (four for FELUCCA). After that, the
   page has the files until it is closed.
 - The LEDs are on or off: the dim levels of some firmware are not shown.
-- FIRMWARE is for `fm1.h` programs in C. A firmware of the gallery has its own build in its repository:
-  FIRMWARE and INSTALL are off for it, and their hints tell why. To put the firmware of M-VAVE back,
-  open an `fm1.h` project first. The package has no USB audio and no Bluetooth; USB MIDI in works.
+- FIRMWARE is for `fm1.h` programs in C, and for AURORA. The other firmwares of the gallery have their
+  own builds in their repositories: FIRMWARE and INSTALL are off for them, and their hints tell why. To
+  put the firmware of M-VAVE back, open an `fm1.h` project or AURORA first. The package of an `fm1.h`
+  program has no USB audio and no Bluetooth; USB MIDI in works.
+- For a changed AURORA, the page does not do the checks of AURORA's build that need a disassembly: run
+  `firmware/web/reference_device.sh` for those.
 - INSTALL needs Chrome or Edge on a computer (Web MIDI). No install was done on a real FM-1 yet.
 
 ## Licence

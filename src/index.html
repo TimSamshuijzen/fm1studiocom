@@ -806,7 +806,9 @@ void loop(void) { }                         /* again and again: controls and scr
         An adapter gives the program the functions of <code>fm1.h</code> on fm1-base
         <a class="ref" href="https://github.com/charlesvestal/fm1-base" target="_blank" rel="noopener" title="fm1-base">[3]</a>,
         the open platform for FM-1 firmware, and felucca-bsp
-        <a class="ref" href="https://github.com/hugelton/felucca-bsp" target="_blank" rel="noopener" title="felucca-bsp">[4]</a>.</p>
+        <a class="ref" href="https://github.com/hugelton/felucca-bsp" target="_blank" rel="noopener" title="felucca-bsp">[4]</a>.
+        For AURORA of the gallery, FIRMWARE does the steps of AURORA's own build instead, with the
+        changes that you made in its files.</p>
       <p>The INSTALL button makes the same package and writes it to an FM-1 over USB. A dialog shows the
         steps: read, connect the FM-1, install. It uses Web MIDI, so it needs Chrome or Edge. The firmware
         on the FM-1 checks the package and starts the update loader of the package, and that loader writes
@@ -859,9 +861,10 @@ void loop(void) { }                         /* again and again: controls and scr
         <li>The LEDs are on or off: the dim levels of some firmware are not shown.</li>
         <li>GitHub gives the list of files of a repository 60 times in an hour to one address. A firmware
           of the gallery uses one or more of these for its first load.</li>
-        <li>FIRMWARE is for <code>fm1.h</code> programs in C. A firmware of the gallery has its own build in
-          its repository: FIRMWARE and INSTALL are off for it, and their hints tell why. To put the
-          firmware of M-VAVE back, open an <code>fm1.h</code> project first. A package has no USB audio
+        <li>FIRMWARE is for <code>fm1.h</code> programs in C, and for AURORA. The other firmwares of the
+          gallery have their own builds in their repositories: FIRMWARE and INSTALL are off for them, and
+          their hints tell why. To put the
+          firmware of M-VAVE back, open an <code>fm1.h</code> project or AURORA first. A package has no USB audio
           and no Bluetooth; USB MIDI in works.</li>
         <li>INSTALL needs Chrome or Edge on a computer, and the page from a web server.</li>
       </ul>
@@ -1048,7 +1051,8 @@ void loop(void) { }                         /* again and again: controls and scr
  *     "define":  ["APP_VER=\"1.0\""],              as #define APP_VER "1.0"
  *     "flags":   ["-Wno-unused-function"],         more options for clang
  *     "stack":   1048576,                          stack size in bytes (default 65536)
- *     "web":     { }                               the program has the web_ interface
+ *     "web":     { },                              the program has the web_ interface
+ *     "device":  { "build": "dinghy", ... }        its own build for a real FM-1
  *   }
  *
  * "web" is for firmware that has a browser emulator made as Felucca's
@@ -1066,6 +1070,23 @@ void loop(void) { }                         /* again and again: controls and scr
  *       web_screen() gives the two bytes of each pixel high byte first
  *
  * The examples for "buttons", "encoders" and "screen" are those of Felucca.
+ *
+ * "device" is for such a firmware too: FIRMWARE and INSTALL then make its
+ * package for a real FM-1 with the steps of its own build, from the files of
+ * the project (with your changes). Without it, they are off for a project with
+ * "web". "device" has:
+ *
+ *   "build":   "dinghy"                  the steps of AURORA's tools/build.py
+ *                                        (the only build known now)
+ *   "name":    "aurora"                  the package is aurora.fwsc
+ *   "product": "FM-1_4747"               the identity of the package
+ *   "sources": ["firmware/src/aurora.c"] the C files of the firmware
+ *   "define":  ["APP_VER=\"0.9.1\""]     more #defines for those files
+ *
+ * "dinghy" also takes these files of the project: firmware/crt0.S,
+ * firmware/hal/fm1_vec.S, firmware/hal/fm1_isr.S, firmware/app.ld and the
+ * update loader in firmware/loader, with the headers in firmware/hal,
+ * firmware/src and firmware/gen.
  */
 #ifndef FM1_H
 #define FM1_H
@@ -2055,9 +2076,11 @@ onmessage = async (event) => {
 
 <!-- ==== Firmware worker: started from this text by the page script ==== -->
 <script type="text/plain" id="firmware-worker.js">
-// Makes a .fwsc package of an fm1.h project, for a real M-VAVE FM-1, in the browser.
+// Makes a .fwsc package of an fm1.h project, for a real M-VAVE FM-1, in the browser. It also makes
+// the package of a firmware of the gallery that has "device" in fm1project.json: see buildDevice.
 //
-// It does what firmware/build.sh does on a Linux computer, with the files of the folder fwsc/:
+// For an fm1.h project, it does what firmware/build.sh does on a Linux computer, with the files of
+// the folder fwsc/:
 //   llvm.js, llvm.wasm   clang and ld.lld for the FM-1's processor (pi32v2), built as WebAssembly from
 //                        github.com/jvitkauskas/pi32v2-llvm (firmware/web/build_compiler.sh)
 //   platform.json        fm1-base and felucca-bsp (the platform of the firmware), the adapter of
@@ -2129,9 +2152,9 @@ const load = () => (loading ||= (async () => {
 const dirname = (path) => path.slice(0, path.lastIndexOf('/'));
 
 // Runs clang or ld.lld one time, in a new instance of the program (a tool cannot run two times in
-// one instance). The instance gets the fixed files and `files`. Returns the exit code, the text
-// that the tool wrote, and those of the files `outputs` that it made.
-async function run(args, files, outputs = []) {
+// one instance). The instance gets the fixed files and `files`, and runs in the folder `cwd`.
+// Returns the exit code, the text that the tool wrote, and those of the files `outputs` that it made.
+async function run(args, files, outputs = [], cwd = '/work') {
   let text = '';
   const llvm = await createLLVM({
     instantiateWasm(imports, done) {
@@ -2148,7 +2171,8 @@ async function run(args, files, outputs = []) {
     }
   }
   for (const path of outputs) llvm.FS.mkdirTree(dirname(path));
-  llvm.FS.chdir('/work');
+  llvm.FS.mkdirTree(cwd);
+  llvm.FS.chdir(cwd);
   let code;
   try {
     code = llvm.callMain(args);
@@ -2175,9 +2199,10 @@ function show(text) {
 // Compiles one C or assembly file. clang's driver cannot start a process here. So "clang -###"
 // gives its jobs (each a line of quoted words: "<program>" "clang" "-cc1" ...), and each job is a
 // run of its own. A job can make a file in /tmp for the next one (the assembly after its #includes).
-async function compileUnit(args, files) {
-  const target = '/work/' + args[args.indexOf('-o') + 1];
-  const list = await run(['clang', '-###', '-resource-dir', '/res', ...args], files);
+// The paths in `args` are below the folder `cwd`.
+async function compileUnit(args, files, cwd = '/work') {
+  const target = `${cwd}/${args[args.indexOf('-o') + 1]}`;
+  const list = await run(['clang', '-###', '-resource-dir', '/res', ...args], files, [], cwd);
   const jobs = list.text.split('\n').filter((line) => line.startsWith(' "')).map((line) =>
     [...line.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((word) => word[1].replace(/\\(.)/g, '$1')));
   if (list.code || !jobs.length) {
@@ -2187,7 +2212,7 @@ async function compileUnit(args, files) {
   const temporary = [];
   for (const job of jobs) {
     const made = job.filter((word) => word.startsWith('/tmp/'));
-    const result = await run(job.slice(1), files, [target, ...made]);
+    const result = await run(job.slice(1), files, [target, ...made], cwd);
     show(result.text);
     if (result.code) throw new Stopped();
     for (const [path, bytes] of result.made) files.set(path, bytes);
@@ -2210,7 +2235,7 @@ function elfSections(data) {
     while (data[end]) end++;
     return new TextDecoder().decode(data.subarray(strings + from, end));
   };
-  return heads.map((head) => ({ name: name(head[0]), type: head[1], offset: head[4], size: head[5], link: head[6] }));
+  return heads.map((head) => ({ name: name(head[0]), type: head[1], address: head[3], offset: head[4], size: head[5], link: head[6] }));
 }
 
 // The bytes of a section: what "objcopy -O binary -j NAME" gives.
@@ -2291,7 +2316,9 @@ function entry(dataCrc, offset, size, flags, reserved, index, name) {
 const hex = (text) => Uint8Array.from(text.match(/../g), (pair) => parseInt(pair, 16));
 
 // The flash image: the head (never written by the update loader), and the program area.
-function flashImage(program) {
+// `plainSpl`: the boot code in the head as the SDK file is, as AURORA's packer writes it. Without it,
+// as fm1-base's packer writes it: ENC as an FM-1's flash holds it (felucca-bsp's chip/ota.c checks that).
+function flashImage(program, plainSpl = false) {
   const spl = blobs['sdk/uboot.boot'], tool = blobs['sdk/cfg_tool.bin'], eq = blobs['sdk/eq_cfg_hw.bin'];
   // 32 bytes from which the boot code gets the chip key, their CRC, and a name
   const keyBytes = new Uint8Array(32).fill(0x10, 0, 16);
@@ -2301,8 +2328,10 @@ function flashImage(program) {
   const splAt = 0xA0, isdAt = splAt + spl.length;
   if (isdAt + isd.length > 0x4000) throw new Error('The boot code does not fit the head of the flash.');
   const splEnc = spl.slice();
-  enc(splEnc, 0, 16);
-  enc(splEnc, 16, spl.length - 16);
+  if (!plainSpl) {
+    enc(splEnc, 0, 16);
+    enc(splEnc, 16, spl.length - 16);
+  }
   flash.set(splEnc, splAt);
   flash.set(isd, isdAt);
   const header = hex('20022f104cc900f00f001010a4ff4e5d0b41e0cd781dc856417fb367cf9f'); // JieLi's SDK values
@@ -2381,16 +2410,19 @@ function packageFile(flash, loader, identity) {
 
 // ---- The checks of fm1-base's build that the program can fail ----
 
-// Hardware addresses are for felucca-bsp only (mmio_check of tools/build.py): no pointer cast to
-// volatile, no assembly, and no register name of felucca-bsp in a file of the program.
-function registerErrors(texts) {
-  const strip = (source) => source
-    .replace(/\/\*[\s\S]*?\*\//g, (comment) => '\n'.repeat(comment.split('\n').length - 1))
-    .replace(/\/\/[^\n]*/g, '');
+// C without its comments, with the same lines.
+const stripComments = (source) => source
+  .replace(/\/\*[\s\S]*?\*\//g, (comment) => '\n'.repeat(comment.split('\n').length - 1))
+  .replace(/\/\/[^\n]*/g, '');
+const VOLATILE_CAST = /\(\s*(?:const\s+)?volatile\b[^()]*\*\s*\)(?!\s*&)/;
+const INLINE_ASM = /\b(?:__asm__|asm)\b(?!\s+volatile\s*\(\s*""\s*:::\s*"memory"\s*\))/;
+
+// The names of the #defines in `headers` (path -> text) that access hardware registers: those with
+// volatile in them, and those that are made from such names.
+function registerNames(headers) {
   const bodies = new Map();
-  for (const path of Object.keys(platformText).sort()) {
-    if (!/^bsp\/(chip|boards\/fm1)\/[^/]+\.h$/.test(path)) continue;
-    for (const define of strip(platformText[path]).matchAll(/^#define\s+(\w+)(?:\([^)]*\))?\s+(.*)$/gm)) {
+  for (const path of Object.keys(headers).sort()) {
+    for (const define of stripComments(headers[path]).matchAll(/^#define\s+(\w+)(?:\([^)]*\))?\s+(.*)$/gm)) {
       bodies.set(define[1], define[2]);
     }
   }
@@ -2404,15 +2436,21 @@ function registerErrors(texts) {
       }
     }
   }
+  return registers;
+}
+
+// Hardware addresses are for felucca-bsp only (mmio_check of tools/build.py): no pointer cast to
+// volatile, no assembly, and no register name of felucca-bsp in a file of the program.
+function registerErrors(texts) {
+  const registers = registerNames(Object.fromEntries(Object.entries(platformText)
+    .filter(([path]) => /^bsp\/(chip|boards\/fm1)\/[^/]+\.h$/.test(path))));
   const errors = [];
   for (const [path, text] of texts) {
     if (!/\.[ch]$/.test(path)) continue;
-    strip(text).split(/\r\n|\r|\n/).forEach((line, index) => {
-      const cast = line.match(/\(\s*(?:const\s+)?volatile\b[^()]*\*\s*\)(?!\s*&)/);
+    stripComments(text).split(/\r\n|\r|\n/).forEach((line, index) => {
+      const cast = line.match(VOLATILE_CAST);
       if (cast) errors.push(`${path}:${index + 1}: a pointer cast to volatile (${cast[0].trim()}): the hardware is for felucca-bsp only`);
-      if (/\b(?:__asm__|asm)\b(?!\s+volatile\s*\(\s*""\s*:::\s*"memory"\s*\))/.test(line)) {
-        errors.push(`${path}:${index + 1}: assembly in a C file`);
-      }
+      if (INLINE_ASM.test(line)) errors.push(`${path}:${index + 1}: assembly in a C file`);
       const used = (line.match(/\b[A-Z_][A-Z0-9_]*\b/g) ?? []).filter((word) => registers.has(word)).sort()[0];
       if (used) errors.push(`${path}:${index + 1}: ${used} is a register name of felucca-bsp`);
     });
@@ -2427,6 +2465,20 @@ const SOFT_DOUBLE = /^__(?:add|sub|mul|div|neg|cmp|eq|ne|lt|le|gt|ge|un|extendsf
 const PROGRAM_SECTION = /^$|^\.(text|rodata|data|sdata|bss|sbss|comment|note|symtab|strtab|shstrtab|rel|rela|llvm_addrsig|debug)([._]|$)/;
 
 // ---- The build ----
+
+// The image of the program in the flash: the code, then the RAM code and the data at their load
+// addresses (crt0 copies them to RAM). As in tools/build.py of fm1-base and of AURORA.
+function programImage(elf, symbol) {
+  let image = elfSection(elf, '.text');
+  for (const [section, loadSymbol] of [['.ram_text', '_rt_load'], ['.data', '_data_load']]) {
+    const bytes = elfSection(elf, section);
+    const at = symbol(loadSymbol) - APP_XIP;
+    if (!bytes.length) continue;
+    if (symbol(loadSymbol) % 4 || at < image.length) throw new Error(`${section} is not after the code in the image.`);
+    image = join(image, new Uint8Array(at - image.length).fill(0xFF), bytes);
+  }
+  return join(image, new Uint8Array(-image.length & 3).fill(0xFF));
+}
 
 async function digest(algorithm, bytes) {
   return new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
@@ -2474,8 +2526,9 @@ async function build(files, zip) {
     texts.set(path, text);
   }
   const manifest = readManifest(texts);
+  if (manifest.device != null) return buildDevice(texts, manifest.device);
   if (manifest.web != null) {
-    throw new Error(`${MANIFEST} has "web": this project is a firmware with its own FM-1 inside. Its own repository builds its .fwsc.`);
+    throw new Error(`${MANIFEST} has "web" and no "device": this project is a firmware with its own FM-1 inside. Its own repository builds its .fwsc.`);
   }
   const sources = manifest.sources?.length ? manifest.sources
     : [...texts.keys()].filter((path) => /\.(c|cc|cpp|cxx)$/i.test(path)).sort();
@@ -2598,15 +2651,7 @@ licence = "GPL-3.0-only"
   const elf = link.made.get(elfPath);
   const symbols = elfSymbols(elf);
   const symbol = (id) => symbols.get(id) ?? 0;
-  let image = elfSection(elf, '.text');
-  for (const [section, loadSymbol] of [['.ram_text', '_rt_load'], ['.data', '_data_load']]) {
-    const bytes = elfSection(elf, section);
-    const at = symbol(loadSymbol) - APP_XIP;
-    if (!bytes.length) continue;
-    if (symbol(loadSymbol) % 4 || at < image.length) throw new Error(`${section} is not after the code in the image.`);
-    image = join(image, new Uint8Array(at - image.length).fill(0xFF), bytes);
-  }
-  image = join(image, new Uint8Array(-image.length & 3).fill(0xFF));
+  const image = programImage(elf, symbol);
 
   // 5. The checks.
   const errors = [], notes = [];
@@ -2636,6 +2681,227 @@ licence = "GPL-3.0-only"
   const fwsc = packageFile(flashImage(image), blobs['ota.bin'], product);
   log(`${name}.fwsc: ${fwsc.length} bytes, identity ${product}, build ${buildHex.toUpperCase()}\n`);
   log(`made with fm1-base ${about['fm1-base'].slice(0, 7)}, felucca-bsp ${about['felucca-bsp'].slice(0, 7)}, pi32v2-llvm ${about['pi32v2-llvm'].slice(0, 7)}\n`);
+  return { name: `${name}.fwsc`, fwsc: fwsc.buffer, image: image.buffer };
+}
+
+// ---- A firmware with its own build: "device" in fm1project.json ----
+// A firmware of the gallery is no fm1.h program: it has its own platform code, linker script and
+// update loader, and its own tools/build.py. "device" tells which build that is, and this part does
+// the steps of that build with the files of the project (with the user's changes), with the same
+// file names and flags. Thus the package is the same bytes as the one that the firmware's own build
+// makes with this compiler (firmware/web/reference_device.sh makes that one, to compare).
+// One build is known: "dinghy", the build of AURORA (tools/build.py of github.com/twochannels/AURORA,
+// on the platform Dinghy of Felucca). Its steps and checks, but those that need a disassembly:
+// reference_device.sh runs those.
+
+// LZ4 blocks, the same bytes as tools/lz4blk.py of AURORA writes: a match is looked for only at the
+// last place where its first 4 bytes were.
+function lz4(source) {
+  const out = [];
+  const length = (n) => { for (; n >= 255; n -= 255) out.push(255); out.push(n); };
+  const last = new Map();
+  let anchor = 0, i = 0;
+  while (i < source.length - 12) {
+    const key = (source[i] | source[i + 1] << 8 | source[i + 2] << 16 | source[i + 3] << 24) >>> 0;
+    const from = last.get(key);
+    last.set(key, i);
+    if (from === undefined || i - from > 65535) { i++; continue; }
+    let size = 4; // the last 5 bytes stay literals
+    while (i + size < source.length - 5 && source[from + size] === source[i + size]) size++;
+    out.push(Math.min(i - anchor, 15) << 4 | Math.min(size - 4, 15));
+    if (i - anchor >= 15) length(i - anchor - 15);
+    out.push(...source.subarray(anchor, i));
+    out.push((i - from) & 0xFF, (i - from) >> 8);
+    if (size - 4 >= 15) length(size - 4 - 15);
+    i += size;
+    anchor = i;
+  }
+  out.push(Math.min(source.length - anchor, 15) << 4);
+  if (source.length - anchor >= 15) length(source.length - anchor - 15);
+  out.push(...source.subarray(anchor));
+  return Uint8Array.from(out);
+}
+
+// The bytes of an LZ4 block: to check lz4().
+function unlz4(block) {
+  const out = [];
+  let at = 0;
+  const length = (n) => { // 15, then bytes to add up to one that is not 255
+    let byte;
+    do { byte = block[at++]; n += byte; } while (byte === 255);
+    return n;
+  };
+  while (at < block.length) {
+    const token = block[at++];
+    let literals = token >> 4;
+    if (literals === 15) literals = length(literals);
+    out.push(...block.subarray(at, at + literals));
+    at += literals;
+    if (at >= block.length) break;
+    const back = block[at] | block[at + 1] << 8;
+    at += 2;
+    let size = token & 15;
+    if (size === 15) size = length(size);
+    for (let k = 0; k < size + 4; k++) out.push(out[out.length - back]);
+  }
+  return Uint8Array.from(out);
+}
+
+const sameBytes = (a, b) => a.length === b.length && a.every((byte, i) => byte === b[i]);
+
+// The update loader of a Dinghy build, as the package carries it (ldr_wrap of AURORA's build.py):
+// a head of JieLi's file system, a head with the load address, then blocks of 4096 bytes as LZ4.
+const LOADER_LOAD = 0x01C0A800;
+const LOADER_NAME = 'usb_hid_ota.bin';  // the name that the boot code looks for
+function loaderHead(dataCrc, a, b, flags, name) {
+  const body = new Uint8Array(30);  // the name is 16 bytes, with zeros after it
+  const view = new DataView(body.buffer);
+  view.setUint16(0, dataCrc, true);
+  view.setUint32(2, a >>> 0, true);
+  view.setUint32(6, b >>> 0, true);
+  body[10] = flags;
+  body.set(encoder.encode(name), 14);
+  return join(Uint8Array.of(crc16(body) & 0xFF, crc16(body) >> 8), body);
+}
+function loaderFile(image) {
+  const blocks = [];
+  for (let at = 0; at < image.length; at += 4096) {
+    const raw = image.subarray(at, at + 4096);
+    const packed = lz4(raw);
+    if (packed.length > 4096 || !sameBytes(unlz4(packed), raw)) throw new Error(`loader: block ${at / 4096} does not compress below 4096 B`);
+    const sizes = new DataView(new ArrayBuffer(8));
+    sizes.setUint32(0, packed.length, true);
+    sizes.setUint32(4, raw.length, true);
+    blocks.push(new Uint8Array(sizes.buffer), packed);
+  }
+  const body = join(loaderHead(crc16(image), image.length, LOADER_LOAD, 0, LOADER_NAME), ...blocks);
+  return join(loaderHead(crc16(body), 0x20, body.length, 0x41, LOADER_NAME), body);
+}
+
+// Register access is for firmware/hal only (mmio_check of AURORA's build.py): in firmware/src and
+// firmware/loader, no address of a register or a reserved window, no pointer cast to volatile, no
+// assembly, and no register macro of hal/.
+const MMIO_LITERAL = /\b0x0*(1[0-3][0-9a-f]{3}|4[0-3][0-9a-f]{3}|5[01][0-9a-f]{3}|1ee[0-9a-f]{4}|1c7f[0-9a-f]{3}|20[0-9a-f]{5})u?l?\b/i;
+function halErrors(texts) {
+  const registers = registerNames(Object.fromEntries([...texts].filter(([path]) => /^firmware\/hal\/[^/]+\.h$/.test(path))));
+  const errors = [];
+  const checked = [...texts.keys()].filter((path) => /^firmware\/(src\/[^/]+\.[ch]|loader\/[^/]+\.c)$/.test(path)).sort();
+  for (const path of checked) {
+    stripComments(texts.get(path)).split(/\r\n|\r|\n/).forEach((line, index) => {
+      for (const [pattern, what] of [[MMIO_LITERAL, 'register/window address'], [VOLATILE_CAST, 'volatile pointer cast'], [INLINE_ASM, 'inline asm']]) {
+        const found = line.match(pattern);
+        if (found) errors.push(`${path}:${index + 1}: ${what} outside hal/ (${found[0].trim()}); add a hal/ helper`);
+      }
+      const used = (line.match(/\b[A-Z_][A-Z0-9_]*\b/g) ?? []).filter((word) => registers.has(word)).sort()[0];
+      if (used) errors.push(`${path}:${index + 1}: HAL register macro ${used} outside hal/; use a hal/ helper`);
+    });
+  }
+  return errors;
+}
+
+// Reads and checks "device" of fm1project.json.
+function readDevice(device, texts) {
+  const where = `${MANIFEST}: "device"`;
+  if (device === null || typeof device !== 'object' || Array.isArray(device)) throw new Error(`${where} must be an object.`);
+  if (device.build !== 'dinghy') throw new Error(`${where}: "build" must be "dinghy" (the build of AURORA): the only one known.`);
+  if (!/^[a-z0-9][a-z0-9_-]*$/.test(device.name ?? '')) throw new Error(`${where}: "name" must be the name of the package, as "aurora".`);
+  if (!/^FM-1_\d{3,15}$/.test(device.product ?? '')) throw new Error(`${where}: "product" must be the identity of the package, as "FM-1_4747".`);
+  for (const key of ['sources', 'define']) {
+    const list = device[key] ?? [];
+    if (!Array.isArray(list) || list.some((item) => typeof item !== 'string')) throw new Error(`${where}: "${key}" must be a list of texts.`);
+  }
+  if (!device.sources?.length) throw new Error(`${where}: "sources" must name the C file of the firmware.`);
+  for (const path of [...device.sources, ...DINGHY_FILES]) {
+    if (!texts.has(path)) throw new Error(`${where}: the project has no file ${path}.`);
+  }
+  return device;
+}
+
+// The files that a Dinghy build takes from the project, beside the "sources" of "device".
+const DINGHY_FILES = ['firmware/crt0.S', 'firmware/hal/fm1_vec.S', 'firmware/hal/fm1_isr.S', 'firmware/app.ld',
+  'firmware/loader/crt0_ldr.S', 'firmware/loader/loader.c', 'firmware/loader/loader.ld'];
+const DINGHY_FLAGS = ['-Os', '-ffunction-sections', '-fno-builtin', '-Wall', '-Wno-unused-function'];
+const DINGHY_RAM = 0x01C00000;  // the internal RAM, where code runs while the flash is off
+
+// The package of a firmware with "device" in fm1project.json, as its own tools/build.py makes it.
+async function buildDevice(texts, device) {
+  const { name, product } = readDevice(device, texts);
+  const cwd = '/project';  // the folder of the project: the paths of the build are below it, as in the repository
+  const work = new Map();
+  for (const [path, text] of texts) work.set(`${cwd}/${path}`, encoder.encode(text));
+  // Each tool runs as "clang -target pi32v2" (cc of build.py), with -std=gnu11 for C (as opentc.py).
+  const cc = (args) => compileUnit([...(args[args.indexOf('-c') + 1].endsWith('.c') ? ['-std=gnu11'] : []), '-target', 'pi32v2', ...args], work, cwd);
+  const link = async (script, objects, elf, what) => {
+    log(`link ${elf}\n`);
+    // No library: as with JieLi's toolchain, the firmware has no helper routines (no float, no 64-bit division)
+    const result = await run(['ld.lld', '--gc-sections', '-e', '_start', '-T', script, ...objects, '-o', elf], work, [`${cwd}/${elf}`], cwd);
+    show(result.text);
+    if (/undefined symbol: __\w+/.test(result.text)) log(`  FAIL  ${what} needs a helper routine of the compiler: the build has none (no float, no 64-bit division)\n`);
+    if (result.code || !result.made.has(`${cwd}/${elf}`)) throw new Stopped();
+    return result.made.get(`${cwd}/${elf}`);
+  };
+  const errors = [], notes = [];
+
+  // 1. The update loader (build_loader): it runs from RAM and writes the flash.
+  log('compile the update loader\n');
+  await cc(['-c', 'firmware/loader/crt0_ldr.S', '-o', 'build/loader/crt0_ldr.o']);
+  await cc([...DINGHY_FLAGS, '-Ifirmware/hal', '-Ifirmware/src', '-c', 'firmware/loader/loader.c', '-o', 'build/loader/loader.o']);
+  const loaderElf = await link('firmware/loader/loader.ld', ['build/loader/crt0_ldr.o', 'build/loader/loader.o'], 'build/loader/loader.elf', 'the update loader');
+  for (const section of elfSections(loaderElf)) {  // the loader rewrites the flash: nothing may run from it
+    if (section.name.startsWith('.') && section.address >= 0x02000000 && section.size) {
+      errors.push(`loader: section ${section.name} at 0x${section.address.toString(16)} is outside RAM`);
+    }
+  }
+  const loaderImage = elfSection(loaderElf, '.text');
+  if (!loaderImage.length || loaderImage.length > 0x14000) errors.push('loader: image empty or too big');
+  const loader = loaderFile(loaderImage);
+  notes.push(`loader: image ${loaderImage.length} B at 0x${LOADER_LOAD.toString(16)}, ota.bin ${loader.length} B`);
+
+  // 2. The app (build_app): three assembly files and the C files, one object each.
+  const defines = ['-DDINGHY_DUAL_CORE=1'];  // build.py's default: the second core runs the audio
+  await cc([...defines, '-c', 'firmware/crt0.S', '-o', 'build/crt0.o']);
+  await cc(['-c', 'firmware/hal/fm1_vec.S', '-o', 'build/fm1_vec.o']);
+  await cc(['-c', 'firmware/hal/fm1_isr.S', '-o', 'build/fm1_isr.o']);
+  const objects = ['build/crt0.o', 'build/fm1_vec.o', 'build/fm1_isr.o'];
+  for (const source of device.sources) {
+    log(`compile ${source}\n`);
+    objects.push(`build/${source.slice(source.lastIndexOf('/') + 1).replace(/\.c$/i, '')}.o`);
+    await cc([...DINGHY_FLAGS, ...defines, '-Ifirmware/hal', '-Ifirmware/src', '-Ifirmware/gen', `-DFELUCCA_ID="${product}"`,
+      ...(device.define ?? []).map((define) => '-D' + define), '-c', source, '-o', objects.at(-1)]);
+  }
+  const elf = await link('firmware/app.ld', objects, `build/${name}.elf`, 'the firmware');
+  const symbols = elfSymbols(elf);
+  const symbol = (id) => symbols.get(id) ?? 0;
+  const image = programImage(elf, symbol);
+
+  // 3. The checks (check of build.py), but those that need a disassembly.
+  if (symbol('_start') !== APP_XIP) errors.push(`_start is not at 0x${APP_XIP.toString(16)}`);
+  if (!sameBytes(image.subarray(0, 4), Uint8Array.of(0x04, 0x81, 0x80, 0x00))) errors.push('the image does not start with the entry stub');
+  if (symbol('fm1_core1_start')) { // the second core: its code in RAM, with its own stacks
+    for (const id of ['fm1_core1_main', 'audio_worker_loop']) {
+      if (!(DINGHY_RAM <= symbol(id) && symbol(id) < symbol('_rt_end'))) errors.push(`${id} must be in .ram_text (0x01C00000..) so CPU1 idles with the flash off`);
+    }
+    if (symbol('_cpu1_stacks_hi') - symbol('_cpu1_stacks_lo') !== 8192) errors.push('CPU1 needs its 4 KiB user + 4 KiB supervisor stacks (.cpu1_stacks)');
+    notes.push('CPU1: its code in RAM, private 8 KiB stacks');
+  }
+  if (image.length > APP_SLOT) errors.push(`image ${image.length} B exceeds the app slot`);
+  const ram = symbol('_bss_end') - 0x01C08000, pool = symbol('_pool_end') - 0x01C20000;
+  notes.push(`image ${image.length} B of ${APP_SLOT}; RAM .data+.bss ${ram} B of 98304; pool ${pool} B of 344064`);
+  if (ram > 96 * 1024) errors.push(`RAM .data+.bss ${ram} B > 96 KiB`);
+  const hal = halErrors(texts);
+  errors.push(...hal);
+  if (!hal.length) notes.push('register access: hal/ only (src/, loader/ clean)');
+  for (const note of notes) log(`  ok    ${note}\n`);
+  for (const error of errors) log(`  FAIL  ${error}\n`);
+  if (errors.length) throw new Stopped();
+  log('  not checked here (they need a disassembly): calls from RAM code into the flash, calls in the\n' +
+    '        loop of CPU1, addresses in the ROM of the chip. firmware/web/reference_device.sh checks them.\n');
+
+  // 4. The package (fm1pkg_make.py of AURORA): as the one of an fm1.h program, but with the
+  // firmware's own loader, and the boot code in the head as the SDK file is.
+  const fwsc = packageFile(flashImage(image, true), loader, product);
+  log(`${name}.fwsc: ${fwsc.length} bytes, identity ${product}\n`);
+  log(`made with pi32v2-llvm ${about['pi32v2-llvm'].slice(0, 7)}, by the steps of the "${device.build}" build\n`);
   return { name: `${name}.fwsc`, fwsc: fwsc.buffer, image: image.buffer };
 }
 
@@ -3257,7 +3523,8 @@ window.addEventListener('drop', (event) => {
 // The LOAD button of a GITHUB card loads the code of a firmware from its repository on GitHub, as
 // text files.
 // Two things are not in such a repository:
-//   - fm1project.json. It is here, as `manifest`.
+//   - fm1project.json. It is here, as `manifest`. Its "device" (fm1.h tells more) lets FIRMWARE and
+//     INSTALL make the firmware's package for a real FM-1, with the steps of its own build.
 //   - The files that the build of the firmware makes with its own tools: tables, fonts and pictures
 //     as C headers. They are in a script in the folder extras/ next to this page (`extras`). It is a
 //     script because a page that is opened from disk can load a script, but cannot fetch a file.
@@ -3318,6 +3585,8 @@ const GITHUB_PROJECTS = [
       flags: ['-std=gnu99', '-Wno-unused-function'],
       stack: 1048576,
       web: {},
+      // FIRMWARE and INSTALL: the steps of AURORA's tools/build.py, with its VERSION file as APP_VER
+      device: { build: 'dinghy', name: 'aurora', product: 'FM-1_4747', sources: ['firmware/src/aurora.c'], define: ['APP_VER="0.9.1"'] },
     },
   },
   {
@@ -3854,18 +4123,18 @@ function firmwareBlock() {
       'a page that is opened from disk cannot load the compiler for the FM-1.';
   }
   // A firmware with its own FM-1 inside (the web_ interface) is no fm1.h program: the firmware
-  // worker stops on it.
-  let web = null;
+  // worker builds it only when fm1project.json has its own build in "device".
+  let manifest = null;
   try {
-    web = JSON.parse(project.files.get(MANIFEST)).web ?? null;
+    manifest = JSON.parse(project.files.get(MANIFEST));
   } catch {
     // There is no fm1project.json, or it is not correct. The firmware worker gives the message for that.
   }
-  if (web === null) return '';
+  if (manifest?.web == null || manifest.device != null) return '';
   const entry = GITHUB_PROJECTS.find(({ id }) => id === project.github);
   const label = entry?.label ?? (project.name || 'This project');
-  return `${label} is a firmware with its own FM-1 inside (${MANIFEST} has "web"), not an fm1.h program. ` +
-    'FIRMWARE makes a .fwsc of an fm1.h program only. ' + (entry
+  return `${label} is a firmware with its own FM-1 inside (${MANIFEST} has "web"), not an fm1.h program, ` +
+    'and its build for a real FM-1 is not known here ("device"). ' + (entry
     ? `The .fwsc of ${label} comes from its own repository: github.com/${entry.sources[0].repo}`
     : 'The firmware\'s own repository builds its .fwsc.');
 }
