@@ -807,8 +807,8 @@ void loop(void) { }                         /* again and again: controls and scr
         <a class="ref" href="https://github.com/charlesvestal/fm1-base" target="_blank" rel="noopener" title="fm1-base">[3]</a>,
         the open platform for FM-1 firmware, and felucca-bsp
         <a class="ref" href="https://github.com/hugelton/felucca-bsp" target="_blank" rel="noopener" title="felucca-bsp">[4]</a>.
-        For AURORA of the gallery, FIRMWARE does the steps of AURORA's own build instead, with the
-        changes that you made in its files.</p>
+        For AURORA and CS-1 of the gallery, FIRMWARE does the steps of the firmware's own build
+        instead, with the changes that you made in its files.</p>
       <p>The INSTALL button makes the same package and writes it to an FM-1 over USB. A dialog shows the
         steps: read, connect the FM-1, install. It uses Web MIDI, so it needs Chrome or Edge. The firmware
         on the FM-1 checks the package and starts the update loader of the package, and that loader writes
@@ -816,7 +816,7 @@ void loop(void) { }                         /* again and again: controls and scr
         <a class="ref" href="https://github.com/charlesvestal/fm1-base" target="_blank" rel="noopener" title="fm1-base">[3]</a>.
         The same dialog puts the firmware of M-VAVE back: select it in the first step, with the file
         <code>FM-1.fwsc</code> from M-VAVE.</p>
-      <p class="note"><strong>No package was tried on a real FM-1 yet.</strong> Before you install one, read
+      <p class="note"><strong>No package of an <code>fm1.h</code> program was tried on a real FM-1 yet.</strong> Before you install one, read
         <a href="https://github.com/TimSamshuijzen/fm1studiocom#on-a-real-fm-1" target="_blank" rel="noopener">"On a real FM-1"</a>
         in the README: how to install a package, which FM-1 units it is for, and what to do when an install
         goes wrong. Keep M-VAVE's <code>FM-1.fwsc</code> on your computer.</p>
@@ -861,10 +861,12 @@ void loop(void) { }                         /* again and again: controls and scr
         <li>The LEDs are on or off: the dim levels of some firmware are not shown.</li>
         <li>GitHub gives the list of files of a repository 60 times in an hour to one address. A firmware
           of the gallery uses one or more of these for its first load.</li>
-        <li>FIRMWARE is for <code>fm1.h</code> programs in C, and for AURORA. The other firmwares of the
+        <li>FIRMWARE is for <code>fm1.h</code> programs in C, and for AURORA and CS-1. The other firmwares of the
           gallery have their own builds in their repositories: FIRMWARE and INSTALL are off for them, and
           their hints tell why. To put the
-          firmware of M-VAVE back, open an <code>fm1.h</code> project or AURORA first. A package has no USB audio
+          firmware of M-VAVE back, open an <code>fm1.h</code> project, AURORA or CS-1 first. CS-1 0.3.4 knows
+          only the first flash chip of the FM-1: the page changes it when it loads it, so that it also takes
+          the newer chip, as AURORA does. A package has no USB audio
           and no Bluetooth; USB MIDI in works.</li>
         <li>INSTALL needs Chrome or Edge on a computer, and the page from a web server.</li>
       </ul>
@@ -1076,8 +1078,8 @@ void loop(void) { }                         /* again and again: controls and scr
  * the project (with your changes). Without it, they are off for a project with
  * "web". "device" has:
  *
- *   "build":   "dinghy"                  the steps of AURORA's tools/build.py
- *                                        (the only build known now)
+ *   "build":   "dinghy"                  the steps of tools/build.py of AURORA
+ *                                        and CS-1 (the only build known now)
  *   "name":    "aurora"                  the package is aurora.fwsc
  *   "product": "FM-1_4747"               the identity of the package
  *   "sources": ["firmware/src/aurora.c"] the C files of the firmware
@@ -2690,9 +2692,9 @@ licence = "GPL-3.0-only"
 // the steps of that build with the files of the project (with the user's changes), with the same
 // file names and flags. Thus the package is the same bytes as the one that the firmware's own build
 // makes with this compiler (firmware/web/reference_device.sh makes that one, to compare).
-// One build is known: "dinghy", the build of AURORA (tools/build.py of github.com/twochannels/AURORA,
-// on the platform Dinghy of Felucca). Its steps and checks, but those that need a disassembly:
-// reference_device.sh runs those.
+// One build is known: "dinghy", the build of AURORA and CS-1 (tools/build.py of
+// github.com/twochannels/AURORA and /CS-1, on the platform Dinghy of Felucca: the same file in both but
+// for the names). Its steps and checks, but those that need a disassembly: reference_device.sh runs those.
 
 // LZ4 blocks, the same bytes as tools/lz4blk.py of AURORA writes: a match is looked for only at the
 // last place where its first 4 bytes were.
@@ -2803,7 +2805,7 @@ function halErrors(texts) {
 function readDevice(device, texts) {
   const where = `${MANIFEST}: "device"`;
   if (device === null || typeof device !== 'object' || Array.isArray(device)) throw new Error(`${where} must be an object.`);
-  if (device.build !== 'dinghy') throw new Error(`${where}: "build" must be "dinghy" (the build of AURORA): the only one known.`);
+  if (device.build !== 'dinghy') throw new Error(`${where}: "build" must be "dinghy" (the build of AURORA and CS-1): the only one known.`);
   if (!/^[a-z0-9][a-z0-9_-]*$/.test(device.name ?? '')) throw new Error(`${where}: "name" must be the name of the package, as "aurora".`);
   if (!/^FM-1_\d{3,15}$/.test(device.product ?? '')) throw new Error(`${where}: "product" must be the identity of the package, as "FM-1_4747".`);
   for (const key of ['sources', 'define']) {
@@ -3551,6 +3553,56 @@ const GITHUB_PROJECTS = [
       repo: 'twochannels/CS-1', ref: 'v0.3.4',
       paths: ['firmware/', 'tests/fake_fm1.h', 'web/emu/', 'LICENSE', 'LICENSING.md', 'README.md'],
     }],
+    // CS-1 0.3.4 writes its flash only when the chip is the Puya P25Q80 (0x856014) of the first FM-1
+    // units. These changes let it take the UC25HQ80 (0xB36014) of the units sold since autumn 2026 too,
+    // as AURORA 0.9.1 of the same author does (its hal/fm1_flash_id.h, FL_JEDEC_OK): CS-1's update loader
+    // is then the same bytes as AURORA's. Without them, on such a unit CS-1's loader does not write, and
+    // CS-1 cannot keep its settings or take an update.
+    patches: [
+      {
+        path: 'firmware/hal/fm1_flash.h',
+        find: '/* FM-1 SPI NOR at runtime:',
+        replace: '/* FM-1 Studio changed this file in November 2026, when it loaded it: FL_JEDEC_OK, both flash chips. */\n' +
+          '/* FM-1 SPI NOR at runtime:',
+      },
+      {
+        path: 'firmware/hal/fm1_flash.h',
+        find: '#include "fm1_xip.h"\n',
+        replace: '#include "fm1_xip.h"\n' +
+          '/* FM-1 Studio: the flash chips that CS-1 writes to, as AURORA 0.9.1 has it (hal/fm1_flash_id.h): the\n' +
+          ' * Puya P25Q80 (0x856014) and the UC25HQ80 (0xB36014), both with the same SPI NOR commands */\n' +
+          '#define FL_JEDEC_OK(id) ((id) == 0x856014u || (id) == 0xB36014u)\n',
+      },
+      {
+        path: 'firmware/hal/fm1_flash.h',
+        find: 'fl_jedec_ram(void)                 /* expect 0x856014 */',
+        replace: 'fl_jedec_ram(void)                 /* FL_JEDEC_OK (FM-1 Studio: was "expect 0x856014") */',
+      },
+      ...['firmware/src/platform.c', 'firmware/src/recovery.c'].flatMap((path) => [
+        {
+          path,
+          find: '/* SPDX-License-Identifier: GPL-3.0-only */\n',
+          replace: '/* SPDX-License-Identifier: GPL-3.0-only */\n' +
+            '/* FM-1 Studio changed this file in November 2026, when it loaded it: the flash chip check takes both chips. */\n',
+        },
+        {
+          path,
+          find: 'flash_ok = FL_FAR(fl_jedec_ram)() == 0x856014u;',
+          replace: 'flash_ok = FL_JEDEC_OK(FL_FAR(fl_jedec_ram)());   /* FM-1 Studio: was == 0x856014u */',
+        },
+      ]),
+      {
+        path: 'firmware/loader/loader.c',
+        find: '/* Felucca update loader (device side).',
+        replace: '/* FM-1 Studio changed this file in November 2026, when it loaded it: the flash chip check takes both chips. */\n' +
+          '/* Felucca update loader (device side).',
+      },
+      {
+        path: 'firmware/loader/loader.c',
+        find: 'return fl_jedec_ram() == 0x856014u; }   /* as the app (project.c) */',
+        replace: 'return FL_JEDEC_OK(fl_jedec_ram()); }   /* as the app (project.c); FM-1 Studio: was == 0x856014u */',
+      },
+    ],
     manifest: {
       sources: ['web/emu/cs1_web.c'],
       include: ['firmware/src', 'firmware/gen'],
@@ -3558,6 +3610,8 @@ const GITHUB_PROJECTS = [
       flags: ['-std=gnu99', '-Wno-unused-function'],
       stack: 1048576,
       web: {},
+      // FIRMWARE and INSTALL: the steps of CS-1's tools/build.py, with its VERSION file as APP_VER
+      device: { build: 'dinghy', name: 'cs1', product: 'FM-1_950', sources: ['firmware/src/cs1.c'], define: ['APP_VER="0.3.4"'] },
     },
   },
   {

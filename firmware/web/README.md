@@ -16,7 +16,7 @@ and to `build/`. Nothing is installed outside those folders.
 | `make_platform.py` | fm1-base, felucca-bsp and the SDK files in `~/.cache/fm1studio`; `firmware/adapter`; the compiler for Node | `src/fwsc/platform.json` |
 | `opentc.py` | The compiler for Node | A toolchain folder for fm1-base's `tools/build.py` |
 | `reference.sh` | A project zip | `build/fwsc-reference/NAME/`: the package, the image, `SHA256SUMS`, `build-log.txt` |
-| `reference_device.sh` | A checkout of a firmware with its own build (AURORA) | `build/fwsc-reference/NAME/`: the package, `SHA256SUMS`, `build-log.txt` |
+| `reference_device.sh` | A checkout of a firmware with its own build (AURORA, CS-1) | `build/fwsc-reference/NAME/`: the package, `SHA256SUMS`, `build-log.txt` |
 
 ## Origins
 
@@ -109,19 +109,26 @@ and the same name. The name of the zip file gives the name of the firmware. For 
 and for a project with a folder, an include path, defines and a flag, the hashes are the same
 (November 2026).
 
-For AURORA, which has its own build (`device` in its `fm1project.json`):
+For AURORA and CS-1, which have their own build (`device` in their `fm1project.json`), with the commit or
+tag of the gallery:
 
 ```
 git clone https://github.com/twochannels/AURORA ~/aurora
 git -C ~/aurora checkout d55484cd2eb86d3de316c1ec02ee444a7f2c18fe
 bash firmware/web/reference_device.sh ~/aurora
+
+git clone --branch v0.3.4 https://github.com/twochannels/CS-1 ~/cs-1
+bash firmware/web/reference_device.sh ~/cs-1
 ```
 
-This copies the checkout below `~/.cache/fm1studio/device-ref` and runs AURORA's own `tools/build.py`
-there with `opentc.py`. All checks of that `build.py` run, also those that need a disassembly. For a
-project with changes, save it in the page (SAVE) and unzip it over the checkout first. The name of the
-folder gives the folder of the result. For AURORA 0.9.1 unchanged and with a change in
-`firmware/src/aurora.c`, the page's package has the same hash (November 2026).
+This copies the checkout below `~/.cache/fm1studio/device-ref` and runs the firmware's own
+`tools/build.py` there with `opentc.py`. All checks of that `build.py` run, also those that need a
+disassembly. For a project with changes, save it in the page (SAVE) and unzip it over the checkout first.
+The name of the folder gives the folder of the result. The page's package had the same hash for AURORA
+0.9.1 unchanged and with a change in `firmware/src/aurora.c`, and for CS-1 0.3.4 unchanged and with
+AURORA's flash chip change (a new `firmware/hal/fm1_flash_id.h`, four changed lines) (November 2026). The
+gallery's CS-1, with the `patches` of its entry (the same change, with `FL_JEDEC_OK` in
+`firmware/hal/fm1_flash.h`), gives the same package as that second one.
 
 ## Design choices
 
@@ -142,8 +149,8 @@ folder gives the folder of the result. For AURORA 0.9.1 unchanged and with a cha
 - **One build, on one computer.** It is not known if a second build gives the same bytes.
 - **The build steps are there two times.** `firmware/make_app.py` and fm1-base's `build.py` do them in
   Python. The page that uses `src/fwsc` does them in JavaScript. A change in one must be made in the
-  other, or the hashes are not the same. The same holds for AURORA's `build.py`, `fm1pkg_make.py` and
-  `lz4blk.py`, and the `"dinghy"` build of the page.
+  other, or the hashes are not the same. The same holds for the `build.py`, `fm1pkg_make.py` and
+  `lz4blk.py` of AURORA and CS-1, and the `"dinghy"` build of the page.
 
 ## Licences
 
