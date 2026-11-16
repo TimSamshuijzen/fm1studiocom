@@ -165,6 +165,13 @@
     position: relative; min-width: 0; min-height: 0; padding: 16px 12px 10px;
     border: 1px solid var(--rule); border-radius: 7px; background: linear-gradient(#ffffff05, #0000 40%);
   }
+  /* A job of the panel is busy (a compile, a firmware build): its border pulses in the colour of the panel. */
+  .section.busy { animation: border-pulse 0.6s ease-in-out infinite alternate; }
+  @keyframes border-pulse {
+    from { border-color: color-mix(in srgb, var(--accent) 20%, var(--rule)); box-shadow: 0 0 0 #0000; }
+    to { border-color: var(--accent); box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 50%, #0000); }
+  }
+  @media (prefers-reduced-motion: reduce) { .section.busy { animation: none; border-color: var(--accent); } }
   .legend {  /* the title of a panel, on its border */
     position: absolute; z-index: 3; top: -8px; left: 12px; margin: 0; padding: 0 7px;
     display: flex; align-items: center; gap: 7px; background: var(--legend, var(--panel));
@@ -4118,6 +4125,7 @@ function setCompiling(busy) {
   $('compile').classList.toggle('lit', busy);
   $('compile').title = busy ? 'Compiling… please wait' : COMPILE_HINT;
   $('compile-progress').classList.toggle('busy', busy);
+  $('compile').closest('.section').classList.toggle('busy', busy);  // the border of PROGRAM pulses
   if (!busy) setProgress($('compile-progress'), 0);
 }
 
@@ -4277,6 +4285,7 @@ function showFirmware() {
   $('firmware').classList.toggle('lit', busy);
   $('firmware').title = hint(block) || FIRMWARE_HINT;
   for (const bar of firmwareBars) bar.classList.toggle('busy', busy);
+  $('firmware').closest('.section').classList.toggle('busy', busy);  // the border of FIRMWARE pulses
   // INSTALL is off for a project that FIRMWARE cannot build.
   const installBlock = block || (navigator.requestMIDIAccess ? '' : 'INSTALL needs Web MIDI: use Chrome or Edge on a computer.');
   // During an install, the button shows the dialog again.
