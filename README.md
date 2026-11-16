@@ -1,6 +1,6 @@
 # FM-1 Studio
 
-A vibe code workstation for the M-VAVE FM-1 synthesizer that runs in the browser: **[fm1studio.com](https://fm1studio.com)**.
+A code workstation for the M-VAVE FM-1 synthesizer that runs in the browser: **[fm1studio.com](https://fm1studio.com)**.
 
 Write a program in C, press COMPILE, and play it on a simulated FM-1. The compiler, the program
 and the simulator all run in the page. There is no server side and nothing to install. It is a simulation 
