@@ -629,7 +629,7 @@
               <button class="push" id="project-save" title="Download the project as a zip file">SAVE</button>
               <!-- A DEMO button loads the project in the text blocks with its name, as "demo-1/main.c". -->
               <span class="demos" role="group" aria-label="Demo projects">
-                <button class="push" data-demo="demo-1" title="Load DEMO-1: a progressive rock band in an FM-1">DEMO-1</button>
+                <button class="push" data-demo="demo-1" title="Load DEMO-1: a progressive rock band in an FM-1, by Hans Dam">DEMO-1</button>
               </span>
               <button class="push file-buttons" id="file-new" title="Add a file to the project">+ FILE</button>
               <button class="push" id="file-delete" title="Delete the file in the editor from the project">DELETE</button>
@@ -794,7 +794,7 @@ void loop(void) { }                         /* again and again: controls and scr
         <li>COMPILE, or <kbd>Ctrl</kbd> + <kbd>Enter</kbd>, compiles the project and runs the program.</li>
         <li>The demo project <code>main.c</code> uses all of the API: a small FM synthesizer with an
           arpeggiator, an echo and its own screen. DEMO-1 loads another demo: a progressive rock band in an
-          FM-1.</li>
+          FM-1, by Hans Dam.</li>
         <li>A project can have more than one file. The optional file <code>fm1project.json</code> says how
           the project is built: <code>sources</code>, <code>include</code>, <code>define</code> and
           <code>flags</code>.</li>
@@ -1885,7 +1885,7 @@ void loop(void) {
 }
 </script>
 
-<!-- ==== DEMO-1: the project that the DEMO-1 button loads, fm1project.json and main.c ==== -->
+<!-- ==== DEMO-1: the project that the DEMO-1 button loads, fm1project.json and main.c. By Hans Dam. ==== -->
 <script type="text/plain" id="demo-1/fm1project.json">
 {
   "sources": ["main.c"],
@@ -1898,6 +1898,7 @@ void loop(void) {
 
 <script type="text/plain" id="demo-1/main.c">
 /* main.c - DEMO-1: a progressive rock band in an FM-1.
+ * By Hans Dam.
  *
  * An original piece in the spirit of early-70s progressive rock, played by a
  * tonewheel organ through a rotating speaker, a picked FM bass, a lead synth

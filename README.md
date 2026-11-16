@@ -34,7 +34,7 @@ and runs it. Browsers block sound until a click or a key press, so click the pag
 | MIDI | The MIDI IN button asks the browser for permission |
 
 A project is a name and a set of text files. SAVE downloads it as a zip file and LOAD reads one back.
-DEMO-1 loads a demo project in place of the project: a progressive rock band in an FM-1.
+DEMO-1 loads a demo project in place of the project: a progressive rock band in an FM-1, by Hans Dam.
 The page keeps nothing between visits: save a project before you close the page.
 
 ## Write a program
@@ -259,7 +259,7 @@ files of the INSTALL button in `src/install`. The page has the styles, the page 
 | `fm1.h` | The API |
 | `fm1_runtime.c` | The simulator side of the API, linked into each program |
 | `fm1project.json`, `main.c` | The demo project |
-| `demo-1/fm1project.json`, `demo-1/main.c` | The project of the DEMO-1 button |
+| `demo-1/fm1project.json`, `demo-1/main.c` | The project of the DEMO-1 button, by Hans Dam |
 | `compiler-worker.js` | The compiler worker |
 | `fm1-worklet.js` | The audio worklet that runs the program |
 | `firmware-worker.js` | The worker of the FIRMWARE button |
@@ -402,6 +402,9 @@ The firmwares of the gallery are the work of their authors, under GPL-3.0-only, 
 other licences: see the `LICENSE`, `LICENSING.md` and `LICENSES/` files that load with each project. The
 page takes their code from their repositories when you press LOAD. The files in `src/extras` are made
 from that code, and their licences apply to them.
+
+The progressive rock band of the DEMO-1 button (`demo-1/main.c` in `src/index.html`, and
+`src/examples/prog-1`) by Hans Dam.
 
 The compiler is [wasm-clang](https://github.com/binji/wasm-clang) by Ben Smith, loaded from its demo
 site.

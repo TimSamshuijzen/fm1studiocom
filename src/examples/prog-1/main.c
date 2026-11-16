@@ -1,4 +1,5 @@
 /* main.c - PROG-1: a progressive rock band in an FM-1.
+ * By Hans Dam.
  *
  * An original piece in the spirit of early-70s progressive rock, played by a
  * tonewheel organ through a rotating speaker, a picked FM bass, a lead synth
