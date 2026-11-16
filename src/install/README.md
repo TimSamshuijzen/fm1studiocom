@@ -80,8 +80,8 @@ if (waiting) {
 - The codes of the errors: `notfound`, `model`, `open`, `foreign`, `stopped`, `lost`, `noloader`,
   `noreturn`, `mismatch`, `badreq`. The comments in `fm1ota.js` tell what each one means.
 
-For M-VAVE's own firmware (the way back), check the file first, and give `install` the SHA-256 of the
-file as its fourth argument: M-VAVE's Open firmware asks for it.
+For M-VAVE's own firmware (the way back; FM-1 Studio does not install it), check the file first, and give
+`install` the SHA-256 of the file as its fourth argument: M-VAVE's Open firmware asks for it.
 
 ```js
 const { sha256hex, stockChecksum } = await import('./install/fm1pkg.js');
@@ -93,8 +93,8 @@ await updater.install(image, product, step, sha256);
 A package of M-VAVE's firmware has the identity `FM-1_0` and two digits. After its install, the FM-1
 can tell another identity than the package: the error `mismatch` then means that the install is done.
 
-`fm1ota.js` has more than FM-1 Studio uses: the install of m-bootloader, and the resources of a
-firmware.
+`fm1ota.js` has more than FM-1 Studio uses: the install of M-VAVE's firmware and of m-bootloader, and
+the resources of a firmware.
 
 ## Make the files again
 

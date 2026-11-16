@@ -5,8 +5,7 @@ A code workstation for the M-VAVE FM-1 synthesizer that runs in the browser: **[
 Write a program in C, press COMPILE, and play it on a simulated FM-1. The compiler, the program
 and the simulator all run in the page. There is no server side and nothing to install. It is a simulation 
 of the FM-1 API, not an emulation of the CPUs. The FIRMWARE button makes an installable package for a
-real FM-1 from a project, also in the page. The INSTALL button writes it to an FM-1 over USB, and can
-put the firmware of M-VAVE back (see below).
+real FM-1 from a project, also in the page. The INSTALL button writes it to an FM-1 over USB.
 Code that works in this simulator does not guarantee it will work on a real FM-1.
 
 - **Code editor** with a file list, syntax colours and projects of more than one file.
@@ -86,9 +85,9 @@ that SAVE gives), with JieLi's own compiler: `firmware\build.cmd PROJECT.zip` on
 The INSTALL button builds the project and writes the package to an FM-1, over USB MIDI. A dialog shows
 the steps:
 
-1. **Read.** You select what to install: the program of the project, or the firmware of M-VAVE (see
-   "Back to the firmware of M-VAVE" below). The page makes the package of the project and checks it.
-   You read what an install does, and agree.
+1. **Read.** The page makes the package of the project and checks it. You read what an install does,
+   and agree. For a firmware of the gallery (AURORA, CS-1), you also agree that it is the work of its
+   authors and that you keep to its licence; the box links to its repository.
 2. **Connect.** Connect the FM-1 with a USB cable that carries data, and let it run as it is. CONNECT
    asks the browser for MIDI with SysEx messages, finds the FM-1, and tells which firmware it runs.
 3. **Install.** INSTALL NOW starts the install. The firmware on the FM-1 checks the package and starts
@@ -98,21 +97,16 @@ the steps:
 The button needs Chrome or Edge (Web MIDI), and the page from `https:` or `localhost`. Do not disconnect
 the cable during the install. An install that stops after the FM-1 went to update mode can continue:
 connect the cable again and go through the steps again. The code that talks to the FM-1 is fm1-base's
-own installer, not changed: [src/install/README.md](src/install/README.md).
+own installer, not changed: [src/install/README.md](src/install/README.md). INSTALL is off while a
+firmware of the gallery other than AURORA and CS-1 is open.
 
 ##### Back to the firmware of M-VAVE
 
-The first step of the INSTALL dialog has a second selection: the firmware of M-VAVE. Download
+The INSTALL dialog installs the program of the project only. To put the firmware of M-VAVE back, download
 [FM-1.fwsc](https://yms-file-store.oss-cn-hongkong.aliyuncs.com/software/firmware/FM-1.fwsc) from M-VAVE
-(version 16 in November 2026), select the file in the dialog, and do the same steps. This works when the
-firmware on the FM-1 starts, or the FM-1 is in its safe mode. INSTALL is off while a firmware of the
-gallery other than AURORA and CS-1 is open: open an `fm1.h` project, AURORA or CS-1 first.
-
-The page takes a file only when it tells that it is M-VAVE's firmware (identity `FM-1_0` and two digits)
-and its checksums are good. For versions 15 and 16 it must be M-VAVE's own file, byte for byte: fm1-base's
-installer has their SHA-256. The update loader of M-VAVE writes all of the flash memory, also the boot
-loader. We do not know if version 15 knows the newer flash chip (see "Which FM-1"): use the file from
-the link.
+(version 16 in November 2026) and install it with one of the other tools below. The update loader of
+M-VAVE writes all of the flash memory, also the boot loader. We do not know if version 15 knows the newer
+flash chip (see "Which FM-1"): use the file from the link.
 
 ##### Other tools
 
@@ -145,8 +139,8 @@ This is what fm1-base and felucca-bsp say about their own safety nets. We did no
   is the one that `fm1_rescue` (below) talks to: do not go there without need.
 - After two starts that fail, the FM-1 goes to a safe mode that makes no sound and takes an update. If
   safe mode fails too, it goes to the chip's update mode.
-- The INSTALL dialog, with M-VAVE's official file `FM-1.fwsc`, puts the stock firmware back (see "Back
-  to the firmware of M-VAVE" above). `fm1_install.py FM-1.fwsc` does the same.
+- `fm1_install.py FM-1.fwsc` of felucca-bsp, with M-VAVE's official file, puts the stock firmware back
+  (see "Back to the firmware of M-VAVE" above).
 - For an FM-1 that is in the chip's update mode and takes nothing else, felucca-bsp has `fm1_rescue`.
   That tool is for macOS only. We know of no such tool for Windows.
 
@@ -358,8 +352,8 @@ in its build also needs an extras file: a script that calls `fm1Extras({ path: t
 - The LEDs are on or off: the dim levels of some firmware are not shown.
 - FIRMWARE is for `fm1.h` programs in C, and for AURORA and CS-1. The other firmwares of the gallery
   have their own builds in their repositories: FIRMWARE and INSTALL are off for them, and their hints tell
-  why. To put the firmware of M-VAVE back, open an `fm1.h` project, AURORA or CS-1 first. The package of
-  an `fm1.h` program has no USB audio and no Bluetooth; USB MIDI in works.
+  why. INSTALL installs the program of the project only, not other files such as M-VAVE's firmware. The
+  package of an `fm1.h` program has no USB audio and no Bluetooth; USB MIDI in works.
 - The gallery's CS-1 is CS-1 0.3.4 with a change for the newer flash chip (see "AURORA and CS-1 on a
   real FM-1"): its package is not the same as CS-1's own build of 0.3.4.
 - For a changed AURORA or CS-1, the page does not do the checks of its build that need a disassembly:

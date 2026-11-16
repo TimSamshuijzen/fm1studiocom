@@ -558,10 +558,11 @@
   .dialog-text .actions { display: flex; align-items: center; gap: 12px; margin: 18px 0 0; }
   .dialog-text .check { display: flex; align-items: baseline; gap: 9px; margin-top: 16px; font-weight: 700; cursor: pointer; }
   .dialog-text .check input { flex: none; width: 16px; height: 16px; margin: 0; translate: 0 2px; accent-color: var(--stripe-2); }
-  .dialog-text .check + .state, .dialog-text .check + div { margin: 8px 0 0 25px; }  /* below a selection, in line with its text */
   .dialog-text .check:has(input:disabled) { color: var(--ink-dim); cursor: default; }
-  .dialog-text input[type="file"] { font: inherit; max-width: 100%; }
+  .dialog-text .check[hidden] { display: none; }
   .install .note { margin-top: 18px; }
+  .install [data-step="read"] .note, .install [data-step="read"] ul { font-size: 14px; line-height: 1.5; }
+  .install [data-step="read"] code { font-size: 13px; }
   .dialog-text .state {  /* what the page does or found now, on a small display */
     margin: 0 0 12px; padding: 9px 12px; border-radius: 6px; background: #14110e; color: var(--oled);
     font: 13px/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere;
@@ -569,7 +570,6 @@
   .dialog-text .state.bad { color: #ffb4a6; }
   .dialog-text .state.good { color: #9dffb4; }
   .dialog-text .progress { width: 100%; height: 12px; margin: 0 0 12px; border-radius: 6px; }
-  .dialog-text .check + .state + .progress { width: auto; margin: 8px 0 0 25px; }  /* the build of the package, below its display */
   .dialog-text .ports { margin: 0 0 12px; padding: 0; list-style: none; }
   .dialog-text .ports li { display: flex; align-items: center; gap: 12px; margin: 6px 0; }
   .dialog-text .ports .push { height: 24px; padding: 0 12px; font-size: 10px; }
@@ -644,7 +644,7 @@
           <h2 class="legend">FIRMWARE</h2>
           <div class="transport">
             <button class="big-button amber down" id="firmware" title="Build and download project as a .fwsc package. You can load this .fwsc package onto your FM-1 with M-Flasher, at your own risk. Make sure you have m-bootloader installed on your device first."><i></i>FIRMWARE</button>
-            <button class="big-button red send" id="install-open" title="Install the project on a real FM-1 over USB, or put the firmware of M-VAVE back, at your own risk. A dialog shows the steps." aria-haspopup="dialog"><i></i>INSTALL</button>
+            <button class="big-button red send" id="install-open" title="Install the program of the project on a real FM-1 over USB, at your own risk. A dialog shows the steps." aria-haspopup="dialog"><i></i>INSTALL</button>
             <div class="progress" id="firmware-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
               aria-label="Firmware progress, an estimate" title="Firmware progress (an estimate)"><i></i></div>
           </div>
@@ -814,8 +814,8 @@ void loop(void) { }                         /* again and again: controls and scr
         on the FM-1 checks the package and starts the update loader of the package, and that loader writes
         the program. The code that talks to the FM-1 is the installer of fm1-base
         <a class="ref" href="https://github.com/charlesvestal/fm1-base" target="_blank" rel="noopener" title="fm1-base">[3]</a>.
-        The same dialog puts the firmware of M-VAVE back: select it in the first step, with the file
-        <code>FM-1.fwsc</code> from M-VAVE.</p>
+        For a firmware of the gallery, the dialog also asks you to agree to keep to the licence of that
+        firmware.</p>
       <p class="note"><strong>No package of an <code>fm1.h</code> program was tried on a real FM-1 yet.</strong> Before you install one, read
         <a href="https://github.com/TimSamshuijzen/fm1studiocom#on-a-real-fm-1" target="_blank" rel="noopener">"On a real FM-1"</a>
         in the README: how to install a package, which FM-1 units it is for, and what to do when an install
@@ -863,8 +863,8 @@ void loop(void) { }                         /* again and again: controls and scr
           of the gallery uses one or more of these for its first load.</li>
         <li>FIRMWARE is for <code>fm1.h</code> programs in C, and for AURORA and CS-1. The other firmwares of the
           gallery have their own builds in their repositories: FIRMWARE and INSTALL are off for them, and
-          their hints tell why. To put the
-          firmware of M-VAVE back, open an <code>fm1.h</code> project, AURORA or CS-1 first. CS-1 0.3.4 knows
+          their hints tell why. INSTALL installs the program of the project only: to put the firmware of
+          M-VAVE back, use a tool of M-VAVE or another installer. CS-1 0.3.4 knows
           only the first flash chip of the FM-1: the page changes it when it loads it, so that it also takes
           the newer chip, as AURORA does. A package has no USB audio
           and no Bluetooth; USB MIDI in works.</li>
@@ -924,10 +924,10 @@ void loop(void) { }                         /* again and again: controls and scr
     </div>
   </dialog>
 
-  <!-- INSTALL: the dialog that the INSTALL button opens. It has three steps, and the page script shows
-       one of them at a time: read (the user selects the package: the one that the page makes of the
-       project during this step, or a file with M-VAVE's firmware), connect (the page finds the FM-1 on
-       USB MIDI), write (the page writes the package, and tells the result). -->
+  <!-- INSTALL: the dialog that the INSTALL button opens. It installs the program of the project. It has
+       three steps, and the page script shows one of them at a time: read (the page makes the package of
+       the project during this step, and the user agrees), connect (the page finds the FM-1 on USB MIDI),
+       write (the page writes the package, and tells the result). -->
   <dialog class="dialog install" id="install" aria-labelledby="install-title">
     <header class="dialog-head">
       <h2 class="logo" id="install-title">INSTALL</h2>
@@ -947,44 +947,25 @@ void loop(void) { }                         /* again and again: controls and scr
       </ol>
 
       <section data-step="read">
-        <p class="lead">This writes a firmware to a real M-VAVE FM-1, in place of the firmware that the FM-1
-          has now. Select what to install:</p>
-        <!-- The two packages. The page script shows the parts with data-for for the selected one only. -->
-        <label class="check"><input type="radio" name="install-what" id="install-project" value="project" checked>
-          The program of the project</label>
+        <p class="lead">This writes the program of this project to a real M-VAVE FM-1, in place of the
+          firmware that the FM-1 has now.</p>
         <p class="state" id="install-package" role="status"></p>
         <div class="progress" id="install-package-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
           aria-label="Package progress, an estimate" title="Package progress (an estimate)"><i></i></div>
-        <label class="check"><input type="radio" name="install-what" id="install-stock" value="stock">
-          The firmware of M-VAVE, to go back to it</label>
-        <div data-for="stock" hidden>
-          <ol>
-            <li>Download <a href="https://yms-file-store.oss-cn-hongkong.aliyuncs.com/software/firmware/FM-1.fwsc" target="_blank" rel="noopener">FM-1.fwsc</a>
-              from M-VAVE, if you do not have it.</li>
-            <li><label for="install-file">Select the file:</label>
-              <input type="file" id="install-file" accept=".fwsc"></li>
-          </ol>
-          <p class="state" id="install-stock-state" role="status">No file is selected.</p>
-        </div>
         <p class="note"><strong>No install from this page was done on a real FM-1 yet.</strong> You install
           at your own risk. An install that goes wrong can give an FM-1 that does not start.</p>
         <ul>
-          <li data-for="project">After the install, the FM-1 runs only this program, until you install
-            another firmware.</li>
-          <li data-for="project">Get M-VAVE's <code>FM-1.fwsc</code> before you install. With that file, the
-            second selection above puts the firmware of M-VAVE back, when the program on the FM-1 starts
-            or the FM-1 is in its safe mode.
+          <li>After the install, the FM-1 runs only this program, until you install another firmware.</li>
+          <li>Know your way back before you install: M-VAVE's own firmware, <code>FM-1.fwsc</code>, and a tool
+            that installs it.
             <a href="https://github.com/TimSamshuijzen/fm1studiocom#if-it-goes-wrong" target="_blank" rel="noopener">"If it goes wrong"</a>
             in the README tells what to do with an FM-1 that does not start.</li>
-          <li data-for="stock" hidden>This is for an FM-1 that runs a program from FM-1 Studio or another firmware on
-            fm1-base. The firmware on the FM-1 must start, or the FM-1 must be in its safe mode.</li>
-          <li data-for="stock" hidden>The update loader of M-VAVE writes all of the flash memory, also the part that
-            starts the FM-1.</li>
-          <li data-for="stock" hidden>Use the file from the link above. An older file (version 15) possibly does not
-            know the flash chip of a newer FM-1.</li>
           <li>The sounds and settings that the FM-1 has saved can be lost.</li>
           <li>You need Chrome or Edge on a computer, and a USB cable that carries data.</li>
         </ul>
+        <!-- For a firmware of the gallery only: the page script fills in its name, licence and repository. -->
+        <label class="check" id="install-licence-row" hidden><input type="checkbox" id="install-licence">
+          <span id="install-licence-text"></span></label>
         <label class="check"><input type="checkbox" id="install-agree"> I read this, and I install at my own risk.</label>
         <p class="actions"><button class="push" id="install-next" disabled>NEXT</button></p>
       </section>
@@ -4204,7 +4185,7 @@ function showFirmware() {
   $('firmware').classList.toggle('lit', busy);
   $('firmware').title = hint(block) || FIRMWARE_HINT;
   for (const bar of firmwareBars) bar.classList.toggle('busy', busy);
-  // INSTALL is off for a project that FIRMWARE cannot build, also for the firmware of M-VAVE.
+  // INSTALL is off for a project that FIRMWARE cannot build.
   const installBlock = block || (navigator.requestMIDIAccess ? '' : 'INSTALL needs Web MIDI: use Chrome or Edge on a computer.');
   // During an install, the button shows the dialog again.
   $('install-open').disabled = !installer.writing && (busy || installBlock !== '');
@@ -4298,22 +4279,18 @@ $('firmware').onclick = async () => {
 //      that is in the package.
 //   2. The loader reads the package and writes the program area of the flash memory.
 //   3. The FM-1 starts again, and tells the identity of the package.
-// The package is the one of the project, or a file with M-VAVE's own firmware: that one puts the
-// FM-1 back as it was, and its loader writes all of the flash memory.
+// The package is the one of the project: this dialog does not install other files.
 // In each step the FM-1 asks for parts of the package, and the computer answers. The code for this
 // is the installer of fm1-base, the platform of the package: the files of the folder install/, not
 // changed (install/README.md). The page gives it the package and Web MIDI, and shows its steps in
 // the INSTALL dialog.
 
 const install = $('install');
-// A package is { name, product, image, stock, sha256 }: the file name, the identity (the FM-1 tells
-// it after the install), the package as the FM-1 reads it (Uint8Array), true for M-VAVE's firmware,
-// and for that one the SHA-256 of the file.
+// The package is { name, product, image }: the file name, the identity (the FM-1 tells it after the
+// install), and the package as the FM-1 reads it (Uint8Array).
 const installer = {
   code: null,        // what install/fm1ota.js and install/fm1pkg.js export
-  project: null,     // the package of the project, or null when there is none
-  stock: null,       // the package of M-VAVE's firmware that the user selected, or null
-  package: null,     // the one of those two that the user installs
+  package: null,     // the package of the project, or null when there is none (yet)
   access: null,      // Web MIDI with SysEx
   tried: new Set(),  // the MIDI ports that the user let the page ask with TRY
   device: null,      // the FM-1 that CONNECT found: { id, name }
@@ -4327,7 +4304,7 @@ const INSTALL_ERRORS = {
     'tab uses MIDI, then click CONNECT.',
   model: 'This device is not an FM-1. Nothing was written.',
   open: 'This FM-1 runs M-VAVE\'s Open firmware. That firmware takes only the firmware of M-VAVE itself: ' +
-    'put the stock firmware back first. Nothing was written.',
+    'put the stock firmware back first, with a tool of M-VAVE. Nothing was written.',
   foreign: 'This FM-1 is in the update mode of M-VAVE\'s own firmware, and the package is not for that ' +
     'mode. Finish that update with the updater of M-VAVE first. Nothing was written.',
   noloader: 'The FM-1 did not come back in update mode. Disconnect the USB cable and connect it again, ' +
@@ -4361,15 +4338,40 @@ function showInstallStep(step) {
 // install/fm1ota.js, which that file does not export.)
 const stockVersion = (product) => (product === 'FM-1_099' ? null : /^FM-1_0(\d\d)$/.exec(product)?.[1] ?? null);
 
-// Shows the parts of the first step for the selected package, and NEXT when that package is
-// there and the user agreed.
-function showInstallChoice() {
-  const what = $('install-stock').checked ? 'stock' : 'project';
-  for (const part of install.querySelectorAll('[data-for]')) part.hidden = part.dataset.for !== what;
-  installer.package = installer[what];
-  $('install-next').disabled = !(installer.package && $('install-agree').checked);
+// The firmware of the gallery that the project is, or null for a project of the user: by the card
+// that loaded it, or else by the identity of its own build ("device" of fm1project.json).
+function galleryEntry() {
+  const loaded = GITHUB_PROJECTS.find(({ id }) => id === project.github);
+  if (loaded) return loaded;
+  let product = null;
+  try {
+    product = JSON.parse(project.files.get(MANIFEST))?.device?.product ?? null;
+  } catch {
+    // There is no fm1project.json, or it is not correct.
+  }
+  return (product && GITHUB_PROJECTS.find(({ manifest }) => manifest.device?.product === product)) || null;
 }
-$('install-project').onchange = $('install-stock').onchange = $('install-agree').onchange = showInstallChoice;
+
+// For a firmware of the gallery: a box to tick, that the firmware is the work of its authors and that
+// the user keeps to its licence. For a project of the user, no box.
+function showInstallLicence() {
+  const entry = galleryEntry();
+  $('install-licence-row').hidden = !entry;
+  $('install-licence').checked = false;
+  if (!entry) return;
+  const { repo, ref } = entry.sources[0];
+  const link = Object.assign(document.createElement('a'),
+    { href: `https://github.com/${repo}/tree/${ref}`, target: '_blank', rel: 'noopener', textContent: `github.com/${repo}` });
+  $('install-licence-text').replaceChildren(`${entry.label} is the work of its authors (`, link,
+    `), under ${entry.license}. I keep to its terms, also when I share the package.`);
+}
+
+// NEXT is there when the package is made and the user ticked the boxes.
+function showInstallReady() {
+  $('install-next').disabled = !(installer.package && $('install-agree').checked &&
+    ($('install-licence-row').hidden || $('install-licence').checked));
+}
+$('install-agree').onchange = $('install-licence').onchange = showInstallReady;
 
 // The modules of fm1-base's installer, loaded one time.
 async function installCode() {
@@ -4387,11 +4389,11 @@ $('install-open').onclick = async () => {
     install.showModal();
     return;
   }
-  installer.project = null;
+  installer.package = null;
   $('install-agree').checked = false;
-  $('install-project').checked = true;
+  showInstallLicence();
   installSay('install-package', `Making the package of ${project.name || 'project'}…`);
-  showInstallChoice();
+  showInstallReady();
   showInstallStep('read');
   install.showModal();
   try {
@@ -4405,40 +4407,12 @@ $('install-open').onclick = async () => {
     const fwsc = new Uint8Array(made.fwsc);
     const image = code.logicalImage(fwsc);
     code.checkUfw(image);
-    installer.project = { name: made.name, product: code.productOf(fwsc), image, stock: false };
-    installSay('install-package', `Package: ${made.name}\n${fwsc.length} bytes, identity ${installer.project.product}`, 'good');
+    installer.package = { name: made.name, product: code.productOf(fwsc), image };
+    installSay('install-package', `Package: ${made.name}\n${fwsc.length} bytes, identity ${installer.package.product}`, 'good');
   } catch (error) {
     installSay('install-package', `The package cannot be installed: ${error.message}`, 'bad');
   }
-  showInstallChoice();
-};
-
-// The file with M-VAVE's firmware that the user selected. It must tell that it is M-VAVE's, and
-// its checksums must be good. For the versions that fm1-base's installer has the SHA-256 of, it
-// must be that file, byte for byte.
-$('install-file').onchange = async () => {
-  const file = $('install-file').files[0];
-  installer.stock = null;
-  showInstallChoice();
-  if (!file) { installSay('install-stock-state', 'No file is selected.'); return; }
-  try {
-    const code = await installCode();
-    const fwsc = new Uint8Array(await file.arrayBuffer());
-    const product = code.productOf(fwsc);
-    const version = stockVersion(product);
-    if (version === null) throw new Error(`this is not the firmware of M-VAVE (it tells the identity ${JSON.stringify(product)}).`);
-    const image = code.logicalImage(fwsc);
-    code.checkUfw(image);
-    const sha256 = await code.sha256hex(fwsc);
-    const known = code.stockChecksum(product, fwsc.length, sha256);  // stops for a known version with another checksum
-    installer.stock = { name: file.name, product, image, stock: true, sha256 };
-    installSay('install-stock-state', `M-VAVE's firmware, version ${Number(version)}: ${file.name}\n${fwsc.length} bytes. ` +
-      (known ? 'It is M-VAVE\'s own file: the checksum is the known one.'
-        : 'No checksum is known for this version. The FM-1 checks the file before it writes.'), 'good');
-  } catch (error) {
-    installSay('install-stock-state', `This file cannot be installed: ${error.message}`, 'bad');
-  }
-  showInstallChoice();
+  showInstallReady();
 };
 
 // Esc and CLOSE close the dialog, but not during an install. A click outside it does nothing.
@@ -4469,13 +4443,12 @@ function newUpdater() {
 // when the package cannot be written to it. The update mode of M-VAVE's firmware, and M-VAVE's
 // Open firmware, take only M-VAVE's own firmware.
 function describeDevice(id) {
-  const stock = installer.package.stock;
   if (isLoader(id)) {
-    if (!stock && installer.code.IS_MVAVE_LOADER(id)) return { block: 'foreign' };
+    if (installer.code.IS_MVAVE_LOADER(id)) return { block: 'foreign' };
     return { text: 'It is in update mode: an install was not finished. The install of this package finishes it.' };
   }
   if (id.model !== 'FM-1') return { block: 'model' };
-  if (id.open) return stock ? { text: 'It runs M-VAVE\'s Open firmware.' } : { block: 'open' };
+  if (id.open) return { block: 'open' };
   const version = stockVersion(id.text);
   if (version !== null) return { text: `It runs M-VAVE's firmware, version ${Number(version)}.` };
   return { text: 'It runs a firmware that is not M-VAVE\'s.' };
@@ -4543,7 +4516,7 @@ $('install-ready').onclick = () => {
 
 // INSTALL NOW writes the package to the FM-1.
 $('install-go').onclick = async () => {
-  const { image, product, name, stock, sha256 } = installer.package;
+  const { image, product, name } = installer.package;
   installer.writing = true;
   $('install-go').disabled = $('install-close').disabled = true;
   showFirmware();
@@ -4580,13 +4553,11 @@ $('install-go').onclick = async () => {
       updateMode = true;
       if (!await updater.resume(image, step, product)) throw installError('stopped');
     } else {
-      await updater.install(image, product, step, sha256);
+      await updater.install(image, product, step);
     }
     installDone();
   } catch (error) {
-    // M-VAVE's firmware can tell its identity in another way than its package does.
-    if (stock && error.code === 'mismatch') installDone();
-    else installStopped(error);
+    installStopped(error);
   }
   installer.writing = false;
   $('install-close').disabled = false;
@@ -4594,10 +4565,10 @@ $('install-go').onclick = async () => {
 
   function installDone() {
     setProgress($('install-progress'), 1);
-    installSay('install-state', (stock ? 'Done. The FM-1 started again with the firmware of M-VAVE.'
-      : `Done. The FM-1 runs ${name.replace(/\.fwsc$/, '')} (${product}).`) + '\nYou can disconnect the USB cable.', 'good');
+    installSay('install-state', `Done. The FM-1 runs ${name.replace(/\.fwsc$/, '')} (${product}).\n` +
+      'You can disconnect the USB cable.', 'good');
     setStatus(`Installed ${name} on the FM-1`);
-    log(`install: done, the FM-1 runs ${stock ? 'the firmware of M-VAVE' : product}\n`);
+    log(`install: done, the FM-1 runs ${product}\n`);
     $('install-warning').hidden = $('install-go').hidden = true;
     showInstallStep('end');
   }
