@@ -35,6 +35,8 @@ and runs it. Browsers block sound until a click or a key press, so click the pag
 
 A project is a name and a set of text files. SAVE downloads it as a zip file and LOAD reads one back.
 DEMO-1 loads a demo project in place of the project: a progressive rock band in an FM-1, by Hans Dam.
+DEMO-2 loads space funk: an original piece in the spirit of the space sounds and the synth bass of
+"Macho City" (Steve Miller Band, 1981), with laser shots, a flying saucer and sonar pings on the buttons.
 The page keeps nothing between visits: save a project before you close the page.
 
 ## Write a program
@@ -260,6 +262,7 @@ files of the INSTALL button in `src/install`. The page has the styles, the page 
 | `fm1_runtime.c` | The simulator side of the API, linked into each program |
 | `fm1project.json`, `main.c` | The demo project |
 | `demo-1/fm1project.json`, `demo-1/main.c` | The project of the DEMO-1 button, by Hans Dam |
+| `demo-2/fm1project.json`, `demo-2/main.c` | The project of the DEMO-2 button |
 | `compiler-worker.js` | The compiler worker |
 | `fm1-worklet.js` | The audio worklet that runs the program |
 | `firmware-worker.js` | The worker of the FIRMWARE button |

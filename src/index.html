@@ -237,7 +237,7 @@
   .project-controls { display: grid; align-content: space-between; }
   .buttons { display: flex; gap: 7px; }
   .buttons .file-buttons { margin-left: auto; }
-  /* The DEMO buttons, smaller than the others: the row has room for three (DEMO-1, and DEMO-2 and DEMO-3 later). */
+  /* The DEMO buttons, smaller than the others: the row has room for three (DEMO-1, DEMO-2, and DEMO-3 later). */
   .demos { display: flex; gap: 3px; }
   .demos .push { padding: 0 4px; font-size: 9px; }
   /* A tray with a card for each firmware on GitHub. The tray scrolls sideways: a part of the next
@@ -630,6 +630,7 @@
               <!-- A DEMO button loads the project in the text blocks with its name, as "demo-1/main.c". -->
               <span class="demos" role="group" aria-label="Demo projects">
                 <button class="push" data-demo="demo-1" title="Load DEMO-1: a progressive rock band in an FM-1, by Hans Dam">DEMO-1</button>
+                <button class="push" data-demo="demo-2" title="Load DEMO-2: space funk, with laser shots, a flying saucer and sonar pings">DEMO-2</button>
               </span>
               <button class="push file-buttons" id="file-new" title="Add a file to the project">+ FILE</button>
               <button class="push" id="file-delete" title="Delete the file in the editor from the project">DELETE</button>
@@ -794,7 +795,8 @@ void loop(void) { }                         /* again and again: controls and scr
         <li>COMPILE, or <kbd>Ctrl</kbd> + <kbd>Enter</kbd>, compiles the project and runs the program.</li>
         <li>The demo project <code>main.c</code> uses all of the API: a small FM synthesizer with an
           arpeggiator, an echo and its own screen. DEMO-1 loads another demo: a progressive rock band in an
-          FM-1, by Hans Dam.</li>
+          FM-1, by Hans Dam. DEMO-2 loads space funk: a synth bass, a drum machine, and laser shots, a
+          flying saucer and sonar pings on the buttons.</li>
         <li>A project can have more than one file. The optional file <code>fm1project.json</code> says how
           the project is built: <code>sources</code>, <code>include</code>, <code>define</code> and
           <code>flags</code>.</li>
@@ -2985,6 +2987,1627 @@ void loop(void) {
     }
 
     update_leds(part);
+}
+</script>
+
+<!-- ==== DEMO-2: the project that the DEMO-2 button loads, fm1project.json and main.c ==== -->
+<script type="text/plain" id="demo-2/fm1project.json">
+{
+  "sources": ["main.c"],
+  "include": [],
+  "define": [],
+  "flags": [],
+  "stack": 65536
+}
+</script>
+
+<script type="text/plain" id="demo-2/main.c">
+/* main.c - DEMO-2: SPACE FUNK, an original piece for the FM-1.
+ *
+ * A funk band in orbit: a synth bass that pops and slides, a drum machine with
+ * a swing, a phased space pad, a lead synth with a ping-pong echo, and the
+ * sounds of a sky full of ships: laser shots, sweeps, a flying saucer and sonar
+ * pings. It is written in the spirit of the space sounds and the synth bass of
+ * "Macho City" by the Steve Miller Band (1981); the notes, the sounds and the
+ * arrangement are new. The band starts at once.
+ *
+ * The piece, in E dorian: LAUNCH (the pad and the space sounds), GROOVE (bass
+ * and drums, a clav), FLIGHT (with the lead), ORBIT (the bass with the kick and
+ * the hats, its filter opens), SPACEWALK (C, Bm, Am, Bm, with the lead),
+ * RE-ENTRY (a fill), and then again from the GROOVE.
+ *
+ *   PLAY/STOP   start or stop the band (it starts from the LAUNCH)
+ *   FX          a laser shot          SCL   a sweep
+ *   ENV         a flying saucer       LFO   a sonar ping
+ *   EDIT        a syn drum            ARP   the lead of the band on or off
+ *   Note keys   play the lead synth (a MIDI keyboard too)
+ *   OCT- OCT+   octave of the note keys
+ *   SELECT      tempo, 96 to 136 BPM
+ *   ALGORITHM   the part to jump to after the current bar
+ *   PRESETS     bass sound: FAT, SQUELCH, SLAP, SUB
+ *   KNOB 1      CUTOFF  the filter of the bass
+ *   KNOB 2      SPACE   the reverb and the space sounds
+ *   KNOB 3      ECHO    the ping-pong echo
+ *   KNOB 4      DRUMS   the level of the drums
+ *   MASTER      volume
+ *
+ * The screen: a flight through the stars, with the ships of the space sounds;
+ * the part, the chord and the bar; a light for each 16th note; the bass line of
+ * the bar; the knobs. The note keys light up with the bass and the lead.
+ */
+#include "fm1.h"
+#include <math.h>
+#include <string.h>
+
+#define RATE ((float)FM1_AUDIO_RATE)
+#define INV_RATE (1.0f / (float)FM1_AUDIO_RATE)
+#define PI 3.14159265f
+#define BIT(n) (1u << (n))
+#define COUNT(a) (int)(sizeof(a) / sizeof((a)[0]))
+
+/* ======================================================================
+ * Tools
+ * ====================================================================== */
+
+#define SINE_SIZE 4096
+static float sine_table[SINE_SIZE];
+
+/* phase in cycles */
+static float sine(float phase) { return sine_table[(int)(phase * SINE_SIZE) & (SINE_SIZE - 1)]; }
+
+static uint32_t noise_state = 0x2545F491u;
+static float noise(void) { /* -1 to 1 */
+    noise_state ^= noise_state << 13;
+    noise_state ^= noise_state >> 17;
+    noise_state ^= noise_state << 5;
+    return (float)(int32_t)noise_state * (1.0f / 2147483648.0f);
+}
+
+static float note_hz(float note) { return 440.0f * powf(2.0f, (note - 69.0f) * (1.0f / 12.0f)); }
+
+/* The factor for each sample that takes a level down to 1/1000 in `seconds`. */
+static float decay_of(float seconds) { return expf(-6.9f / (seconds * RATE)); }
+
+static int clamp(int value, int low, int high) { return value < low ? low : value > high ? high : value; }
+
+/* A soft limiter: about x for a small x, and smoothly to -1 or 1 for a large one. */
+static float soft(float x) {
+    if (x > 3.0f) return 1.0f;
+    if (x < -3.0f) return -1.0f;
+    float x2 = x * x;
+    return x * (27.0f + x2) / (27.0f + 9.0f * x2);
+}
+
+/* The step of an oscillator at its wrap, rounded off (polyBLEP): it does not alias much. */
+static float blep(float t, float dt) {
+    if (t < dt) {
+        t /= dt;
+        return t + t - t * t - 1.0f;
+    }
+    if (t > 1.0f - dt) {
+        t = (t - 1.0f) / dt;
+        return t * t + t + t + 1.0f;
+    }
+    return 0.0f;
+}
+
+static float saw(float *phase, float dt) {
+    float t = *phase;
+    float s = 2.0f * t - 1.0f - blep(t, dt);
+    t += dt;
+    if (t >= 1.0f) t -= 1.0f;
+    *phase = t;
+    return s;
+}
+
+static float square(float *phase, float dt) {
+    float t = *phase, half = t + 0.5f;
+    if (half >= 1.0f) half -= 1.0f;
+    float s = (t < 0.5f ? 1.0f : -1.0f) + blep(t, dt) - blep(half, dt);
+    t += dt;
+    if (t >= 1.0f) t -= 1.0f;
+    *phase = t;
+    return s;
+}
+
+static void advance(float *phase, float dt) {
+    *phase += dt;
+    if (*phase >= 1.0f) *phase -= 1.0f;
+}
+
+/* A state variable filter (trapezoidal): low pass, band pass and high pass at once. */
+typedef struct { float ic1, ic2, a1, a2, a3, k; } svf_t;
+
+/* res: 0 (smooth) to 1 (rings) */
+static void svf_tune(svf_t *f, float hz, float res) {
+    if (hz < 20.0f) hz = 20.0f;
+    if (hz > 15000.0f) hz = 15000.0f;
+    float w = PI * hz * INV_RATE, w2 = w * w;
+    float g = w * (15.0f - w2) / (15.0f - 6.0f * w2); /* tan(w) */
+    f->k = 2.0f - 1.96f * res;
+    f->a1 = 1.0f / (1.0f + g * (g + f->k));
+    f->a2 = g * f->a1;
+    f->a3 = g * f->a2;
+}
+
+/* One sample. Returns the low pass; *band gets the band pass (band can be 0). */
+static float svf(svf_t *f, float in, float *band) {
+    float v3 = in - f->ic2;
+    float v1 = f->a1 * f->ic1 + f->a2 * v3;
+    float v2 = f->ic2 + f->a2 * f->ic1 + f->a3 * v3;
+    f->ic1 = 2.0f * v1 - f->ic1;
+    f->ic2 = 2.0f * v2 - f->ic2;
+    if (band) *band = v1;
+    return v2;
+}
+
+/* ======================================================================
+ * Bass: a mono synth with a filter that snaps open, and slides
+ * ====================================================================== */
+
+typedef struct {
+    const char *name;
+    float saw, pulse, sine, fm;  /* the mix of the oscillators */
+    float detune;                /* the second saw, a ratio */
+    float cutoff, sweep, decay;  /* the filter: Hz, Hz more at the top of its envelope, its time in seconds */
+    float res, drive;
+} bass_sound_t;
+
+static const bass_sound_t bass_sounds[] = {
+    { "FAT", 0.8f, 0.0f, 0.42f, 0.0f, 1.0065f, 190.0f, 2600.0f, 0.20f, 0.32f, 1.7f },
+    { "SQUELCH", 0.55f, 0.45f, 0.35f, 0.0f, 1.0f, 110.0f, 4300.0f, 0.12f, 0.86f, 1.5f },
+    { "SLAP", 0.0f, 0.0f, 0.45f, 0.9f, 1.0f, 900.0f, 3600.0f, 0.10f, 0.15f, 1.5f },
+    { "SUB", 0.12f, 0.35f, 1.0f, 0.0f, 1.0f, 120.0f, 650.0f, 0.25f, 0.10f, 1.9f },
+};
+#define BASS_SOUNDS COUNT(bass_sounds)
+
+static struct {
+    int sounding, gate_left, note, tick;
+    float step, target, glide;
+    float saw1, saw2, pulse, sine, carrier, modulator;
+    float env, fenv, level, index;
+    svf_t filter;
+} bass;
+static int bass_sound;
+static float bass_fdecay, bass_cut = 1.0f, bass_open = 1.0f; /* bass_open: the arrangement opens the filter */
+
+static void set_bass_sound(int s) {
+    bass_sound = s;
+    bass_fdecay = decay_of(bass_sounds[s].decay);
+}
+
+/* glide: slide from the note that sounds, without a new pick */
+static void bass_on(int note, float level, int gate, int glide) {
+    bass.target = note_hz((float)note) * INV_RATE;
+    if (!glide || !bass.sounding) {
+        bass.step = bass.target;
+        bass.fenv = 1.0f;
+        bass.index = 3.2f;
+        bass.glide = 1.0f;
+    } else {
+        bass.glide = 0.0016f; /* about 14 ms */
+        if (bass.fenv < 0.45f) bass.fenv = 0.45f;
+    }
+    bass.level = level;
+    bass.gate_left = gate;
+    bass.sounding = 1;
+    bass.note = note;
+}
+
+static float bass_sample(void) {
+    if (!bass.sounding) return 0.0f;
+    const bass_sound_t *s = &bass_sounds[bass_sound];
+    if (bass.gate_left > 0) {
+        bass.gate_left--;
+        bass.env += (bass.level - bass.env) * 0.03f; /* about 1 ms */
+    } else {
+        bass.env *= 0.9965f; /* about 45 ms */
+        if (bass.env < 0.0003f) {
+            bass.sounding = 0;
+            bass.env = 0.0f;
+            return 0.0f;
+        }
+    }
+    bass.step += (bass.target - bass.step) * bass.glide;
+    float dt = bass.step, x = 0.0f;
+    if (s->saw > 0.0f) x += (saw(&bass.saw1, dt) + saw(&bass.saw2, dt * s->detune)) * 0.5f * s->saw;
+    if (s->pulse > 0.0f) x += square(&bass.pulse, dt) * s->pulse;
+    if (s->sine > 0.0f) {
+        x += sine(bass.sine) * s->sine;
+        advance(&bass.sine, dt);
+    }
+    if (s->fm > 0.0f) { /* a picked string: the modulation goes from bright to dull */
+        x += sine(bass.carrier + bass.index * sine(bass.modulator)) * s->fm;
+        bass.index = 0.5f + (bass.index - 0.5f) * 0.9993f;
+        advance(&bass.carrier, dt);
+        advance(&bass.modulator, dt);
+    }
+    bass.fenv *= bass_fdecay;
+    if ((bass.tick++ & 3) == 0) {
+        float hz = dt * RATE;
+        float cut = (s->cutoff + s->sweep * bass.fenv * bass.level) * bass_cut * bass_open * (0.6f + hz * (1.0f / 110.0f));
+        svf_tune(&bass.filter, cut, s->res);
+    }
+    return soft(svf(&bass.filter, x, 0) * s->drive) * bass.env;
+}
+
+/* ======================================================================
+ * Drums: a drum machine, and a syn drum that goes "pew"
+ * ====================================================================== */
+
+static struct { float phase, amp, pitch, click, level, low; } kick;
+static struct { float phase, tone, amp, level, low; } snare;
+static struct { int n; float tail, level; svf_t band; } clap;
+static struct { float amp, decay, level, low1, low2; } hat;
+static struct { float phase, hz, end, amp, level; } pew;
+
+static void kick_hit(float level) {
+    kick.amp = kick.pitch = kick.click = 1.0f;
+    kick.phase = 0.0f; /* from a zero crossing: no click of its own */
+    kick.level = level;
+}
+
+static float kick_sample(void) {
+    if (kick.amp < 0.0002f) return 0.0f;
+    float n = noise();
+    kick.low += (n - kick.low) * 0.3f; /* the beater: a short, soft tick */
+    float s = sine(kick.phase) * kick.amp + kick.low * kick.click * 0.35f;
+    advance(&kick.phase, (52.0f + 128.0f * kick.pitch) * INV_RATE);
+    kick.pitch *= 0.9986f;
+    kick.amp *= 0.99952f;
+    kick.click *= 0.9f;
+    return soft(s * 1.6f) * kick.level;
+}
+
+static void snare_hit(float level) {
+    snare.tone = snare.amp = 1.0f;
+    snare.level = level;
+}
+
+static float snare_sample(void) {
+    if (snare.amp < 0.0003f) return 0.0f;
+    float t = sine(snare.phase) * snare.tone;
+    advance(&snare.phase, 185.0f * INV_RATE);
+    snare.tone *= 0.9984f;
+    float n = noise();
+    snare.low += (n - snare.low) * 0.35f;
+    float s = t * 0.5f + (n - snare.low) * snare.amp * 1.2f;
+    snare.amp *= 0.99915f;
+    return s * snare.level * 1.6f;
+}
+
+static void clap_hit(float level) {
+    clap.n = 0;
+    clap.tail = 1.0f;
+    clap.level = level;
+}
+
+static float clap_sample(void) {
+    if (clap.n < 0) return 0.0f;
+    float e;
+    if (clap.n < 1050) { /* three quick claps, then the room */
+        e = 1.0f - (float)(clap.n % 350) * (1.0f / 350.0f);
+    } else {
+        clap.tail *= 0.99945f;
+        e = clap.tail * 0.8f;
+        if (clap.tail < 0.0005f) {
+            clap.n = -1;
+            return 0.0f;
+        }
+    }
+    clap.n++;
+    float b;
+    svf(&clap.band, noise(), &b);
+    return b * e * clap.level * 2.2f;
+}
+
+static void hat_hit(int open, float level) {
+    hat.amp = 1.0f;
+    hat.decay = decay_of(open ? 0.32f : 0.045f);
+    hat.level = level;
+}
+
+static float hat_sample(void) {
+    if (hat.amp < 0.0003f) return 0.0f;
+    float n = noise();
+    hat.low1 += (n - hat.low1) * 0.72f;
+    float h1 = n - hat.low1;
+    hat.low2 += (h1 - hat.low2) * 0.72f;
+    hat.amp *= hat.decay;
+    return (h1 - hat.low2) * hat.amp * hat.level * 4.5f;
+}
+
+static void pew_hit(float hz, float level) {
+    pew.hz = hz;
+    pew.end = hz * 0.16f;
+    pew.amp = 1.0f;
+    pew.level = level;
+}
+
+static float pew_sample(void) {
+    if (pew.amp < 0.0003f) return 0.0f;
+    float s = sine(pew.phase) * pew.amp;
+    advance(&pew.phase, pew.hz * INV_RATE);
+    pew.hz = pew.end + (pew.hz - pew.end) * 0.99955f;
+    pew.amp *= 0.99972f;
+    return s * pew.level;
+}
+
+/* ======================================================================
+ * Pad: four voices of two saws, a filter that breathes, and a phaser
+ * ====================================================================== */
+
+#define PAD_VOICES 4
+static struct { float saw1, saw2, step, target; } pad[PAD_VOICES];
+static float pad_amp, pad_target, pad_lfo, phaser_lfo;
+static svf_t pad_filter[2];
+static int pad_tick, pad_started;
+
+static void pad_chord(const int8_t *tones) {
+    for (int v = 0; v < PAD_VOICES; v++) {
+        pad[v].target = note_hz((float)tones[v]) * INV_RATE;
+        if (!pad_started) pad[v].step = pad[v].target;
+    }
+    pad_started = 1;
+}
+
+/* The two saws of each voice go to the two sides: the pad is wide. */
+static void pad_sample(float *left, float *right) {
+    pad_amp += (pad_target - pad_amp) * 0.00004f; /* swells in about half a second */
+    if (pad_amp < 0.0005f && pad_target == 0.0f) {
+        *left = *right = 0.0f;
+        return;
+    }
+    float l = 0.0f, r = 0.0f;
+    for (int v = 0; v < PAD_VOICES; v++) {
+        pad[v].step += (pad[v].target - pad[v].step) * 0.0012f; /* the voices glide to the next chord */
+        l += saw(&pad[v].saw1, pad[v].step * 1.004f);
+        r += saw(&pad[v].saw2, pad[v].step * 0.996f);
+    }
+    if ((pad_tick++ & 31) == 0) {
+        advance(&pad_lfo, 32.0f * 0.07f * INV_RATE);
+        svf_tune(&pad_filter[0], 1100.0f + 800.0f * sine(pad_lfo), 0.35f);
+        pad_filter[1] = (svf_t){ pad_filter[1].ic1, pad_filter[1].ic2, pad_filter[0].a1, pad_filter[0].a2, pad_filter[0].a3, pad_filter[0].k };
+    }
+    *left = svf(&pad_filter[0], l * 0.2f, 0) * pad_amp;
+    *right = svf(&pad_filter[1], r * 0.2f, 0) * pad_amp;
+}
+
+/* The phaser: four allpass stages for each side, swept by a slow LFO, with feedback. */
+#define STAGES 4
+static float ap_x[2][STAGES], ap_y[2][STAGES], ap_back[2];
+
+static float phaser(int side, float in, float a) {
+    float x = in + ap_back[side] * 0.5f;
+    for (int i = 0; i < STAGES; i++) {
+        float y = -a * x + ap_x[side][i] + a * ap_y[side][i];
+        ap_x[side][i] = x;
+        ap_y[side][i] = y;
+        x = y;
+    }
+    ap_back[side] = x;
+    return (in + x) * 0.6f;
+}
+
+/* ======================================================================
+ * Clav: short chords of three pulse waves, through a wah that closes
+ * ====================================================================== */
+
+#define CLAV_VOICES 3
+static struct { float phase[CLAV_VOICES], step[CLAV_VOICES], amp, level, wah; svf_t filter; int tick; } clav;
+
+/* A pulse wave of a quarter: a saw minus the same saw a quarter later */
+static float pulse(float *phase, float dt) {
+    float t = *phase, u = t + 0.25f;
+    if (u >= 1.0f) u -= 1.0f;
+    float s = (2.0f * t - blep(t, dt)) - (2.0f * u - blep(u, dt));
+    t += dt;
+    if (t >= 1.0f) t -= 1.0f;
+    *phase = t;
+    return s;
+}
+
+static void clav_hit(const int8_t *tones, float level) {
+    for (int v = 0; v < CLAV_VOICES; v++) clav.step[v] = note_hz((float)tones[v]) * INV_RATE;
+    clav.amp = 1.0f;
+    clav.wah = 1.0f;
+    clav.level = level;
+}
+
+static float clav_sample(void) {
+    if (clav.amp < 0.0003f) return 0.0f;
+    float x = 0.0f;
+    for (int v = 0; v < CLAV_VOICES; v++) x += pulse(&clav.phase[v], clav.step[v]);
+    clav.amp *= 0.99835f; /* about 95 ms */
+    clav.wah *= 0.9993f;
+    if ((clav.tick++ & 7) == 0) svf_tune(&clav.filter, 650.0f + 2300.0f * clav.wah, 0.62f);
+    float band;
+    svf(&clav.filter, x * 0.3f, &band);
+    return band * clav.amp * clav.level * 5.5f;
+}
+
+/* ---- The wind of space: noise through a slowly moving band pass ---- */
+
+static struct { float amp, target, lfo; svf_t band; int tick; } wind;
+
+static float wind_sample(void) {
+    wind.amp += (wind.target - wind.amp) * 0.00002f;
+    if (wind.amp < 0.0005f) return 0.0f;
+    if ((wind.tick++ & 31) == 0) {
+        advance(&wind.lfo, 32.0f * 0.05f * INV_RATE);
+        svf_tune(&wind.band, 700.0f + 500.0f * sine(wind.lfo) + 250.0f * sine(wind.lfo * 3.0f), 0.8f);
+    }
+    float band;
+    svf(&wind.band, noise(), &band);
+    return band * wind.amp;
+}
+
+/* ======================================================================
+ * Lead: two saws and a square an octave down, with a glide and a vibrato
+ * ====================================================================== */
+
+enum { LEAD_OFF, LEAD_ON, LEAD_RELEASE };
+static struct {
+    int stage, gate_left, held, tick, note;
+    float saw1, saw2, sub, vib;
+    float step, target, glide, env, fenv, level;
+    svf_t filter;
+} lead;
+
+/* gate 0: until lead_off() */
+static void lead_on(int note, float level, int gate) {
+    lead.target = note_hz((float)note) * INV_RATE;
+    lead.note = note;
+    if (lead.stage == LEAD_ON) {
+        lead.glide = 0.0022f; /* legato: a glide of about 10 ms */
+    } else {
+        lead.step = lead.target;
+        lead.glide = 1.0f;
+        lead.fenv = 1.0f;
+        lead.held = 0;
+    }
+    lead.stage = LEAD_ON;
+    lead.level = level;
+    lead.gate_left = gate;
+}
+
+static void lead_off(void) {
+    if (lead.stage == LEAD_ON) lead.stage = LEAD_RELEASE;
+}
+
+static float lead_sample(void) {
+    if (lead.stage == LEAD_OFF) return 0.0f;
+    if (lead.stage == LEAD_ON) {
+        if (lead.gate_left > 0 && --lead.gate_left == 0) lead.stage = LEAD_RELEASE;
+        lead.env += (lead.level - lead.env) * 0.004f;
+    } else {
+        lead.env *= 0.99984f; /* about 1 s */
+        if (lead.env < 0.0003f) {
+            lead.stage = LEAD_OFF;
+            lead.env = 0.0f;
+            return 0.0f;
+        }
+    }
+    lead.step += (lead.target - lead.step) * lead.glide;
+    /* a vibrato that comes in on a long note */
+    if (lead.held < 40000) lead.held++;
+    float depth = lead.held > 12000 ? (float)(lead.held - 12000) * (0.006f / 28000.0f) : 0.0f;
+    advance(&lead.vib, 5.4f * INV_RATE);
+    float dt = lead.step * (1.0f + depth * sine(lead.vib));
+    float x = saw(&lead.saw1, dt * 1.003f) + saw(&lead.saw2, dt * 0.997f) + 0.55f * square(&lead.sub, dt * 0.5f);
+    lead.fenv *= 0.99978f;
+    if ((lead.tick++ & 3) == 0) {
+        float hz = dt * RATE;
+        svf_tune(&lead.filter, (700.0f + 3800.0f * lead.fenv) * (0.55f + hz * (1.0f / 900.0f)), 0.45f);
+    }
+    return soft(svf(&lead.filter, x * 0.4f, 0) * 1.4f) * lead.env;
+}
+
+/* ======================================================================
+ * Space sounds
+ * ====================================================================== */
+
+enum { FX_LASER, FX_SWEEP, FX_UFO, FX_PING, FX_PEW, FX_RISE, FX_KINDS };
+
+static struct { float phase, mod, hz, amp, pan; int side; } laser;
+static struct { int n, len; float amp, pan; svf_t band; } sweep;
+static struct { int n, len; float phase, fifth, vib, amp; } ufo;
+static struct { float phase, hz, amp; } ping;
+
+static void laser_fire(void) {
+    laser.hz = 3400.0f;
+    laser.amp = 1.0f;
+    laser.side = !laser.side;
+    laser.pan = laser.side ? 0.2f : 0.8f;
+}
+
+static float laser_sample(void) {
+    if (laser.amp < 0.0003f) return 0.0f;
+    float s = sine(laser.phase + 0.9f * sine(laser.mod)) * laser.amp;
+    advance(&laser.phase, laser.hz * INV_RATE);
+    advance(&laser.mod, laser.hz * 1.49f * INV_RATE);
+    laser.hz *= 0.99966f; /* down to a tenth in 0.15 s */
+    if (laser.hz < 70.0f) laser.amp = 0.0f;
+    laser.amp *= 0.99982f;
+    return s;
+}
+
+static void sweep_start(float seconds) {
+    sweep.n = 0;
+    sweep.len = (int)(seconds * RATE);
+    sweep.amp = 1.0f;
+}
+
+static float sweep_sample(void) {
+    if (sweep.amp < 0.0003f) return 0.0f;
+    float x = (float)sweep.n / (float)sweep.len, level;
+    if (sweep.n < sweep.len) {
+        level = x * x;
+        sweep.n++;
+    } else {
+        sweep.amp *= 0.99965f; /* it falls away after its top */
+        level = sweep.amp;
+        x = 1.0f;
+    }
+    if ((sweep.n & 15) == 0) svf_tune(&sweep.band, 180.0f * expf(x * 3.4f), 0.75f);
+    advance(&sweep.pan, 0.45f * INV_RATE);
+    float b;
+    svf(&sweep.band, noise(), &b);
+    return b * level * 1.6f;
+}
+
+static void ufo_start(void) {
+    ufo.n = 0;
+    ufo.len = (int)(2.8f * RATE);
+}
+
+static float ufo_sample(float *pan) {
+    if (ufo.n >= ufo.len) return 0.0f;
+    float x = (float)ufo.n / (float)ufo.len;
+    ufo.n++;
+    float amp = x < 0.12f ? x * (1.0f / 0.12f) : x > 0.75f ? (1.0f - x) * 4.0f : 1.0f;
+    float hz = (330.0f + 520.0f * x * x) * (1.0f + 0.07f * sine(ufo.vib));
+    advance(&ufo.vib, 7.5f * INV_RATE);
+    float s = sine(ufo.phase) * 0.7f + sine(ufo.fifth) * 0.3f;
+    advance(&ufo.phase, hz * INV_RATE);
+    advance(&ufo.fifth, hz * 1.498f * INV_RATE);
+    *pan = 0.1f + 0.8f * x; /* it flies from left to right */
+    return s * amp;
+}
+
+static void ping_start(void) {
+    ping.hz = 1520.0f;
+    ping.amp = 1.0f;
+}
+
+static float ping_sample(void) {
+    if (ping.amp < 0.0003f) return 0.0f;
+    float s = sine(ping.phase) * ping.amp;
+    advance(&ping.phase, ping.hz * INV_RATE);
+    ping.hz *= 0.999992f;
+    ping.amp *= 0.99958f;
+    return s;
+}
+
+/* What the screen shows of each sound: a count for each start */
+static volatile uint32_t fx_shown[FX_KINDS];
+static float samples_per_step;
+
+static void fx_start(int kind) {
+    switch (kind) {
+    case FX_LASER: laser_fire(); break;
+    case FX_SWEEP: sweep_start(samples_per_step * 16.0f * INV_RATE); break;
+    case FX_RISE: sweep_start(samples_per_step * 32.0f * INV_RATE); break;
+    case FX_UFO: ufo_start(); break;
+    case FX_PING: ping_start(); break;
+    case FX_PEW: pew_hit(900.0f, 0.8f); break;
+    }
+    fx_shown[kind == FX_RISE ? FX_SWEEP : kind]++;
+}
+
+/* ======================================================================
+ * Effects: a ping-pong echo and a reverb
+ * ====================================================================== */
+
+#define ECHO_MAX 20800 /* 3 16ths at 96 BPM, and some more */
+static int16_t echo_line[2][ECHO_MAX];
+static int echo_pos, echo_delay = 17000;
+static float echo_dark;
+
+#define COMBS 4
+#define ALLPASSES 2
+#define SPREAD 23
+static const int comb_len[COMBS] = { 1116, 1188, 1277, 1356 };
+static const int allpass_len[ALLPASSES] = { 556, 441 };
+static float comb_line[2][COMBS][1356 + SPREAD], allpass_line[2][ALLPASSES][556 + SPREAD];
+static int comb_pos[2][COMBS], allpass_pos[2][ALLPASSES];
+static float comb_low[2][COMBS];
+
+static float reverb(int side, float in) {
+    float out = 0.0f;
+    for (int i = 0; i < COMBS; i++) {
+        float *line = comb_line[side][i];
+        int *pos = &comb_pos[side][i];
+        float y = line[*pos];
+        comb_low[side][i] += (y - comb_low[side][i]) * 0.55f; /* the high tones die first */
+        line[*pos] = in + comb_low[side][i] * 0.83f;
+        if (++*pos >= comb_len[i] + side * SPREAD) *pos = 0;
+        out += y;
+    }
+    for (int i = 0; i < ALLPASSES; i++) {
+        float *line = allpass_line[side][i];
+        int *pos = &allpass_pos[side][i];
+        float b = line[*pos];
+        line[*pos] = out + b * 0.5f;
+        out = b - out;
+        if (++*pos >= allpass_len[i] + side * SPREAD) *pos = 0;
+    }
+    return out;
+}
+
+/* ======================================================================
+ * The piece
+ * ====================================================================== */
+
+#define REST (-100)
+#define TIE (-101)
+#define S(n) (1u << (n))
+
+/* A bar of the bass: semitones above the root of the chord, REST or TIE (the note before goes on) */
+typedef struct { int8_t note[16]; uint16_t accent, ghost, glide; } bass_bar_t;
+
+static const bass_bar_t bass_bars[] = {
+    /* 0: the root, an octave pop, and up the scale with a chromatic step */
+    { { 0, TIE, 12, 0, REST, 3, 5, 6, 7, REST, 12, 10, REST, 7, 5, 3 }, S(0) | S(2) | S(8) | S(10), S(3), S(8) | S(11) },
+    /* 1 */
+    { { 0, TIE, 12, 0, 0, REST, 12, REST, 0, 3, 5, REST, 10, 12, 10, 7 }, S(0) | S(6) | S(13), S(3) | S(4), S(13) | S(14) },
+    /* 2: the way back */
+    { { 0, TIE, 12, 0, REST, 3, 5, REST, 7, TIE, 10, REST, 12, 10, 7, 6 }, S(0) | S(2) | S(8) | S(12), S(3), S(13) | S(15) },
+    /* 3: ORBIT, long notes */
+    { { 0, TIE, TIE, TIE, REST, REST, 12, REST, 0, TIE, REST, REST, 7, REST, 10, 12 }, S(0) | S(6) | S(8), 0, S(15) },
+    /* 4: SPACEWALK */
+    { { 0, TIE, TIE, 12, REST, 0, REST, 7, 0, TIE, 10, TIE, 12, REST, 7, REST }, S(0) | S(3) | S(8) | S(12), 0, S(12) },
+    /* 5: RE-ENTRY, three hits */
+    { { 0, REST, REST, 0, REST, REST, 0, REST, REST, REST, REST, REST, REST, REST, REST, REST }, S(0) | S(3) | S(6), 0, 0 },
+    /* 6: LAUNCH, a run up into the GROOVE */
+    { { REST, REST, REST, REST, REST, REST, REST, REST, REST, REST, REST, REST, 7, 10, 11, 12 }, S(12), 0, 0 },
+    /* 7: none */
+    { { REST, REST, REST, REST, REST, REST, REST, REST, REST, REST, REST, REST, REST, REST, REST, REST }, 0, 0, 0 },
+};
+
+typedef struct { const char *name; int8_t root, tones[PAD_VOICES]; } chord_t;
+enum { EM9, A9, CMAJ7, BM7, AM7 };
+static const chord_t chords[] = {
+    [EM9] = { "EM9", 28, { 55, 59, 62, 66 } },
+    [A9] = { "A9", 33, { 55, 59, 61, 64 } },
+    [CMAJ7] = { "CMAJ7", 36, { 55, 59, 60, 64 } },
+    [BM7] = { "BM7", 35, { 54, 57, 59, 62 } },
+    [AM7] = { "AM7", 33, { 55, 57, 60, 64 } },
+};
+
+/* The drums of a bar: a string for each drum, a digit (1 to 9) is a hit and its level */
+typedef struct { const char *kick, *snare, *clap, *hat, *open, *pew; } drum_bar_t;
+static const drum_bar_t drum_bars[] = {
+    /* 0: none */
+    { 0, 0, 0, 0, 0, 0 },
+    /* 1: GROOVE */
+    { "9..5..8...9.....", "....9..2....9..3", "............6...", "6363636363636.63", "..............7.", 0 },
+    /* 2: GROOVE, the last bar */
+    { "9..5..8...9.....", "....9..2....9.66", "............6...", "6363636363636363", 0, "..........5.7.9." },
+    /* 3: ORBIT */
+    { "9.........8.....", 0, "............5...", "..5...5...5...5.", "......4.......4.", 0 },
+    /* 4: SPACEWALK */
+    { "9.....8...9.....", "....8.......8...", 0, "5.5.5.5.5.5.5.5.", "..............6.", 0 },
+    /* 5: RE-ENTRY, a roll */
+    { "9...............", "3.3.4.4.55556789", 0, 0, 0, 0 },
+    /* 6: RE-ENTRY, three hits and a fall */
+    { "9..9..9.........", "9..9..9.........", "9..9..9.........", 0, 0, "........9.8.7.6." },
+    /* 7: LAUNCH, the last bar */
+    { 0, 0, 0, 0, 0, "........5.6.7.89" },
+    /* 8: ORBIT, the last bar */
+    { "9.........8.....", "............7.88", "............5...", "..5...5...5...5.", 0, "..............9." },
+};
+
+typedef struct { uint8_t bar, step, note, len; } lead_note_t; /* len in 16ths */
+typedef struct { uint8_t bar, step, kind; } fx_event_t;
+
+static const lead_note_t flight_lead[] = {
+    { 0, 2, 71, 2 }, { 0, 4, 74, 2 }, { 0, 6, 76, 6 },
+    { 1, 4, 79, 2 }, { 1, 6, 78, 2 }, { 1, 8, 76, 4 }, { 1, 14, 74, 2 },
+    { 2, 0, 76, 8 }, { 2, 8, 73, 2 }, { 2, 10, 71, 2 }, { 2, 12, 69, 4 },
+    { 3, 8, 67, 2 }, { 3, 10, 69, 2 }, { 3, 12, 71, 4 },
+    { 4, 0, 76, 4 }, { 4, 6, 71, 2 }, { 4, 8, 74, 2 }, { 4, 10, 76, 2 }, { 4, 12, 79, 4 },
+    { 5, 0, 81, 6 }, { 5, 6, 79, 2 }, { 5, 8, 76, 8 },
+    { 6, 2, 73, 2 }, { 6, 4, 76, 2 }, { 6, 6, 78, 4 }, { 6, 12, 76, 4 },
+    { 7, 0, 71, 12 },
+};
+
+static const lead_note_t spacewalk_lead[] = {
+    { 0, 0, 76, 4 }, { 0, 4, 79, 2 }, { 0, 6, 83, 6 }, { 0, 12, 81, 4 },
+    { 1, 0, 78, 8 }, { 1, 8, 74, 2 }, { 1, 10, 76, 2 }, { 1, 12, 78, 4 },
+    { 2, 0, 76, 6 }, { 2, 6, 72, 2 }, { 2, 8, 69, 4 }, { 2, 12, 67, 2 }, { 2, 14, 69, 2 },
+    { 3, 0, 71, 12 }, { 3, 12, 74, 2 }, { 3, 14, 78, 2 },
+    { 4, 0, 79, 4 }, { 4, 4, 76, 2 }, { 4, 6, 79, 2 }, { 4, 8, 83, 4 }, { 4, 12, 84, 4 },
+    { 5, 0, 83, 6 }, { 5, 6, 81, 2 }, { 5, 8, 78, 8 },
+    { 6, 0, 81, 4 }, { 6, 4, 79, 2 }, { 6, 6, 76, 2 }, { 6, 8, 72, 4 }, { 6, 12, 74, 4 },
+    { 7, 0, 78, 16 },
+};
+
+static const fx_event_t launch_fx[] = {
+    { 0, 0, FX_UFO }, { 1, 4, FX_PING }, { 1, 10, FX_PING }, { 2, 0, FX_RISE }, { 3, 14, FX_LASER },
+};
+static const fx_event_t groove_fx[] = { { 3, 6, FX_PING }, { 7, 12, FX_LASER } };
+static const fx_event_t flight_fx[] = { { 0, 0, FX_UFO }, { 5, 14, FX_LASER }, { 7, 8, FX_PING } };
+static const fx_event_t orbit_fx[] = {
+    { 0, 4, FX_LASER }, { 1, 12, FX_LASER }, { 2, 0, FX_PING }, { 2, 8, FX_PING }, { 3, 0, FX_SWEEP },
+};
+static const fx_event_t spacewalk_fx[] = { { 0, 0, FX_PING }, { 4, 0, FX_UFO }, { 7, 0, FX_SWEEP } };
+static const fx_event_t reentry_fx[] = { { 0, 0, FX_RISE }, { 1, 14, FX_LASER } };
+
+typedef struct {
+    const char *name;
+    int bars;
+    const uint8_t *chord, *bass, *drums; /* one for each bar */
+    const lead_note_t *lead;
+    int lead_count;
+    const fx_event_t *fx;
+    int fx_count;
+    const char *clav; /* the clav in each bar, as a drum (0: none) */
+    float pad, wind;  /* their levels */
+} part_t;
+
+enum { P_LAUNCH, P_GROOVE, P_FLIGHT, P_ORBIT, P_SPACEWALK, P_REENTRY, PARTS };
+#define LOOP_PART P_GROOVE /* after the RE-ENTRY */
+
+static const uint8_t launch_chord[] = { EM9, EM9, EM9, EM9 }, launch_bass[] = { 7, 7, 7, 6 }, launch_drums[] = { 0, 0, 0, 7 };
+static const uint8_t groove_chord[] = { EM9, EM9, A9, A9, EM9, EM9, A9, A9 };
+static const uint8_t groove_bass[] = { 0, 1, 0, 2, 0, 1, 0, 2 }, groove_drums[] = { 1, 1, 1, 1, 1, 1, 1, 2 };
+static const uint8_t orbit_chord[] = { EM9, EM9, A9, A9 }, orbit_bass[] = { 3, 3, 3, 3 }, orbit_drums[] = { 3, 3, 3, 8 };
+static const uint8_t walk_chord[] = { CMAJ7, BM7, AM7, BM7, CMAJ7, BM7, AM7, BM7 };
+static const uint8_t walk_bass[] = { 4, 4, 4, 4, 4, 4, 4, 4 }, walk_drums[] = { 4, 4, 4, 4, 4, 4, 4, 2 };
+static const uint8_t reentry_chord[] = { BM7, EM9 }, reentry_bass[] = { 7, 5 }, reentry_drums[] = { 5, 6 };
+
+#define GROOVE_CLAV "..7..5.5..7...6."
+static const part_t parts[PARTS] = {
+    [P_LAUNCH] = { "LAUNCH", 4, launch_chord, launch_bass, launch_drums, 0, 0, launch_fx, COUNT(launch_fx), 0, 1.0f, 1.0f },
+    [P_GROOVE] = { "GROOVE", 8, groove_chord, groove_bass, groove_drums, 0, 0, groove_fx, COUNT(groove_fx), GROOVE_CLAV, 0.6f, 0.0f },
+    [P_FLIGHT] = { "FLIGHT", 8, groove_chord, groove_bass, groove_drums, flight_lead, COUNT(flight_lead), flight_fx, COUNT(flight_fx), GROOVE_CLAV, 0.55f, 0.0f },
+    [P_ORBIT] = { "ORBIT", 4, orbit_chord, orbit_bass, orbit_drums, 0, 0, orbit_fx, COUNT(orbit_fx), "..........6.....", 0.8f, 0.8f },
+    [P_SPACEWALK] = { "SPACEWALK", 8, walk_chord, walk_bass, walk_drums, spacewalk_lead, COUNT(spacewalk_lead), spacewalk_fx, COUNT(spacewalk_fx), "..6...6...6...6.", 0.7f, 0.3f },
+    [P_REENTRY] = { "RE-ENTRY", 2, reentry_chord, reentry_bass, reentry_drums, 0, 0, reentry_fx, COUNT(reentry_fx), "6..6..6.........", 0.6f, 0.5f },
+};
+
+/* ---- The sequencer ---- */
+
+#define SWING 0.1f /* the second 16th of each pair comes this part of a 16th later */
+static volatile int playing, play_request, part, bar, step, next_part = -1;
+static volatile int tempo = 116, lead_auto = 1;
+static volatile uint32_t fx_request; /* a bit for each kind, from loop() */
+static volatile int key_note = -1;   /* the note that the keys hold, or -1 */
+static volatile uint32_t kick_count;
+static float countdown;
+static int lead_key = -1;
+
+static int gate_of(float steps) {
+    int g = (int)(steps * samples_per_step);
+    return g > 0 ? g : 1;
+}
+
+static void set_playing(int on) {
+    playing = on;
+    if (on) {
+        part = bar = step = 0;
+        next_part = -1;
+        countdown = 0.0f;
+    } else {
+        bass.gate_left = 0;
+        if (lead_key < 0) lead_off();
+        pad_target = wind.target = 0.0f;
+    }
+}
+
+static int level_at(const char *lane, int s) { return lane && lane[s] != '.' ? lane[s] - '0' : 0; }
+
+static void play_drums(const drum_bar_t *d, int s) {
+    int v;
+    if ((v = level_at(d->kick, s))) {
+        kick_hit(v * (1.0f / 9.0f));
+        kick_count++;
+    }
+    if ((v = level_at(d->snare, s))) snare_hit(v * (1.0f / 9.0f));
+    if ((v = level_at(d->clap, s))) clap_hit(v * (1.0f / 9.0f));
+    if ((v = level_at(d->hat, s))) hat_hit(0, v * (0.9f + 0.2f * (noise() * 0.5f + 0.5f)) * (1.0f / 9.0f));
+    if ((v = level_at(d->open, s))) hat_hit(1, v * (1.0f / 9.0f));
+    if ((v = level_at(d->pew, s))) {
+        pew_hit(160.0f + 95.0f * v, 0.7f);
+        fx_shown[FX_PEW]++;
+    }
+}
+
+static void play_bass(const bass_bar_t *b, int root, int s) {
+    int n = b->note[s];
+    if (n <= REST) return;
+    int len = 1;
+    while (s + len < 16 && b->note[s + len] == TIE) len++;
+    float level = (b->accent & S(s)) ? 1.0f : (b->ghost & S(s)) ? 0.45f : 0.78f;
+    float hold = len > 1 ? len - 0.35f : 0.62f; /* a short note is staccato */
+    bass_on(root + n, level, gate_of(hold), (b->glide & S(s)) != 0);
+}
+
+static void do_step(void) {
+    const part_t *p = &parts[part];
+    const chord_t *c = &chords[p->chord[bar]];
+    /* in the ORBIT the filter of the bass opens, bar by bar */
+    bass_open = part == P_ORBIT ? 0.45f + 1.1f * (float)(bar * 16 + step) / (16.0f * p->bars) : 1.0f;
+    if (step == 0) {
+        pad_chord(c->tones);
+        pad_target = p->pad;
+        wind.target = p->wind * 0.5f;
+    }
+    play_bass(&bass_bars[p->bass[bar]], c->root, step);
+    play_drums(&drum_bars[p->drums[bar]], step);
+    int v = level_at(p->clav, step);
+    if (v) clav_hit(c->tones + 1, v * (1.0f / 9.0f));
+    if (lead_auto && lead_key < 0)
+        for (int i = 0; i < p->lead_count; i++)
+            if (p->lead[i].bar == bar && p->lead[i].step == step)
+                lead_on(p->lead[i].note, 0.85f, gate_of(p->lead[i].len + 0.04f)); /* a little overlap: legato */
+    for (int i = 0; i < p->fx_count; i++)
+        if (p->fx[i].bar == bar && p->fx[i].step == step) fx_start(p->fx[i].kind);
+
+    if (++step == 16) {
+        step = 0;
+        if (next_part >= 0) {
+            part = next_part;
+            bar = 0;
+            next_part = -1;
+        } else if (++bar == p->bars) {
+            bar = 0;
+            part = part + 1 == PARTS ? LOOP_PART : part + 1;
+        }
+    }
+}
+
+/* ======================================================================
+ * Audio
+ * ====================================================================== */
+
+static volatile float space = 0.6f, echo_amount = 0.5f, drums_level = 0.75f;
+static float gain, phaser_a[2], bass_low;
+
+void audio(int32_t *out, int frames) {
+    if (play_request) {
+        play_request = 0;
+        set_playing(!playing);
+    }
+    uint32_t requests = fx_request;
+    if (requests) {
+        fx_request = 0;
+        for (int k = 0; k < FX_KINDS; k++)
+            if (requests & BIT(k)) fx_start(k);
+    }
+    int key = key_note;
+    if (key != lead_key) {
+        if (key >= 0) lead_on(key, 0.9f, 0);
+        else lead_off();
+        lead_key = key;
+    }
+    samples_per_step = RATE * 60.0f / (tempo * 4.0f);
+    echo_delay = (int)(samples_per_step * 3.0f); /* a dotted 8th */
+    if (echo_delay > ECHO_MAX - 1) echo_delay = ECHO_MAX - 1;
+    float target = (float)fm1_master() * (1.0f / FM1_MASTER_MAX);
+    float feedback = 0.25f + 0.45f * echo_amount, echo_out = 0.12f + 0.5f * echo_amount;
+    float sp = space, dr = drums_level;
+
+    for (int i = 0; i < frames; i++) {
+        if (playing) {
+            countdown -= 1.0f;
+            if (countdown <= 0.0f) {
+                countdown += samples_per_step * ((step & 1) ? 1.0f - SWING : 1.0f + SWING);
+                do_step();
+            }
+        }
+
+        float b = bass_sample();
+        bass_low += (b - bass_low) * 0.0045f; /* a high pass at about 30 Hz: no rumble below the notes */
+        b -= bass_low;
+        float k = kick_sample(), sn = snare_sample(), cl = clap_sample(), h = hat_sample(), pw = pew_sample();
+        float pdl, pdr;
+        pad_sample(&pdl, &pdr);
+        float ld = lead_sample(), cv = clav_sample(), wd = wind_sample();
+        float lz = laser_sample(), sw = sweep_sample(), ufo_pan = 0.5f, uf = ufo_sample(&ufo_pan), pg = ping_sample();
+
+        /* the phaser of the pad: its two sides sweep against each other */
+        if ((i & 15) == 0) {
+            advance(&phaser_lfo, 16.0f * 0.11f * INV_RATE);
+            phaser_a[0] = 0.74f + 0.19f * sine(phaser_lfo);
+            phaser_a[1] = 0.74f + 0.19f * sine(phaser_lfo + 0.5f);
+        }
+        float pl = phaser(0, pdl, phaser_a[0]), pr = phaser(1, pdr, phaser_a[1]);
+
+        /* the space sounds, each at its place */
+        float fx_mono = pg * 0.35f + pw * 0.5f + wd * 0.6f;
+        float fl = fx_mono + lz * 0.42f * (1.0f - laser.pan) + uf * 0.32f * (1.0f - ufo_pan) + sw * 0.5f * (0.5f - 0.4f * sine(sweep.pan));
+        float fr = fx_mono + lz * 0.42f * laser.pan + uf * 0.32f * ufo_pan + sw * 0.5f * (0.5f + 0.4f * sine(sweep.pan));
+
+        /* the ping-pong echo: the left line feeds the right one, which comes back darker */
+        int back = echo_pos - echo_delay;
+        if (back < 0) back += ECHO_MAX;
+        float el = echo_line[0][back] * (1.0f / 32767.0f), er = echo_line[1][back] * (1.0f / 32767.0f);
+        echo_dark += (er - echo_dark) * 0.3f;
+        float send = ld * 0.55f + lz * 0.5f + pg * 0.7f + pw * 0.35f + uf * 0.2f + cv * 0.12f;
+        echo_line[0][echo_pos] = (int16_t)(soft(send + echo_dark * feedback) * 32767.0f);
+        echo_line[1][echo_pos] = (int16_t)(el * 32767.0f);
+        if (++echo_pos == ECHO_MAX) echo_pos = 0;
+
+        float verb_in = ((pl + pr) * 0.25f + ld * 0.3f + cv * 0.2f + (sn * 0.35f + cl * 0.35f) * dr + (fl + fr) * 0.3f + (el + er) * 0.15f) * 0.028f;
+        float rl = reverb(0, verb_in), rr = reverb(1, verb_in);
+
+        /* as on a stage: the hats to the right, the clap and the clav to the left */
+        float dl = k + sn * 0.85f + cl * 0.8f + h * 0.5f + pw * 0.25f;
+        float drr = k + sn * 0.72f + cl * 0.4f + h * 1.0f + pw * 0.35f;
+        float left = b * 0.6f + dl * dr + pl * 0.9f + cv * 0.62f + ld * 0.3f + el * echo_out * 0.45f + (fl + rl * 2.0f) * sp;
+        float right = b * 0.6f + drr * dr + pr * 0.9f + cv * 0.38f + ld * 0.3f + er * echo_out * 0.45f + (fr + rr * 2.0f) * sp;
+
+        gain += (target - gain) * 0.0005f;
+        out[2 * i] = (int32_t)(soft(left * 0.44f) * gain * FM1_AUDIO_MAX);
+        out[2 * i + 1] = (int32_t)(soft(right * 0.44f) * gain * FM1_AUDIO_MAX);
+    }
+}
+
+/* ======================================================================
+ * Screen
+ * ====================================================================== */
+
+#define RGB(r, g, b) (uint16_t)((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3))
+#define BLACK RGB(0, 0, 0)
+#define DARK RGB(34, 30, 58)
+#define DIM RGB(110, 104, 150)
+#define WHITE RGB(255, 255, 255)
+#define MAGENTA RGB(255, 70, 200)
+#define CYAN RGB(60, 220, 255)
+
+static const uint16_t part_colour[PARTS] = {
+    RGB(170, 120, 255), RGB(255, 70, 200), RGB(60, 220, 255), RGB(255, 150, 40), RGB(90, 255, 140), RGB(255, 230, 70),
+};
+
+/* The layout, top to bottom */
+#define TITLE_Y 1
+#define VIEW_Y 19
+#define VIEW_H 100
+#define VIEW_CX 120
+#define VIEW_CY (VIEW_Y + VIEW_H / 2)
+#define GLOW_Y (VIEW_Y + VIEW_H)
+#define PART_Y 123
+#define STEPS_Y 134
+#define ROLL_Y 142
+#define ROLL_H 48
+#define KNOB_Y 196
+#define STATUS_Y 229
+
+/* fm1_lcd_fill_rect, cut to the screen */
+static void fill(int x, int y, int w, int h, uint16_t colour) {
+    if (x < 0) { w += x; x = 0; }
+    if (y < 0) { h += y; y = 0; }
+    if (x + w > (int)FM1_LCD_WIDTH) w = (int)FM1_LCD_WIDTH - x;
+    if (y + h > (int)FM1_LCD_HEIGHT) h = (int)FM1_LCD_HEIGHT - y;
+    if (w > 0 && h > 0) fm1_lcd_fill_rect((uint32_t)x, (uint32_t)y, (uint32_t)w, (uint32_t)h, colour);
+}
+
+/* fill(), but only inside the view of the stars */
+static void fill_view(int x, int y, int w, int h, uint16_t colour) {
+    if (y < VIEW_Y) { h -= VIEW_Y - y; y = VIEW_Y; }
+    if (y + h > VIEW_Y + VIEW_H) h = VIEW_Y + VIEW_H - y;
+    fill(x, y, w, h, colour);
+}
+
+/* A 5 x 7 font: five columns for each character, the lowest bit is the top row */
+static const char font_chars[] = " !%+-./0123456789:>ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+static const uint8_t font[][5] = {
+    { 0x00, 0x00, 0x00, 0x00, 0x00 }, { 0x00, 0x00, 0x5F, 0x00, 0x00 }, { 0x23, 0x13, 0x08, 0x64, 0x62 },
+    { 0x08, 0x08, 0x3E, 0x08, 0x08 }, { 0x08, 0x08, 0x08, 0x08, 0x08 }, { 0x00, 0x60, 0x60, 0x00, 0x00 },
+    { 0x20, 0x10, 0x08, 0x04, 0x02 },
+    { 0x3E, 0x51, 0x49, 0x45, 0x3E }, { 0x00, 0x42, 0x7F, 0x40, 0x00 }, { 0x42, 0x61, 0x51, 0x49, 0x46 },
+    { 0x21, 0x41, 0x45, 0x4B, 0x31 }, { 0x18, 0x14, 0x12, 0x7F, 0x10 }, { 0x27, 0x45, 0x45, 0x45, 0x39 },
+    { 0x3C, 0x4A, 0x49, 0x49, 0x30 }, { 0x01, 0x71, 0x09, 0x05, 0x03 }, { 0x36, 0x49, 0x49, 0x49, 0x36 },
+    { 0x06, 0x49, 0x49, 0x29, 0x1E },
+    { 0x00, 0x36, 0x36, 0x00, 0x00 }, { 0x00, 0x41, 0x22, 0x14, 0x08 },
+    { 0x7E, 0x11, 0x11, 0x11, 0x7E }, { 0x7F, 0x49, 0x49, 0x49, 0x36 }, { 0x3E, 0x41, 0x41, 0x41, 0x22 },
+    { 0x7F, 0x41, 0x41, 0x22, 0x1C }, { 0x7F, 0x49, 0x49, 0x49, 0x41 }, { 0x7F, 0x09, 0x09, 0x01, 0x01 },
+    { 0x3E, 0x41, 0x49, 0x49, 0x7A }, { 0x7F, 0x08, 0x08, 0x08, 0x7F }, { 0x00, 0x41, 0x7F, 0x41, 0x00 },
+    { 0x20, 0x40, 0x41, 0x3F, 0x01 }, { 0x7F, 0x08, 0x14, 0x22, 0x41 }, { 0x7F, 0x40, 0x40, 0x40, 0x40 },
+    { 0x7F, 0x02, 0x04, 0x02, 0x7F }, { 0x7F, 0x04, 0x08, 0x10, 0x7F }, { 0x3E, 0x41, 0x41, 0x41, 0x3E },
+    { 0x7F, 0x09, 0x09, 0x09, 0x06 }, { 0x3E, 0x41, 0x51, 0x21, 0x5E }, { 0x7F, 0x09, 0x19, 0x29, 0x46 },
+    { 0x46, 0x49, 0x49, 0x49, 0x31 }, { 0x01, 0x01, 0x7F, 0x01, 0x01 }, { 0x3F, 0x40, 0x40, 0x40, 0x3F },
+    { 0x1F, 0x20, 0x40, 0x20, 0x1F }, { 0x7F, 0x20, 0x18, 0x20, 0x7F }, { 0x63, 0x14, 0x08, 0x14, 0x63 },
+    { 0x07, 0x08, 0x70, 0x08, 0x07 }, { 0x61, 0x51, 0x49, 0x45, 0x43 },
+};
+
+/* Pictures are put together here, then sent to the screen in one call */
+static uint16_t picture[FM1_LCD_WIDTH * 16];
+
+/* a + (b - a) * t (t: 0 to 1) for two colours */
+static uint16_t blend(uint16_t a, uint16_t b, float t) {
+    int r = (int)((a >> 11) + ((int)(b >> 11) - (int)(a >> 11)) * t);
+    int g = (int)(((a >> 5) & 63) + ((int)((b >> 5) & 63) - (int)((a >> 5) & 63)) * t);
+    int bl = (int)((a & 31) + ((int)(b & 31) - (int)(a & 31)) * t);
+    return (uint16_t)(r << 11 | g << 5 | bl);
+}
+
+/* Draws text in a field of `width` characters (blank after the text), each 6 x 8 pixels times scale.
+ * The colour goes from `top` to `bottom` down the letters. */
+static void draw_text2(int x, int y, const char *text, int width, int scale, uint16_t top, uint16_t bottom, uint16_t back) {
+    int cw = 6 * scale, ch = 8 * scale, w = width * cw;
+    if (x + w > (int)FM1_LCD_WIDTH) w = (int)FM1_LCD_WIDTH - x;
+    for (int i = 0; i < w * ch; i++) picture[i] = back;
+    for (int c = 0; c < width && *text; c++, text++) {
+        const char *found = strchr(font_chars, *text);
+        if (!found || *text == ' ') continue;
+        const uint8_t *glyph = font[found - font_chars];
+        for (int row = 0; row < 7; row++) {
+            uint16_t colour = top == bottom ? top : blend(top, bottom, (float)row * (1.0f / 6.0f));
+            for (int col = 0; col < 5; col++)
+                if ((glyph[col] >> row) & 1)
+                    for (int sy = 0; sy < scale; sy++)
+                        for (int sx = 0; sx < scale; sx++) {
+                            int px = c * cw + col * scale + sx;
+                            if (px < w) picture[(row * scale + sy) * w + px] = colour;
+                        }
+        }
+    }
+    fm1_lcd_blit((uint32_t)x, (uint32_t)y, (uint32_t)w, (uint32_t)ch, picture, (uint32_t)(w * ch));
+}
+
+static void draw_text(int x, int y, const char *text, int width, int scale, uint16_t colour, uint16_t back) {
+    draw_text2(x, y, text, width, scale, colour, colour, back);
+}
+
+/* Writes value (0 to 999) and returns the end of the text */
+static char *put_number(char *t, int value) {
+    if (value >= 100) *t++ = (char)('0' + value / 100);
+    if (value >= 10) *t++ = (char)('0' + value / 10 % 10);
+    *t++ = (char)('0' + value % 10);
+    *t = 0;
+    return t;
+}
+
+/* ---- The view: stars that come at you, and the ships of the space sounds ---- */
+
+#define STARS 90
+static struct { float x, y, z; int16_t sx, sy, tx, ty; uint8_t size, trail, tint; } stars[STARS];
+static uint32_t look_state = 0x9E3779B9u;
+static float look_random(void) { /* 0 to 1, for the pictures only */
+    look_state ^= look_state << 13;
+    look_state ^= look_state >> 17;
+    look_state ^= look_state << 5;
+    return (float)(look_state >> 8) * (1.0f / 16777216.0f);
+}
+
+static float warp = 1.0f, warp_target = 1.0f;
+
+/* A planet with a ring, low on the right of the view. It is drawn one time: nothing else is drawn in
+ * its outline (in_planet), so nothing wipes it. */
+#define PLANET_X 197
+#define PLANET_Y 101
+#define PLANET_R 21
+#define RING_RX 38
+#define RING_RY 9
+
+static int in_planet(int x, int y) { /* with a margin for the dots of 2 x 2 pixels */
+    int dx = x - PLANET_X, dy = y - PLANET_Y;
+    if (dx * dx + dy * dy < (PLANET_R + 3) * (PLANET_R + 3)) return 1;
+    float ex = (float)dx * (1.0f / (RING_RX + 3)), ey = (float)dy * (1.0f / (RING_RY + 3));
+    return ex * ex + ey * ey < 1.0f;
+}
+
+static void draw_planet(void) {
+    const float lx = -0.55f, ly = -0.55f, lz = 0.63f; /* the light comes from the upper left */
+    int w = 2 * RING_RX + 3, x0 = PLANET_X - RING_RX - 1;
+    for (int y = PLANET_Y - PLANET_R; y < VIEW_Y + VIEW_H && y <= PLANET_Y + PLANET_R; y++) {
+        int dy = y - PLANET_Y;
+        for (int i = 0; i < w; i++) {
+            int dx = x0 + i - PLANET_X;
+            float ex = (float)dx * (1.0f / RING_RX), ey = (float)dy * (1.0f / RING_RY), e = ex * ex + ey * ey;
+            int ring_here = e > 0.52f && e < 1.0f && !(e > 0.76f && e < 0.8f);
+            int d2 = dx * dx + dy * dy;
+            uint16_t c = BLACK;
+            if (d2 < PLANET_R * PLANET_R && !(ring_here && dy > 0)) { /* the planet, in front of the back of the ring */
+                float nx = (float)dx / PLANET_R, ny = (float)dy / PLANET_R, nz = sqrtf(1.0f - nx * nx - ny * ny);
+                float light = nx * lx + ny * ly + nz * lz;
+                if (light < 0.0f) light = 0.0f;
+                float band = 0.5f + 0.5f * sinf(ny * 9.0f + 0.6f);
+                uint16_t surface = blend(RGB(255, 100, 170), RGB(255, 175, 80), band);
+                c = blend(RGB(34, 14, 60), surface, 0.12f + 0.88f * light);
+            } else if (ring_here) {
+                float side = 0.45f + 0.55f * (float)(i) / (float)w;
+                c = blend(RGB(40, 40, 80), RGB(190, 215, 255), side * (dy > 0 ? 1.0f : 0.7f));
+            }
+            picture[i] = c;
+        }
+        fm1_lcd_blit((uint32_t)x0, (uint32_t)y, (uint32_t)w, 1, picture, (uint32_t)w);
+    }
+}
+
+static void star_new(int i, float z) {
+    stars[i].x = (look_random() * 2.0f - 1.0f) * 1.3f;
+    stars[i].y = (look_random() * 2.0f - 1.0f) * 1.1f;
+    stars[i].z = z;
+    stars[i].tint = (uint8_t)(look_random() * 6.0f);
+}
+
+/* Where a star is on the screen, or 0 when it is outside the view */
+static int project(float x, float y, float z, int *sx, int *sy) {
+    if (z < 0.02f) return 0;
+    *sx = VIEW_CX + (int)(x / z * 70.0f);
+    *sy = VIEW_CY + (int)(y / z * 44.0f);
+    return *sx >= 0 && *sx < (int)FM1_LCD_WIDTH - 1 && *sy >= VIEW_Y && *sy < VIEW_Y + VIEW_H - 1;
+}
+
+static uint16_t star_colour(int tint, float near) { /* near: 0 (far) to 1 */
+    int v = 150 + (int)(105.0f * near);
+    switch (tint) {
+    case 0: return RGB(v, v * 3 / 5, v);   /* pink */
+    case 1: return RGB(v * 3 / 5, v, v);   /* cyan */
+    default: return RGB(v * 4 / 5, v * 4 / 5, v); /* white and blue */
+    }
+}
+
+/* the ships */
+static const char *const saucer_rows[] = {
+    "......2222......",
+    "....22222222....",
+    "..111111111111..",
+    "1113111311131111",
+    "..111111111111..",
+    "....11....11....",
+};
+#define SAUCER_W 32 /* drawn at twice the size of its rows */
+#define SAUCER_H 12
+static struct { int on, x, y, shown_x, shown_y, frame; } saucer = { 0, 0, 0, -100, 0, 0 };
+
+#define BOLTS 4
+static struct { int on, x, y, vx, shown_x, shown_y; uint16_t colour; } bolts[BOLTS];
+
+#define RING_DOTS 28
+static float ring_cos[RING_DOTS], ring_sin[RING_DOTS];
+static struct { int on, r; int16_t x[RING_DOTS], y[RING_DOTS]; } ring;
+
+#define SPARKS 10
+static struct { int on, life; float x, y, vx, vy; int16_t sx, sy; } sparks[SPARKS];
+
+static uint32_t seen_fx[FX_KINDS], seen_kick;
+static int glow, shown_glow = -1;
+
+static void start_pictures(void) {
+    if (fx_shown[FX_LASER] != seen_fx[FX_LASER]) {
+        seen_fx[FX_LASER] = fx_shown[FX_LASER];
+        int from_left = laser.side;
+        for (int n = 0; n < 2; n++)
+            for (int b = 0; b < BOLTS; b++)
+                if (!bolts[b].on) {
+                    bolts[b].on = 1;
+                    bolts[b].vx = from_left ? 16 : -16;
+                    bolts[b].x = from_left ? -20 - n * 34 : (int)FM1_LCD_WIDTH + n * 34;
+                    bolts[b].y = VIEW_Y + 10 + (int)(look_random() * 44.0f); /* above the planet */
+                    bolts[b].shown_x = -1000;
+                    bolts[b].colour = n ? RGB(255, 80, 80) : RGB(255, 60, 200);
+                    break;
+                }
+    }
+    if (fx_shown[FX_SWEEP] != seen_fx[FX_SWEEP]) {
+        seen_fx[FX_SWEEP] = fx_shown[FX_SWEEP];
+        warp_target = 7.0f;
+    }
+    if (fx_shown[FX_UFO] != seen_fx[FX_UFO]) {
+        seen_fx[FX_UFO] = fx_shown[FX_UFO];
+        saucer.on = 1;
+        saucer.frame = 0;
+    }
+    if (fx_shown[FX_PING] != seen_fx[FX_PING]) {
+        seen_fx[FX_PING] = fx_shown[FX_PING];
+        ring.on = 1;
+        ring.r = 4;
+    }
+    if (fx_shown[FX_PEW] != seen_fx[FX_PEW]) {
+        seen_fx[FX_PEW] = fx_shown[FX_PEW];
+        float cx = 30.0f + look_random() * 120.0f, cy = VIEW_Y + 20.0f + look_random() * (VIEW_H - 40);
+        for (int s = 0; s < SPARKS; s++) {
+            float a = (float)s / SPARKS + look_random() * 0.05f;
+            sparks[s].on = 1;
+            sparks[s].life = 9;
+            sparks[s].x = cx;
+            sparks[s].y = cy;
+            sparks[s].vx = sine(a + 0.25f) * 5.0f;
+            sparks[s].vy = sine(a) * 3.2f;
+        } /* (sx and sy stay where the spark was drawn: the next picture wipes it there) */
+    }
+    if (kick_count != seen_kick) {
+        seen_kick = kick_count;
+        glow = 8;
+    }
+}
+
+/* One picture of the view: everything that moved is wiped where it was, and drawn where it is now. */
+static void draw_view(void) {
+    start_pictures();
+    warp += (warp_target - warp) * 0.15f;
+    warp_target += (1.0f - warp_target) * 0.03f;
+    float speed = 0.0045f * (float)tempo / 116.0f * warp * (glow > 4 ? 1.35f : 1.0f);
+
+    /* wipe */
+    for (int i = 0; i < STARS; i++) {
+        if (stars[i].size) fill(stars[i].sx, stars[i].sy, stars[i].size, stars[i].size, BLACK);
+        if (stars[i].trail) fill(stars[i].tx, stars[i].ty, 1, 1, BLACK);
+    }
+    if (saucer.shown_x > -100) fill_view(saucer.shown_x, saucer.shown_y, SAUCER_W, SAUCER_H, BLACK);
+    for (int b = 0; b < BOLTS; b++)
+        if (bolts[b].shown_x > -1000) fill_view(bolts[b].shown_x, bolts[b].shown_y - 1, 22, 4, BLACK);
+    if (ring.on)
+        for (int d = 0; d < RING_DOTS; d++)
+            if (!in_planet(ring.x[d], ring.y[d])) fill_view(ring.x[d], ring.y[d], 2, 2, BLACK);
+    for (int s = 0; s < SPARKS; s++)
+        if (sparks[s].on && sparks[s].sx >= 0 && !in_planet(sparks[s].sx, sparks[s].sy)) fill_view(sparks[s].sx, sparks[s].sy, 2, 2, BLACK);
+
+    /* the stars */
+    for (int i = 0; i < STARS; i++) {
+        stars[i].z -= speed;
+        int sx, sy;
+        if (!project(stars[i].x, stars[i].y, stars[i].z, &sx, &sy)) {
+            star_new(i, 0.8f + look_random() * 0.25f);
+            stars[i].size = stars[i].trail = 0;
+            continue;
+        }
+        stars[i].trail = 0;
+        if (in_planet(sx, sy)) { /* behind the planet */
+            stars[i].size = 0;
+            continue;
+        }
+        float near = 1.0f - stars[i].z;
+        if (near < 0.0f) near = 0.0f;
+        stars[i].sx = (int16_t)sx;
+        stars[i].sy = (int16_t)sy;
+        stars[i].size = stars[i].z < 0.38f ? 2 : 1;
+        fill(sx, sy, stars[i].size, stars[i].size, star_colour(stars[i].tint, near));
+        int tx, ty;
+        if (warp > 1.8f && project(stars[i].x, stars[i].y, stars[i].z + speed * 2.5f, &tx, &ty) && (tx != sx || ty != sy) && !in_planet(tx, ty)) {
+            stars[i].tx = (int16_t)tx;
+            stars[i].ty = (int16_t)ty;
+            stars[i].trail = 1;
+            fill(tx, ty, 1, 1, star_colour(stars[i].tint, near * 0.4f));
+        }
+    }
+
+    /* the ships */
+    for (int b = 0; b < BOLTS; b++) {
+        if (!bolts[b].on) continue;
+        bolts[b].x += bolts[b].vx;
+        if (bolts[b].x < -40 || bolts[b].x > (int)FM1_LCD_WIDTH + 40) {
+            bolts[b].on = 0;
+            bolts[b].shown_x = -1000;
+            continue;
+        }
+        fill_view(bolts[b].x, bolts[b].y - 1, 22, 4, RGB(90, 20, 60));
+        fill_view(bolts[b].x + 2, bolts[b].y, 18, 2, bolts[b].colour);
+        bolts[b].shown_x = bolts[b].x;
+        bolts[b].shown_y = bolts[b].y;
+    }
+    if (ring.on) {
+        ring.r += 4;
+        if (ring.r > 96) {
+            ring.on = 0;
+        } else {
+            int v = 255 - ring.r * 2;
+            uint16_t colour = RGB(v / 3, v, v * 2 / 3);
+            for (int d = 0; d < RING_DOTS; d++) {
+                ring.x[d] = (int16_t)(VIEW_CX + (int)(ring_cos[d] * (float)ring.r));
+                ring.y[d] = (int16_t)(VIEW_CY + (int)(ring_sin[d] * (float)ring.r * 0.55f));
+                if (!in_planet(ring.x[d], ring.y[d])) fill_view(ring.x[d], ring.y[d], 2, 2, colour);
+            }
+        }
+    }
+    for (int s = 0; s < SPARKS; s++) {
+        if (!sparks[s].on) continue;
+        if (--sparks[s].life <= 0) {
+            sparks[s].on = 0;
+            continue;
+        }
+        sparks[s].x += sparks[s].vx;
+        sparks[s].y += sparks[s].vy;
+        sparks[s].sx = (int16_t)sparks[s].x;
+        sparks[s].sy = (int16_t)sparks[s].y;
+        int v = 80 + sparks[s].life * 19;
+        if (!in_planet(sparks[s].sx, sparks[s].sy)) fill_view(sparks[s].sx, sparks[s].sy, 2, 2, RGB(255, v, v / 3));
+    }
+    if (saucer.on) {
+        saucer.frame++;
+        saucer.x = -SAUCER_W + saucer.frame * 3;
+        saucer.y = VIEW_Y + 22 + (int)(sine((float)saucer.frame * 0.03f) * 14.0f);
+        if (saucer.x > (int)FM1_LCD_WIDTH) {
+            saucer.on = 0;
+            saucer.shown_x = -100;
+        } else {
+            uint16_t lights = (saucer.frame >> 2) & 1 ? RGB(255, 230, 70) : RGB(255, 80, 60);
+            for (int r = 0; r < SAUCER_H; r++)
+                for (int c = 0; c < SAUCER_W; c++) {
+                    char p = saucer_rows[r / 2][c / 2];
+                    picture[r * SAUCER_W + c] = p == '1' ? (r & 1 ? RGB(120, 130, 155) : RGB(185, 195, 215))
+                        : p == '2' ? (r < 2 ? RGB(170, 245, 255) : CYAN) : p == '3' ? lights : BLACK;
+                }
+            int x = saucer.x, w = SAUCER_W, skip = 0;
+            if (x < 0) { skip = -x; w += x; x = 0; }
+            if (x + w > (int)FM1_LCD_WIDTH) w = (int)FM1_LCD_WIDTH - x;
+            if (w > 0) {
+                if (skip || w < SAUCER_W) /* cut at the edge: a row at a time */
+                    for (int r = 0; r < SAUCER_H; r++)
+                        fm1_lcd_blit((uint32_t)x, (uint32_t)(saucer.y + r), (uint32_t)w, 1, picture + r * SAUCER_W + skip, (uint32_t)w);
+                else
+                    fm1_lcd_blit((uint32_t)x, (uint32_t)saucer.y, SAUCER_W, SAUCER_H, picture, SAUCER_W * SAUCER_H);
+            }
+            saucer.shown_x = x;
+            saucer.shown_y = saucer.y;
+        }
+    }
+
+    /* the line below the view glows with the kick */
+    if (glow > 0) glow--;
+    if (glow != shown_glow) {
+        int v = 40 + glow * 26;
+        fill(0, GLOW_Y, FM1_LCD_WIDTH, 2, RGB(v, v / 4, v * 3 / 4));
+        shown_glow = glow;
+    }
+}
+
+/* ---- The rest of the screen ---- */
+
+static int knob[FM1_NENC];
+static const int knob_max[FM1_NENC] = { 0, PARTS - 1, 12, 12, 12, 12, BASS_SOUNDS - 1 };
+static int octave = 1;
+
+static void draw_title(void) {
+    char text[12];
+    draw_text2(4, TITLE_Y, "DEMO-2", 6, 2, MAGENTA, RGB(255, 160, 50), BLACK);
+    draw_text(84, TITLE_Y, "SPACE FUNK", 10, 1, DIM, BLACK);
+    draw_text(84, TITLE_Y + 8, "BASS", 4, 1, DIM, BLACK);
+    draw_text(114, TITLE_Y + 8, bass_sounds[bass_sound].name, 7, 1, CYAN, BLACK);
+    char *end = put_number(text, tempo);
+    strcpy(end, " BPM");
+    draw_text(190, TITLE_Y + 4, text, 8, 1, WHITE, BLACK);
+}
+
+static void draw_part(int p, int b, int on, int next) {
+    char text[16];
+    draw_text(4, PART_Y, parts[p].name, 9, 1, on ? part_colour[p] : DIM, BLACK);
+    draw_text(64, PART_Y, chords[parts[p].chord[b]].name, 5, 1, WHITE, BLACK);
+    strcpy(text, "BAR ");
+    char *end = put_number(text + 4, b + 1);
+    *end++ = '/';
+    put_number(end, parts[p].bars);
+    draw_text(100, PART_Y, text, 8, 1, DIM, BLACK);
+    if (next >= 0) {
+        text[0] = '>';
+        strcpy(text + 1, parts[next].name);
+        draw_text(154, PART_Y, text, 14, 1, part_colour[next], BLACK);
+    } else {
+        draw_text(154, PART_Y, "", 14, 1, DIM, BLACK);
+    }
+}
+
+static void draw_step_light(int s, int lit, uint16_t colour) {
+    fill(s * 15 + 1, STEPS_Y, 13, 4, lit ? colour : (s & 3) == 0 ? DIM : DARK);
+}
+
+/* The bass line of a bar: a bar for each note, high notes higher */
+static int roll_y(int note) { return ROLL_Y + ROLL_H - 3 - (clamp(note, 26, 49) - 26) * 2; }
+
+static void draw_roll_note(const bass_bar_t *b, int root, int s, int lit, uint16_t colour) {
+    int n = b->note[s];
+    if (n <= REST) return;
+    int len = 1;
+    while (s + len < 16 && b->note[s + len] == TIE) len++;
+    uint16_t c = lit ? WHITE : (b->ghost & S(s)) ? DIM : colour;
+    fill(s * 15 + 1, roll_y(root + n), len * 15 - 2, 3, c);
+}
+
+static void draw_roll(int p, int b) {
+    fill(0, ROLL_Y, FM1_LCD_WIDTH, ROLL_H, BLACK);
+    for (int s = 0; s < 16; s += 4) fill(s * 15, ROLL_Y, 1, ROLL_H, DARK); /* the beats */
+    const bass_bar_t *bb = &bass_bars[parts[p].bass[b]];
+    for (int s = 0; s < 16; s++) draw_roll_note(bb, chords[parts[p].chord[b]].root, s, 0, part_colour[p]);
+}
+
+static void draw_knob(int k) {
+    static const char *const names[4] = { "CUTOFF", "SPACE", "ECHO", "DRUMS" };
+    int value = knob[FM1_ENC_KNOB1 + k], x = 4 + k * 60;
+    char text[4];
+    draw_text(x, KNOB_Y, names[k], 6, 1, DIM, BLACK);
+    fill(x, KNOB_Y + 11, value * 4, 4, part_colour[1 + k]);
+    fill(x + value * 4, KNOB_Y + 11, 48 - value * 4, 4, DARK);
+    put_number(text, value);
+    draw_text(x, KNOB_Y + 18, text, 2, 1, WHITE, BLACK);
+}
+
+static void draw_status(int on) {
+    if (on) draw_text(4, STATUS_Y, "FX:LASER SCL:SWEEP ENV:UFO LFO:PING", 39, 1, DIM, BLACK);
+    else draw_text(4, STATUS_Y, "PLAY: LAUNCH THE BAND", 39, 1, WHITE, BLACK);
+}
+
+/* ======================================================================
+ * Program
+ * ====================================================================== */
+
+static int shown_tempo = -1, shown_sound = -1, shown_part = -1, shown_bar = -1, shown_step = -1, shown_playing = -1, shown_next = -2;
+static int shown_knob[4] = { -1, -1, -1, -1 };
+static uint64_t shown_leds;
+static uint32_t frames_seen;
+static uint32_t held[128], stamp; /* the time a note began to be held, or 0 */
+static int key_midi[FM1_NOTE_KEYS];
+
+/* The note key that shows a MIDI note: in the range F3 to G5, moved by octaves */
+static int key_of(int note) {
+    int n = note - 53;
+    while (n < 0) n += 12;
+    while (n >= (int)FM1_NOTE_KEYS) n -= 12;
+    return n;
+}
+
+static void apply_knobs(void) {
+    bass_cut = 0.35f + 0.11f * (float)knob[FM1_ENC_KNOB1];
+    space = (float)knob[FM1_ENC_KNOB2] * (1.0f / 12.0f);
+    echo_amount = (float)knob[FM1_ENC_KNOB3] * (1.0f / 12.0f);
+    drums_level = (float)knob[FM1_ENC_KNOB4] * (1.0f / 12.0f);
+}
+
+static void read_controls(void) {
+    uint32_t pressed = fm1_input_edges(0);
+    if (pressed & BIT(FM1_BTN_PLAY)) play_request = 1;
+    uint32_t fx = 0;
+    if (pressed & BIT(FM1_BTN_FX)) fx |= BIT(FX_LASER);
+    if (pressed & BIT(FM1_BTN_SCL)) fx |= BIT(FX_SWEEP);
+    if (pressed & BIT(FM1_BTN_ENV)) fx |= BIT(FX_UFO);
+    if (pressed & BIT(FM1_BTN_LFO)) fx |= BIT(FX_PING);
+    if (pressed & BIT(FM1_BTN_EDIT)) fx |= BIT(FX_PEW);
+    if (fx) fx_request |= fx;
+    if (pressed & BIT(FM1_BTN_ARP)) lead_auto = !lead_auto;
+    if ((pressed & BIT(FM1_BTN_OCT_DOWN)) && octave > -1) octave--;
+    if ((pressed & BIT(FM1_BTN_OCT_UP)) && octave < 2) octave++;
+
+    for (uint32_t e = 0; e < FM1_NENC; e++) {
+        int turned = fm1_enc_take(e);
+        if (!turned) continue;
+        if (e == FM1_ENC_SELECT) {
+            tempo = clamp(tempo + 2 * turned, 96, 136);
+            continue;
+        }
+        int value = clamp(knob[e] + turned, 0, knob_max[e]);
+        if (value == knob[e]) continue;
+        knob[e] = value;
+        if (e == FM1_ENC_PRESETS) set_bass_sound(value);
+        if (e == FM1_ENC_ALGORITHM && playing) next_part = value;
+    }
+    apply_knobs();
+
+    /* the note keys and MIDI: the last note that is held plays the lead */
+    uint32_t notes = fm1_in.notes, down = fm1_input_note_edges();
+    for (int k = 0; k < (int)FM1_NOTE_KEYS; k++) {
+        if (down & BIT(k)) {
+            key_midi[k] = 53 + k + 12 * octave;
+            held[key_midi[k]] = ++stamp;
+        } else if (!(notes & BIT(k)) && key_midi[k] >= 0) {
+            held[key_midi[k]] = 0;
+            key_midi[k] = -1;
+        }
+    }
+    uint32_t packet;
+    while (fm1_midi_take(&packet)) {
+        uint32_t status = FM1_MIDI_STATUS(packet) & 0xF0u, note = FM1_MIDI_DATA1(packet) & 127u;
+        if (status == 0x90u && FM1_MIDI_DATA2(packet) > 0) held[note] = ++stamp;
+        else if (status == 0x80u || status == 0x90u) held[note] = 0;
+    }
+    int best = -1;
+    for (int n = 0; n < 128; n++)
+        if (held[n] && (best < 0 || held[n] > held[best])) best = n;
+    key_note = best;
+}
+
+static void update_leds(void) {
+    uint64_t leds = (uint64_t)fm1_in.buttons;
+    if (playing) leds |= 1ull << FM1_BTN_PLAY;
+    if (playing && (step & 3) == 1) leds |= 1ull << FM1_BTN_SEQ; /* blinks with the beat */
+    if (lead_auto) leds |= 1ull << FM1_BTN_ARP;
+    if (octave < 1) leds |= 1ull << FM1_BTN_OCT_DOWN;
+    if (octave > 1) leds |= 1ull << FM1_BTN_OCT_UP;
+    if (laser.amp > 0.05f) leds |= 1ull << FM1_BTN_FX;
+    if (sweep.amp > 0.05f && sweep.n > 0) leds |= 1ull << FM1_BTN_SCL;
+    if (ufo.n < ufo.len) leds |= 1ull << FM1_BTN_ENV;
+    if (ping.amp > 0.05f) leds |= 1ull << FM1_BTN_LFO;
+    if (pew.amp > 0.05f) leds |= 1ull << FM1_BTN_EDIT;
+    leds |= (uint64_t)fm1_in.notes << FM1_KEY_NOTE0;
+    if (bass.sounding && bass.gate_left > 0) leds |= 1ull << (FM1_KEY_NOTE0 + key_of(bass.note));
+    if (lead.stage == LEAD_ON) leds |= 1ull << (FM1_KEY_NOTE0 + key_of(lead.note));
+    uint64_t changed = leds ^ shown_leds;
+    for (uint32_t id = 0; id < FM1_NKEY; id++)
+        if ((changed >> id) & 1u) fm1_led_key(id, (int)((leds >> id) & 1u));
+    shown_leds = leds;
+}
+
+void setup(void) {
+    for (int i = 0; i < SINE_SIZE; i++) sine_table[i] = sinf((float)i * 2.0f * PI / SINE_SIZE);
+    for (int d = 0; d < RING_DOTS; d++) {
+        ring_cos[d] = sine((float)d / RING_DOTS + 0.25f);
+        ring_sin[d] = sine((float)d / RING_DOTS);
+    }
+    for (int k = 0; k < (int)FM1_NOTE_KEYS; k++) key_midi[k] = -1;
+    clap.n = -1;
+    svf_tune(&clap.band, 1250.0f, 0.45f);
+    knob[FM1_ENC_KNOB1] = 6;
+    knob[FM1_ENC_KNOB2] = 7;
+    knob[FM1_ENC_KNOB3] = 6;
+    knob[FM1_ENC_KNOB4] = 9;
+    apply_knobs();
+    set_bass_sound(0);
+    samples_per_step = RATE * 60.0f / (tempo * 4.0f);
+    for (int i = 0; i < STARS; i++) star_new(i, 0.05f + look_random() * 0.95f);
+
+    fill(0, 0, FM1_LCD_WIDTH, FM1_LCD_HEIGHT, BLACK);
+    draw_planet();
+    fill(0, VIEW_Y - 2, FM1_LCD_WIDTH, 1, DARK);
+    fill(0, KNOB_Y - 4, FM1_LCD_WIDTH, 1, DARK);
+    for (uint32_t id = 0; id < FM1_NKEY; id++) fm1_led_key(id, 0);
+    set_playing(1);
+}
+
+void loop(void) {
+    read_controls();
+
+    int p = part, b = bar, s = step, on = playing, next = next_part;
+    if (b >= parts[p].bars) b = parts[p].bars - 1; /* audio() can change the part between the two reads */
+    if (tempo != shown_tempo || bass_sound != shown_sound) {
+        draw_title();
+        shown_tempo = tempo;
+        shown_sound = bass_sound;
+    }
+    if (p != shown_part || b != shown_bar || on != shown_playing || next != shown_next) {
+        draw_part(p, b, on, next);
+        shown_next = next;
+    }
+    if (p != shown_part || b != shown_bar) {
+        draw_roll(p, b);
+        shown_step = -1;
+    }
+    /* the light and the note of the 16th that plays now (the step of the sequencer is the next one) */
+    int now = (s + 15) & 15;
+    if (now != shown_step || on != shown_playing) {
+        const bass_bar_t *bb = &bass_bars[parts[p].bass[b]];
+        int root = chords[parts[p].chord[b]].root;
+        if (shown_step >= 0) {
+            draw_step_light(shown_step, 0, 0);
+            draw_roll_note(bb, root, shown_step, 0, part_colour[p]);
+        } else {
+            for (int i = 0; i < 16; i++) draw_step_light(i, 0, 0);
+        }
+        if (on) {
+            draw_step_light(now, 1, part_colour[p]);
+            draw_roll_note(bb, root, now, 1, part_colour[p]);
+        }
+        shown_step = now;
+    }
+    if (on != shown_playing) draw_status(on);
+    shown_part = p;
+    shown_bar = b;
+    shown_playing = on;
+
+    for (int k = 0; k < 4; k++)
+        if (knob[FM1_ENC_KNOB1 + k] != shown_knob[k]) {
+            draw_knob(k);
+            shown_knob[k] = knob[FM1_ENC_KNOB1 + k];
+        }
+
+    /* the view, about 29 pictures a second */
+    if (++frames_seen >= 6) {
+        frames_seen = 0;
+        draw_view();
+    }
+    update_leds();
 }
 </script>
 
