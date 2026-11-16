@@ -34,6 +34,7 @@ and runs it. Browsers block sound until a click or a key press, so click the pag
 | MIDI | The MIDI IN button asks the browser for permission |
 
 A project is a name and a set of text files. SAVE downloads it as a zip file and LOAD reads one back.
+DEMO-1 loads a demo project in place of the project: a progressive rock band in an FM-1.
 The page keeps nothing between visits: save a project before you close the page.
 
 ## Write a program
@@ -251,13 +252,14 @@ Three things that such a repository does not have come from this one:
 ## How it works
 
 The application is one file, `src/index.html`, the files of the FIRMWARE button in `src/fwsc`, and the
-files of the INSTALL button in `src/install`. The page has the styles, the page script, and six text blocks that the page script reads:
+files of the INSTALL button in `src/install`. The page has the styles, the page script, and these text blocks that the page script reads:
 
 | Block | What |
 |---|---|
 | `fm1.h` | The API |
 | `fm1_runtime.c` | The simulator side of the API, linked into each program |
 | `fm1project.json`, `main.c` | The demo project |
+| `demo-1/fm1project.json`, `demo-1/main.c` | The project of the DEMO-1 button |
 | `compiler-worker.js` | The compiler worker |
 | `fm1-worklet.js` | The audio worklet that runs the program |
 | `firmware-worker.js` | The worker of the FIRMWARE button |
