@@ -174,8 +174,9 @@ same bytes. For four projects it is (November 2026).
 
 ## Limits
 
-- **Not tried on an FM-1.** No code from this compiler was run on a real FM-1 by this repository. The
-  author of pi32v2-llvm calls it experimental.
+- **Tested on one FM-1.** Packages from this compiler were tested on an FM-1 with the newer flash chip
+  (B36014) and m-bootloader 2.4-395e6cc (November 2026). Not tried on the first flash chip. The author
+  of pi32v2-llvm calls the compiler experimental.
 - **Use `-Os` for the code of a program.** At `-O2`, this compiler makes a division by a constant with a
   64-bit multiply. felucca-bsp's `docs/CPU.md` tells that such multiplies beside loads can change a
   register on the FM-1, and fm1-base's build gives a note when it finds them. JieLi's compiler does not

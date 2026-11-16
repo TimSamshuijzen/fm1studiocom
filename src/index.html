@@ -827,7 +827,8 @@ void loop(void) { }                         /* again and again: controls and scr
         <a class="ref" href="https://github.com/charlesvestal/fm1-base" target="_blank" rel="noopener" title="fm1-base">[3]</a>.
         For a firmware of the gallery, the dialog also asks you to agree to keep to the licence of that
         firmware.</p>
-      <p class="note"><strong>No package of an <code>fm1.h</code> program was tried on a real FM-1 yet.</strong> Before you install one, read
+      <p class="note"><strong>FM-1 Studio was tested on a real FM-1</strong>, with the newer flash chip (B36014) and
+        m-bootloader 2.4-395e6cc. Before you install a package, read
         <a href="https://github.com/TimSamshuijzen/fm1studiocom#on-a-real-fm-1" target="_blank" rel="noopener">"On a real FM-1"</a>
         in the README: how to install a package, which FM-1 units it is for, and what to do when an install
         goes wrong. Keep M-VAVE's <code>FM-1.fwsc</code> on your computer.</p>
@@ -964,8 +965,9 @@ void loop(void) { }                         /* again and again: controls and scr
         <p class="state" id="install-package" role="status"></p>
         <div class="progress" id="install-package-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
           aria-label="Package progress, an estimate" title="Package progress (an estimate)"><i></i></div>
-        <p class="note"><strong>No install from this page was done on a real FM-1 yet.</strong> You install
-          at your own risk. An install that goes wrong can give an FM-1 that does not start.</p>
+        <p class="note"><strong>This page was tested on one FM-1:</strong> the newer flash chip (B36014), with
+          m-bootloader 2.4-395e6cc. You install at your own risk. An install that goes wrong can give an FM-1
+          that does not start.</p>
         <ul>
           <li>After the install, the FM-1 runs only this program, until you install another firmware.</li>
           <li>Know your way back before you install: M-VAVE's own firmware, <code>FM-1.fwsc</code>, and a tool
@@ -4373,8 +4375,8 @@ $('firmware').onclick = async () => {
   link.download = made.name;
   link.click();
   setTimeout(() => URL.revokeObjectURL(link.href), 10000);
-  log('This package is not tried on a real FM-1. Before you install it, read "If it goes wrong" in\n' +
-    'README.md of github.com/TimSamshuijzen/fm1studiocom, and keep M-VAVE\'s FM-1.fwsc.\n');
+  log('Before you install this package, read "If it goes wrong" in README.md of\n' +
+    'github.com/TimSamshuijzen/fm1studiocom, and keep M-VAVE\'s FM-1.fwsc.\n');
 };
 
 // ---- Install: writes the package of the project to a real FM-1, over USB MIDI ----

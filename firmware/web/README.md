@@ -152,7 +152,8 @@ unchanged and with a changed preset name in `firmware/src/fm106_presets.h`, the 
 
 ## Limits
 
-- **Not tried on an FM-1.** No package of this compiler was installed on a real FM-1.
+- **Tested on one FM-1.** Packages of this compiler were tested on an FM-1 with the newer flash chip
+  (B36014) and m-bootloader 2.4-395e6cc (November 2026). Not tried on the first flash chip.
 - **Step 3 of `build_compiler.sh` did not run** in the build that made the files of `src/fwsc`. The
   builtins library of that build came from the Windows package of the same release.
 - **One build, on one computer.** It is not known if a second build gives the same bytes.

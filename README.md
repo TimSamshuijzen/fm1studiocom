@@ -72,8 +72,10 @@ project gives the name on the FM-1's start screen. An adapter makes the function
 [fm1-base](https://github.com/charlesvestal/fm1-base) and felucca-bsp. The program must be C, with `float`
 and no `double`; the LOG panel tells when a program does not fit the FM-1.
 
-**No package of an `fm1.h` program was tried on a real FM-1 yet.** Read this section to its end before
-you install one.
+**FM-1 Studio was tested on a real FM-1, with all its features**: FIRMWARE and INSTALL, for `fm1.h`
+programs and for AURORA, CS-1 and FM-106. That FM-1 has the newer flash chip and m-bootloader
+2.4-395e6cc, installed with M-Flasher (see "Which FM-1"). Read this section to its end before you install
+a package.
 [firmware/README.md](firmware/README.md) tells what a program must keep to on the FM-1.
 
 The folder `firmware` builds the same kind of package on your own computer, from a project zip (the file
@@ -128,7 +130,12 @@ unit with the second one, but then cannot be replaced over USB: that is why this
 
 The update loader in the package writes only the program area of the flash, not the boot loader below
 it. M-VAVE's stock firmware exists as V15 and V16, each with its own boot loader. fm1-base says it starts
-under either. We did not try a package on either chip or under either boot loader.
+under either. [m-bootloader](https://github.com/jvitkauskas/m-bootloader) is another boot loader, in place
+of M-VAVE's.
+
+The packages of FM-1 Studio were tested on one FM-1: the newer chip (B36014), with m-bootloader
+2.4-395e6cc, installed with M-Flasher (November 2026). We did not try a package on the first chip, or
+under the boot loader of V15 or V16.
 
 #### If it goes wrong
 
@@ -157,8 +164,8 @@ for CS-1, `FM-1_907` for FM-106.
 These are not the released packages: the authors build with JieLi's compiler, the page with the open
 compiler. For AURORA 0.9.1, CS-1 0.3.4 and FM-106 1.0, unchanged and with a change, the page's package is
 the same bytes as the one that the firmware's own `build.py` makes with the page's compiler, and that
-build passes all its checks (`firmware/web/reference_device.sh`). A package of AURORA from the page runs
-on a real FM-1 with the newer flash chip (installed with M-Flasher, November 2026).
+build passes all its checks (`firmware/web/reference_device.sh`). The packages of AURORA, CS-1 and FM-106
+from the page were tested on a real FM-1 (see "Which FM-1").
 
 **The page builds FM-106 without Bluetooth.** FM-106's own build links JieLi's closed Bluetooth libraries
 (with link-time optimisation, in Docker); the page does the build that its `build.py` makes with
@@ -372,8 +379,9 @@ in its build also needs an extras file: a script that calls `fm1Extras({ path: t
 - The page's FM-106 has no Bluetooth, and its boot stub is not the one of FM-106's `stub.lock`.
 - For a changed AURORA, CS-1 or FM-106, the page does not do the checks of its build that need a
   disassembly: run `firmware/web/reference_device.sh` for those.
-- INSTALL needs Chrome or Edge on a computer (Web MIDI). No install with the INSTALL button was done on a
-  real FM-1 yet.
+- INSTALL needs Chrome or Edge on a computer (Web MIDI).
+- FIRMWARE and INSTALL were tested on one FM-1 only: the newer flash chip, with m-bootloader (see
+  "Which FM-1").
 
 ## Licence
 

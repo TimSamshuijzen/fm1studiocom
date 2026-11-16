@@ -217,9 +217,11 @@ The adapter and `make_app.py` are the same for both.
 
 ## Limits
 
-- **Not tried on an FM-1.** The three example projects (NEON REEF, GLOAMING, GWAVE) build to a package,
-  pass the checks, and give the right pictures and sound in the host simulator (November 2026). No
-  package was installed on a real FM-1.
+- **Tested on an FM-1 with the open compiler only.** Packages of `fm1.h` programs from the open compiler
+  (`src/fwsc`) were tested on an FM-1 with the newer flash chip (B36014) and m-bootloader 2.4-395e6cc
+  (November 2026). No package of `build.sh` (JieLi's compiler) was installed on a real FM-1. With
+  `build.sh`, the three example projects (NEON REEF, GLOAMING, GWAVE) build to a package, pass the
+  checks, and give the right pictures and sound in the host simulator.
 - **The speed on the FM-1 is not known.** The two example games draw the full screen for each picture,
   and count on 29 pictures a second.
 - **`fm1.h` comes from `src/index.html`.** Without that file, give `make_app.py` another file with the

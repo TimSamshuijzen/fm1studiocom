@@ -5,9 +5,6 @@ MIDI. It is the installer of [fm1-base](https://github.com/charlesvestal/fm1-bas
 the packages of FM-1 Studio are built on. The files are copies, not changed: do not change them by hand.
 They are the work of others, under their own licence. Not affiliated with M-VAVE or JieLi.
 
-**No install with this code was done on a real FM-1 by this repository.** In FM-1 Studio it ran only
-against a stand-in FM-1 in the page (see "Check the files").
-
 ## Contents
 
 | File | Size | What |
@@ -121,11 +118,12 @@ a change of their line ends.
 fm1-base tests this code with a stand-in FM-1 (`tests/installer_*.mjs` in its repository). In FM-1
 Studio, the INSTALL dialog was tried in the same way: a stand-in for Web MIDI in the page that answers
 as M-VAVE's firmware, then as the update loader, then as the new firmware. That shows that the dialog
-and this code work together. It does not show that an install on a real FM-1 works.
+and this code work together, and it writes to no FM-1.
 
 ## Limits
 
-- **Not tried on an FM-1** by this repository.
+- **Tested on one FM-1**: the newer flash chip (B36014), with m-bootloader 2.4-395e6cc (November 2026).
+  Not tried on the first flash chip, or on an FM-1 without m-bootloader.
 - **Chrome and Edge only.** Other browsers have no Web MIDI, or it was not tried.
 - **A package without the update loader of felucca-bsp** gets the slow install of M-VAVE's protocol.
   The packages of FM-1 Studio have that loader.
