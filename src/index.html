@@ -3895,7 +3895,8 @@ void audio(int32_t *out, int frames) {
     samples_per_step = RATE * 60.0f / (tempo * 4.0f);
     echo_delay = (int)(samples_per_step * 3.0f); /* a dotted 8th */
     if (echo_delay > ECHO_MAX - 1) echo_delay = ECHO_MAX - 1;
-    float target = (float)fm1_master() * (1.0f / FM1_MASTER_MAX);
+    /* MASTER: the square of its position, as an audio pot and as DEMO-1 */
+    float position = (float)fm1_master() * (1.0f / FM1_MASTER_MAX), target = position * position;
     float feedback = 0.25f + 0.45f * echo_amount, echo_out = 0.12f + 0.5f * echo_amount;
     float sp = space, dr = drums_level;
 
@@ -3950,9 +3951,9 @@ void audio(int32_t *out, int frames) {
         float right = b * 0.6f + drr * dr + pr * 0.9f + cv * 0.38f + ld * 0.3f + er * echo_out * 0.45f + (fr + rr * 2.0f) * sp;
 
         gain += (target - gain) * 0.0005f;
-        /* 0.25: the output 12 dB below the limiter, which keeps its sound */
-        out[2 * i] = (int32_t)(soft(left * 0.44f) * 0.25f * gain * FM1_AUDIO_MAX);
-        out[2 * i + 1] = (int32_t)(soft(right * 0.44f) * 0.25f * gain * FM1_AUDIO_MAX);
+        /* 0.72 after the limiter (which keeps its sound): about 3 dB below DEMO-1 at each MASTER position */
+        out[2 * i] = (int32_t)(soft(left * 0.44f) * 0.72f * gain * FM1_AUDIO_MAX);
+        out[2 * i + 1] = (int32_t)(soft(right * 0.44f) * 0.72f * gain * FM1_AUDIO_MAX);
     }
 }
 
