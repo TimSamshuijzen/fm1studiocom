@@ -562,7 +562,7 @@
     color: #ffd6cc; background: linear-gradient(#d12a1c, #b01a10 60%, #8e110a);
     box-shadow: 0 0 0 1px #000, 0 2px 0 #000, inset 0 1px 0 #ffffff40;
   }
-  .dialog-text .push.ok:enabled {  /* NEXT after CONNECT found an FM-1: green, as RUN */
+  .dialog-text .push.ok:enabled {  /* NEXT, when the step is done: green, as RUN */
     color: #dcffe0; background: linear-gradient(#2c9c4c, #1f8039 60%, #146128);
     box-shadow: 0 0 0 1px #000, 0 2px 0 #000, inset 0 1px 0 #ffffff40;
   }
@@ -979,7 +979,7 @@ void loop(void) { }                         /* again and again: controls and scr
         <label class="check" id="install-licence-row" hidden><input type="checkbox" id="install-licence">
           <span id="install-licence-text"></span></label>
         <label class="check"><input type="checkbox" id="install-agree"> I read this, and I install at my own risk.</label>
-        <p class="actions"><button class="push" id="install-next" disabled>NEXT</button></p>
+        <p class="actions"><button class="push ok" id="install-next" disabled>NEXT</button></p>
       </section>
 
       <section data-step="connect" hidden>
