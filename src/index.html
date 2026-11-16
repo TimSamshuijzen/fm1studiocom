@@ -807,7 +807,7 @@ void loop(void) { }                         /* again and again: controls and scr
         <a class="ref" href="https://github.com/charlesvestal/fm1-base" target="_blank" rel="noopener" title="fm1-base">[3]</a>,
         the open platform for FM-1 firmware, and felucca-bsp
         <a class="ref" href="https://github.com/hugelton/felucca-bsp" target="_blank" rel="noopener" title="felucca-bsp">[4]</a>.
-        For AURORA and CS-1 of the gallery, FIRMWARE does the steps of the firmware's own build
+        For AURORA, CS-1 and FM-106 of the gallery, FIRMWARE does the steps of the firmware's own build
         instead, with the changes that you made in its files.</p>
       <p>The INSTALL button makes the same package and writes it to an FM-1 over USB. A dialog shows the
         steps: read, connect the FM-1, install. It uses Web MIDI, so it needs Chrome or Edge. The firmware
@@ -861,13 +861,14 @@ void loop(void) { }                         /* again and again: controls and scr
         <li>The LEDs are on or off: the dim levels of some firmware are not shown.</li>
         <li>GitHub gives the list of files of a repository 60 times in an hour to one address. A firmware
           of the gallery uses one or more of these for its first load.</li>
-        <li>FIRMWARE is for <code>fm1.h</code> programs in C, and for AURORA and CS-1. The other firmwares of the
-          gallery have their own builds in their repositories: FIRMWARE and INSTALL are off for them, and
-          their hints tell why. INSTALL installs the program of the project only: to put the firmware of
-          M-VAVE back, use a tool of M-VAVE or another installer. CS-1 0.3.4 knows
+        <li>FIRMWARE is for <code>fm1.h</code> programs in C, and for AURORA, CS-1 and FM-106. The other
+          firmwares of the gallery have their own builds in their repositories: FIRMWARE and INSTALL are off
+          for them, and their hints tell why. INSTALL installs the program of the project only: to put the
+          firmware of M-VAVE back, use a tool of M-VAVE or another installer. CS-1 0.3.4 knows
           only the first flash chip of the FM-1: the page changes it when it loads it, so that it also takes
-          the newer chip, as AURORA does. A package has no USB audio
-          and no Bluetooth; USB MIDI in works.</li>
+          the newer chip, as AURORA does. The package of FM-106 has no Bluetooth: its Bluetooth needs closed
+          libraries of JieLi. A package of an <code>fm1.h</code> program has no USB audio and no Bluetooth;
+          USB MIDI in works.</li>
         <li>INSTALL needs Chrome or Edge on a computer, and the page from a web server.</li>
       </ul>
 
@@ -1059,17 +1060,21 @@ void loop(void) { }                         /* again and again: controls and scr
  * the project (with your changes). Without it, they are off for a project with
  * "web". "device" has:
  *
- *   "build":   "dinghy"                  the steps of tools/build.py of AURORA
- *                                        and CS-1 (the only build known now)
+ *   "build":   "dinghy"                  the steps of tools/build.py of AURORA,
+ *                                        CS-1 and FM-106 (the only build known now)
  *   "name":    "aurora"                  the package is aurora.fwsc
  *   "product": "FM-1_4747"               the identity of the package
  *   "sources": ["firmware/src/aurora.c"] the C files of the firmware
  *   "define":  ["APP_VER=\"0.9.1\""]     more #defines for those files
+ *   "flags":   ["-mcpu=r3"]              more options for each C file
+ *   "dualCore": 0                        one core (default 1: two)
+ *   "stub":    true                      a boot stub in front of the app
  *
  * "dinghy" also takes these files of the project: firmware/crt0.S,
  * firmware/hal/fm1_vec.S, firmware/hal/fm1_isr.S, firmware/app.ld and the
  * update loader in firmware/loader, with the headers in firmware/hal,
- * firmware/src and firmware/gen.
+ * firmware/src and firmware/gen. With "stub", also the boot stub in
+ * firmware/stub, as FM-106 has it.
  */
 #ifndef FM1_H
 #define FM1_H
@@ -2450,12 +2455,13 @@ const PROGRAM_SECTION = /^$|^\.(text|rodata|data|sdata|bss|sbss|comment|note|sym
 // ---- The build ----
 
 // The image of the program in the flash: the code, then the RAM code and the data at their load
-// addresses (crt0 copies them to RAM). As in tools/build.py of fm1-base and of AURORA.
-function programImage(elf, symbol) {
+// addresses (crt0 copies them to RAM). As in tools/build.py of fm1-base and of AURORA. `base` is the
+// address of the code as the processor sees it.
+function programImage(elf, symbol, base = APP_XIP) {
   let image = elfSection(elf, '.text');
   for (const [section, loadSymbol] of [['.ram_text', '_rt_load'], ['.data', '_data_load']]) {
     const bytes = elfSection(elf, section);
-    const at = symbol(loadSymbol) - APP_XIP;
+    const at = symbol(loadSymbol) - base;
     if (!bytes.length) continue;
     if (symbol(loadSymbol) % 4 || at < image.length) throw new Error(`${section} is not after the code in the image.`);
     image = join(image, new Uint8Array(at - image.length).fill(0xFF), bytes);
@@ -2673,9 +2679,11 @@ licence = "GPL-3.0-only"
 // the steps of that build with the files of the project (with the user's changes), with the same
 // file names and flags. Thus the package is the same bytes as the one that the firmware's own build
 // makes with this compiler (firmware/web/reference_device.sh makes that one, to compare).
-// One build is known: "dinghy", the build of AURORA and CS-1 (tools/build.py of
-// github.com/twochannels/AURORA and /CS-1, on the platform Dinghy of Felucca: the same file in both but
-// for the names). Its steps and checks, but those that need a disassembly: reference_device.sh runs those.
+// One build is known: "dinghy", the build of AURORA, CS-1 and FM-106 (tools/build.py of
+// github.com/twochannels/AURORA and /CS-1 and github.com/PatttF/fm-106, on the platform Dinghy of
+// Felucca). FM-106's build has three more things, which "device" turns on: more flags for the C files,
+// one core, and a boot stub in front of the app. Its steps and checks, but those that need a
+// disassembly: reference_device.sh runs those.
 
 // LZ4 blocks, the same bytes as tools/lz4blk.py of AURORA writes: a match is looked for only at the
 // last place where its first 4 bytes were.
@@ -2731,6 +2739,26 @@ function unlz4(block) {
 }
 
 const sameBytes = (a, b) => a.length === b.length && a.every((byte, i) => byte === b[i]);
+const ENTRY = Uint8Array.of(0x04, 0x81, 0x80, 0x00);  // goto +4; rts: the start of the stub and of the app
+const toHex = (bytes) => [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+
+// CRC-32 as zlib computes it (reflected 0xEDB88320, start and end 0xFFFFFFFF): the commit marker.
+const CRC32 = Uint32Array.from({ length: 256 }, (_, n) => {
+  let crc = n;
+  for (let bit = 0; bit < 8; bit++) crc = crc & 1 ? 0xEDB88320 ^ (crc >>> 1) : crc >>> 1;
+  return crc;
+});
+function crc32(bytes) {
+  let crc = 0xFFFFFFFF;
+  for (const byte of bytes) crc = CRC32[(crc ^ byte) & 0xFF] ^ (crc >>> 8);
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+// The boot stub of FM-106 (firmware/stub): the first 0xEE0 bytes of app.bin, flash 0x4120. The SPL
+// starts it on every boot. It starts the app at 0x02001000 when the commit marker at flash 0x91FE0
+// is right (fm1pkg_make.py of FM-106 writes it), else the update loader or the chip's USB boot.
+const STUB_LEN = 0xEE0;
+const STUB_MARK_APP = 0x91FE0 - 0x4120;  // the marker in app.bin
 
 // The update loader of a Dinghy build, as the package carries it (ldr_wrap of AURORA's build.py):
 // a head of JieLi's file system, a head with the load address, then blocks of 4096 bytes as LZ4.
@@ -2786,15 +2814,17 @@ function halErrors(texts) {
 function readDevice(device, texts) {
   const where = `${MANIFEST}: "device"`;
   if (device === null || typeof device !== 'object' || Array.isArray(device)) throw new Error(`${where} must be an object.`);
-  if (device.build !== 'dinghy') throw new Error(`${where}: "build" must be "dinghy" (the build of AURORA and CS-1): the only one known.`);
+  if (device.build !== 'dinghy') throw new Error(`${where}: "build" must be "dinghy" (the build of AURORA, CS-1 and FM-106): the only one known.`);
   if (!/^[a-z0-9][a-z0-9_-]*$/.test(device.name ?? '')) throw new Error(`${where}: "name" must be the name of the package, as "aurora".`);
   if (!/^FM-1_\d{3,15}$/.test(device.product ?? '')) throw new Error(`${where}: "product" must be the identity of the package, as "FM-1_4747".`);
-  for (const key of ['sources', 'define']) {
+  for (const key of ['sources', 'define', 'flags']) {
     const list = device[key] ?? [];
     if (!Array.isArray(list) || list.some((item) => typeof item !== 'string')) throw new Error(`${where}: "${key}" must be a list of texts.`);
   }
+  if (![undefined, 0, 1].includes(device.dualCore)) throw new Error(`${where}: "dualCore" must be 0 or 1.`);
+  if (![undefined, false, true].includes(device.stub)) throw new Error(`${where}: "stub" must be true or false.`);
   if (!device.sources?.length) throw new Error(`${where}: "sources" must name the C file of the firmware.`);
-  for (const path of [...device.sources, ...DINGHY_FILES]) {
+  for (const path of [...device.sources, ...DINGHY_FILES, ...(device.stub ? DINGHY_STUB_FILES : [])]) {
     if (!texts.has(path)) throw new Error(`${where}: the project has no file ${path}.`);
   }
   return device;
@@ -2803,6 +2833,7 @@ function readDevice(device, texts) {
 // The files that a Dinghy build takes from the project, beside the "sources" of "device".
 const DINGHY_FILES = ['firmware/crt0.S', 'firmware/hal/fm1_vec.S', 'firmware/hal/fm1_isr.S', 'firmware/app.ld',
   'firmware/loader/crt0_ldr.S', 'firmware/loader/loader.c', 'firmware/loader/loader.ld'];
+const DINGHY_STUB_FILES = ['firmware/stub/crt0_stub.S', 'firmware/stub/stub.c', 'firmware/stub/stub.ld'];
 const DINGHY_FLAGS = ['-Os', '-ffunction-sections', '-fno-builtin', '-Wall', '-Wno-unused-function'];
 const DINGHY_RAM = 0x01C00000;  // the internal RAM, where code runs while the flash is off
 
@@ -2812,8 +2843,11 @@ async function buildDevice(texts, device) {
   const cwd = '/project';  // the folder of the project: the paths of the build are below it, as in the repository
   const work = new Map();
   for (const [path, text] of texts) work.set(`${cwd}/${path}`, encoder.encode(text));
-  // Each tool runs as "clang -target pi32v2" (cc of build.py), with -std=gnu11 for C (as opentc.py).
-  const cc = (args) => compileUnit([...(args[args.indexOf('-c') + 1].endsWith('.c') ? ['-std=gnu11'] : []), '-target', 'pi32v2', ...args], work, cwd);
+  // Each tool runs as "clang -target pi32v2" (cc of build.py), with -std=gnu11 for C and without
+  // -mfprev1 (part of -mcpu=r3 in this compiler), as opentc.py does.
+  const cc = (args) => compileUnit([...(args[args.indexOf('-c') + 1].endsWith('.c') ? ['-std=gnu11'] : []), '-target', 'pi32v2',
+    ...args.filter((arg) => arg !== '-mfprev1')], work, cwd);
+  const cflags = [...DINGHY_FLAGS, ...(device.flags ?? [])];  // CFLAGS of build.py: for each C file
   const link = async (script, objects, elf, what) => {
     log(`link ${elf}\n`);
     // No library: as with JieLi's toolchain, the firmware has no helper routines (no float, no 64-bit division)
@@ -2823,12 +2857,12 @@ async function buildDevice(texts, device) {
     if (result.code || !result.made.has(`${cwd}/${elf}`)) throw new Stopped();
     return result.made.get(`${cwd}/${elf}`);
   };
-  const errors = [], notes = [];
+  const errors = [], notes = [], warnings = [];
 
   // 1. The update loader (build_loader): it runs from RAM and writes the flash.
   log('compile the update loader\n');
   await cc(['-c', 'firmware/loader/crt0_ldr.S', '-o', 'build/loader/crt0_ldr.o']);
-  await cc([...DINGHY_FLAGS, '-Ifirmware/hal', '-Ifirmware/src', '-c', 'firmware/loader/loader.c', '-o', 'build/loader/loader.o']);
+  await cc([...cflags, '-Ifirmware/hal', '-Ifirmware/src', '-c', 'firmware/loader/loader.c', '-o', 'build/loader/loader.o']);
   const loaderElf = await link('firmware/loader/loader.ld', ['build/loader/crt0_ldr.o', 'build/loader/loader.o'], 'build/loader/loader.elf', 'the update loader');
   for (const section of elfSections(loaderElf)) {  // the loader rewrites the flash: nothing may run from it
     if (section.name.startsWith('.') && section.address >= 0x02000000 && section.size) {
@@ -2840,8 +2874,40 @@ async function buildDevice(texts, device) {
   const loader = loaderFile(loaderImage);
   notes.push(`loader: image ${loaderImage.length} B at 0x${LOADER_LOAD.toString(16)}, ota.bin ${loader.length} B`);
 
-  // 2. The app (build_app): three assembly files and the C files, one object each.
-  const defines = ['-DDINGHY_DUAL_CORE=1'];  // build.py's default: the second core runs the audio
+  // 2. The boot stub (build_stub of FM-106), with "stub": code and constants only, built from its own
+  // files. firmware/stub/stub.lock has the version and SHA-256 of the stub that is meant to ship.
+  let stub = new Uint8Array(0);
+  if (device.stub) {
+    log('compile the boot stub\n');
+    await cc(['-Ifirmware/stub', '-c', 'firmware/stub/crt0_stub.S', '-o', 'build/stub/crt0_stub.o']);
+    await cc([...cflags, '-Ifirmware/stub', '-c', 'firmware/stub/stub.c', '-o', 'build/stub/stub.o']);
+    const stubElf = await link('firmware/stub/stub.ld', ['build/stub/crt0_stub.o', 'build/stub/stub.o'], 'build/stub/stub.elf', 'the boot stub');
+    const code = elfSection(stubElf, '.text');
+    for (const section of elfSections(stubElf)) {
+      if (section.name.startsWith('.') && section.size && !['.text', '.shstrtab', '.symtab', '.strtab'].includes(section.name)) {
+        errors.push(`stub: section ${section.name} holds ${section.size} B; the stub is code and constants only`);
+      }
+    }
+    if (elfSymbols(stubElf).get('_start') !== APP_XIP) errors.push(`stub: _start is not at 0x${APP_XIP.toString(16)}`);
+    if (!sameBytes(code.subarray(0, 4), ENTRY)) errors.push('stub: it does not start with the entry the SPL expects (goto +4; rts)');
+    if (new TextDecoder().decode(code.subarray(8, 14)) !== 'CRSTUB') errors.push('stub: no CRSTUB signature at offset 8');
+    if (!code.length || code.length > STUB_LEN - 256) {  // a stub that grows to the brim cannot be fixed
+      errors.push(`stub: ${code.length} B does not fit ${STUB_LEN} B with 256 B to spare`);
+    } else {
+      stub = join(code, new Uint8Array(STUB_LEN - code.length).fill(0xFF));
+      const version = stub[14] | stub[15] << 8, sha256 = toHex(await digest('SHA-256', stub));
+      notes.push(`stub: ${code.length} B of ${STUB_LEN}, version ${version}, sha256 ${sha256.slice(0, 16)}`);
+      const lock = (texts.get('firmware/stub/stub.lock') ?? '').trim().split(/\s+/);
+      if (lock[0] !== String(version) || lock[1] !== sha256) {  // as build.py: a warning, for a build that is no release
+        warnings.push(`the boot stub is not the one of firmware/stub/stub.lock (${lock.join(' ').slice(0, 20)}..), which another\n` +
+          '        compiler made: an install of this package writes the flash sector of the stub too, the one\n' +
+          '        sector that an interrupted install cannot rescue');
+      }
+    }
+  }
+
+  // 3. The app (build_app): three assembly files and the C files, one object each.
+  const defines = [`-DDINGHY_DUAL_CORE=${device.dualCore ?? 1}`];  // build.py's default: two cores for AURORA and CS-1, one for FM-106
   await cc([...defines, '-c', 'firmware/crt0.S', '-o', 'build/crt0.o']);
   await cc(['-c', 'firmware/hal/fm1_vec.S', '-o', 'build/fm1_vec.o']);
   await cc(['-c', 'firmware/hal/fm1_isr.S', '-o', 'build/fm1_isr.o']);
@@ -2849,17 +2915,20 @@ async function buildDevice(texts, device) {
   for (const source of device.sources) {
     log(`compile ${source}\n`);
     objects.push(`build/${source.slice(source.lastIndexOf('/') + 1).replace(/\.c$/i, '')}.o`);
-    await cc([...DINGHY_FLAGS, ...defines, '-Ifirmware/hal', '-Ifirmware/src', '-Ifirmware/gen', `-DFELUCCA_ID="${product}"`,
+    await cc([...cflags, ...defines, '-Ifirmware/hal', '-Ifirmware/src', '-Ifirmware/gen', `-DFELUCCA_ID="${product}"`,
       ...(device.define ?? []).map((define) => '-D' + define), '-c', source, '-o', objects.at(-1)]);
   }
   const elf = await link('firmware/app.ld', objects, `build/${name}.elf`, 'the firmware');
   const symbols = elfSymbols(elf);
   const symbol = (id) => symbols.get(id) ?? 0;
-  const image = programImage(elf, symbol);
+  const base = APP_XIP + stub.length;  // the app after the stub: 0x02001000 with one
+  const image = join(stub, programImage(elf, symbol, base));
 
-  // 3. The checks (check of build.py), but those that need a disassembly.
-  if (symbol('_start') !== APP_XIP) errors.push(`_start is not at 0x${APP_XIP.toString(16)}`);
-  if (!sameBytes(image.subarray(0, 4), Uint8Array.of(0x04, 0x81, 0x80, 0x00))) errors.push('the image does not start with the entry stub');
+  // 4. The checks (check of build.py), but those that need a disassembly.
+  if (symbol('_start') !== base) errors.push(`_start is not at 0x${base.toString(16)}`);
+  if (!sameBytes(image.subarray(0, 4), ENTRY)) errors.push('the image does not start with the entry stub');
+  if (stub.length && !sameBytes(image.subarray(STUB_LEN, STUB_LEN + 4), ENTRY)) errors.push('the app does not start with its entry (goto +4; rts)');
+  if (stub.length && image.length > STUB_MARK_APP) errors.push(`image ${image.length} B reaches the commit marker at app.bin 0x${STUB_MARK_APP.toString(16)}`);
   if (symbol('fm1_core1_start')) { // the second core: its code in RAM, with its own stacks
     for (const id of ['fm1_core1_main', 'audio_worker_loop']) {
       if (!(DINGHY_RAM <= symbol(id) && symbol(id) < symbol('_rt_end'))) errors.push(`${id} must be in .ram_text (0x01C00000..) so CPU1 idles with the flash off`);
@@ -2875,14 +2944,30 @@ async function buildDevice(texts, device) {
   errors.push(...hal);
   if (!hal.length) notes.push('register access: hal/ only (src/, loader/ clean)');
   for (const note of notes) log(`  ok    ${note}\n`);
+  for (const warning of warnings) log(`  NOTE  ${warning}\n`);
   for (const error of errors) log(`  FAIL  ${error}\n`);
   if (errors.length) throw new Stopped();
   log('  not checked here (they need a disassembly): calls from RAM code into the flash, calls in the\n' +
     '        loop of CPU1, addresses in the ROM of the chip. firmware/web/reference_device.sh checks them.\n');
 
-  // 4. The package (fm1pkg_make.py of AURORA): as the one of an fm1.h program, but with the
-  // firmware's own loader, and the boot code in the head as the SDK file is.
-  const fwsc = packageFile(flashImage(image, true), loader, product);
+  // 5. The package (fm1pkg_make.py of AURORA): as the one of an fm1.h program, but with the
+  // firmware's own loader, and the boot code in the head as the SDK file is. With a stub, app.bin
+  // also has the commit marker (fm1pkg_make.py of FM-106): "CRBM", format 1, the length and CRC-32 of
+  // the app after the stub, and the CRC-32 of those 16 bytes.
+  let app = image;
+  if (stub.length) {
+    const body = image.length - STUB_LEN;
+    app = new Uint8Array(APP_SLOT).fill(0xFF);
+    app.set(image);
+    const mark = new DataView(new ArrayBuffer(20));
+    mark.setUint32(0, 0x4D425243, true);
+    mark.setUint32(4, 1, true);
+    mark.setUint32(8, body, true);
+    mark.setUint32(12, crc32(app.subarray(STUB_LEN, STUB_LEN + body)), true);
+    mark.setUint32(16, crc32(new Uint8Array(mark.buffer, 0, 16)), true);
+    app.set(new Uint8Array(mark.buffer), STUB_MARK_APP);
+  }
+  const fwsc = packageFile(flashImage(app, true), loader, product);
   log(`${name}.fwsc: ${fwsc.length} bytes, identity ${product}\n`);
   log(`made with pi32v2-llvm ${about['pi32v2-llvm'].slice(0, 7)}, by the steps of the "${device.build}" build\n`);
   return { name: `${name}.fwsc`, fwsc: fwsc.buffer, image: image.buffer };
@@ -3605,6 +3690,13 @@ const GITHUB_PROJECTS = [
       flags: ['-std=gnu99', '-w'],
       stack: 1048576,
       web: FELUCCA_WEB,  // its emulator numbers the buttons and encoders as Felucca's does
+      // FIRMWARE and INSTALL: the steps of FM-106's tools/build.py without Bluetooth (FELUCCA_BLE=0: its
+      // Bluetooth build links JieLi's closed libraries), with its flags, one core and its boot stub, and
+      // APP_VER as build.py gives it for a build that is no release
+      device: {
+        build: 'dinghy', name: 'fm106', product: 'FM-1_907', sources: ['firmware/src/fm106.c'], define: ['APP_VER="0.0"'],
+        flags: ['-mcpu=r3', '-mfprev1', '-ffp-contract=off'], dualCore: 0, stub: true,
+      },
     },
   },
   {

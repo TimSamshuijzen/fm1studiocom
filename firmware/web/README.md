@@ -16,7 +16,7 @@ and to `build/`. Nothing is installed outside those folders.
 | `make_platform.py` | fm1-base, felucca-bsp and the SDK files in `~/.cache/fm1studio`; `firmware/adapter`; the compiler for Node | `src/fwsc/platform.json` |
 | `opentc.py` | The compiler for Node | A toolchain folder for fm1-base's `tools/build.py` |
 | `reference.sh` | A project zip | `build/fwsc-reference/NAME/`: the package, the image, `SHA256SUMS`, `build-log.txt` |
-| `reference_device.sh` | A checkout of a firmware with its own build (AURORA, CS-1) | `build/fwsc-reference/NAME/`: the package, `SHA256SUMS`, `build-log.txt` |
+| `reference_device.sh` | A checkout of a firmware with its own build (AURORA, CS-1, FM-106) | `build/fwsc-reference/NAME/`: the package, `SHA256SUMS`, `build-log.txt` |
 
 ## Origins
 
@@ -109,8 +109,8 @@ and the same name. The name of the zip file gives the name of the firmware. For 
 and for a project with a folder, an include path, defines and a flag, the hashes are the same
 (November 2026).
 
-For AURORA and CS-1, which have their own build (`device` in their `fm1project.json`), with the commit or
-tag of the gallery:
+For AURORA, CS-1 and FM-106, which have their own build (`device` in their `fm1project.json`), with the
+commit or tag of the gallery:
 
 ```
 git clone https://github.com/twochannels/AURORA ~/aurora
@@ -119,7 +119,15 @@ bash firmware/web/reference_device.sh ~/aurora
 
 git clone --branch v0.3.4 https://github.com/twochannels/CS-1 ~/cs-1
 bash firmware/web/reference_device.sh ~/cs-1
+
+git clone --branch 1.0 https://github.com/PatttF/fm-106 ~/fm-106
+rm ~/fm-106/splash.png
+FELUCCA_BLE=0 bash firmware/web/reference_device.sh ~/fm-106
 ```
+
+For FM-106: `FELUCCA_BLE=0` is the build without Bluetooth, the one that the page makes. Without
+`splash.png`, its `build.py` uses the `firmware/src/splash_data.h` of the repository, as the page does
+(the page does not load `splash.png`, and making the header again needs Pillow).
 
 This copies the checkout below `~/.cache/fm1studio/device-ref` and runs the firmware's own
 `tools/build.py` there with `opentc.py`. All checks of that `build.py` run, also those that need a
@@ -128,7 +136,8 @@ The name of the folder gives the folder of the result. The page's package had th
 0.9.1 unchanged and with a change in `firmware/src/aurora.c`, and for CS-1 0.3.4 unchanged and with
 AURORA's flash chip change (a new `firmware/hal/fm1_flash_id.h`, four changed lines) (November 2026). The
 gallery's CS-1, with the `patches` of its entry (the same change, with `FL_JEDEC_OK` in
-`firmware/hal/fm1_flash.h`), gives the same package as that second one.
+`firmware/hal/fm1_flash.h`), gives the same package as that second one. For FM-106 1.0 without Bluetooth,
+unchanged and with a changed preset name in `firmware/src/fm106_presets.h`, the hashes are the same too.
 
 ## Design choices
 
@@ -150,7 +159,7 @@ gallery's CS-1, with the `patches` of its entry (the same change, with `FL_JEDEC
 - **The build steps are there two times.** `firmware/make_app.py` and fm1-base's `build.py` do them in
   Python. The page that uses `src/fwsc` does them in JavaScript. A change in one must be made in the
   other, or the hashes are not the same. The same holds for the `build.py`, `fm1pkg_make.py` and
-  `lz4blk.py` of AURORA and CS-1, and the `"dinghy"` build of the page.
+  `lz4blk.py` of AURORA, CS-1 and FM-106, and the `"dinghy"` build of the page.
 
 ## Licences
 
