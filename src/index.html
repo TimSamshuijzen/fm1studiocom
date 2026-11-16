@@ -3950,9 +3950,9 @@ void audio(int32_t *out, int frames) {
         float right = b * 0.6f + drr * dr + pr * 0.9f + cv * 0.38f + ld * 0.3f + er * echo_out * 0.45f + (fr + rr * 2.0f) * sp;
 
         gain += (target - gain) * 0.0005f;
-        /* 0.71: the output 3 dB below the limiter, which keeps its sound */
-        out[2 * i] = (int32_t)(soft(left * 0.44f) * 0.71f * gain * FM1_AUDIO_MAX);
-        out[2 * i + 1] = (int32_t)(soft(right * 0.44f) * 0.71f * gain * FM1_AUDIO_MAX);
+        /* 0.5: the output 6 dB below the limiter, which keeps its sound */
+        out[2 * i] = (int32_t)(soft(left * 0.44f) * 0.5f * gain * FM1_AUDIO_MAX);
+        out[2 * i + 1] = (int32_t)(soft(right * 0.44f) * 0.5f * gain * FM1_AUDIO_MAX);
     }
 }
 
