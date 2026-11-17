@@ -171,8 +171,8 @@ c9113eb13497667a7241278ca29b6d6c89f32007ce47ab00b5867c53367cd9ee  llvm.js
 To check what the compiler makes: `firmware/web/reference.sh PROJECT.zip` builds a project with fm1-base's
 own build and this compiler (run by Node). A package that a page makes from the same project must be the
 same bytes. For four `fm1.h` projects it is. `firmware/web/reference_device.sh` does the same for a
-firmware with its own build: for each firmware that FM-1 Studio builds that way (AURORA, CS-1, FM-106,
-FMINI-1 and Felucca, at the versions of its gallery) the bytes are the same too (November 2026).
+firmware with its own build: for each firmware that FM-1 Studio builds that way, at the version of its
+gallery, the bytes are the same too (November 2026).
 
 ## Limits
 

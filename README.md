@@ -203,6 +203,7 @@ files go into the package. The package has the firmware's own update loader and 
 | FM-106 1.0 | `"dinghy"`, without Bluetooth, with its boot stub | `fm106.fwsc` | `FM-1_907` | Yes | Tested |
 | AURORA 0.9.1 | `"dinghy"` | `aurora.fwsc` | `FM-1_4747` | Yes | Tested |
 | FMINI-1 v2.5.12 | `"felucca"` | `fmini-1-fm1-2.5.12.fwsc` | `FM-1_900`, as its releases | Yes | Tested |
+| GR!MM v2.0.2 | `"dinghy"`, as its release build (`--release 2.0.2`), with a change for the newer flash chip | `grimm-2.0.2.fwsc` | `FM-1_966`, as its releases | Yes | Not tried |
 | FELUCCA v1.8.2 | `"felucca"`, as its release build (`--release 1.8.2`) | `felucca-1.8.2.fwsc` | `FM-1_918`, as its release | Yes | Not tried |
 
 These are not the released packages: the authors build with JieLi's compiler, FM-1 Studio with the
@@ -220,14 +221,25 @@ has the hash of the stub that JieLi's compiler made. The page's stub, from the f
 one, and the log says so, as FM-106's `build.py` does: an install then also writes the flash sector of
 the stub.
 
-**The gallery's CS-1 has a change for the newer flash chip.** CS-1 0.3.4 as released knows only the
-first chip (`0x856014` in `platform.c`, `recovery.c` and `loader/loader.c`), and The Firmware Hub lists
-it so. On a unit with the newer chip, its update loader does not write (the install stops, and the
-firmware that was there stays), and a CS-1 that is there cannot keep its settings or take an update over
-USB. AURORA, by the same author on the same platform, takes both chips: `FL_JEDEC_OK` in its
-`hal/fm1_flash_id.h`, used in the same three places. The `patches` of CS-1's entry make the same change
-when the page loads CS-1: `FL_JEDEC_OK` in `hal/fm1_flash.h`, and the three checks. Each changed file
-says so at its top. CS-1's update loader is then the same bytes as AURORA's.
+**The gallery's CS-1 and GR!MM have a change for the newer flash chip.** CS-1 0.3.4 and GR!MM 2.0.2 as
+released know only the first chip (`0x856014` in `platform.c`, `recovery.c` and `loader/loader.c`), and
+The Firmware Hub lists them so. On a unit with the newer chip, their update loader does not write (the
+install stops, and the firmware that was there stays), and the firmware cannot keep its settings or take
+an update over USB. AURORA, on the same platform (Dinghy), takes both chips: `FL_JEDEC_OK` in its
+`hal/fm1_flash_id.h`, used in the same three places. The `patches` of the two entries make the same
+change when the page loads the firmware (`flashChipPatches` in `src/index.html`): `FL_JEDEC_OK` in
+`hal/fm1_flash.h`, and the three checks. Each changed file says so at its top. CS-1's update loader is
+then the same bytes as AURORA's.
+
+**GR!MM in the browser and on the FM-1.** GR!MM's main loop does not return, so for the browser the page
+changes it to one turn of the loop for each call. Those changes are in `#ifdef GRIMM_WEB`, which only the
+browser build defines: the build for a real FM-1 compiles `grimm.c` as released (its package is the same
+bytes with `grimm.c` as released). GR!MM's `build.py` also checks the depth of the stacks from the
+disassembly (`tools/stack_check.py`, not in the page). With this compiler, that check stops at two
+functions that it does not know to call through a pointer: `fl_erase4k`, which calls the flash driver's
+RAM code as the functions that the check knows do, and `knob_param`, whose jump table has bytes that the
+disassembler shows as a call. With those two known, the check passes with 22 KB of the user stack and
+6 KB of the system stack free.
 
 **Felucca and FMINI-1: the `"felucca"` build.** FMINI-1 is made from Felucca, and the `build.py` of both
 has more steps than AURORA's: the headers in `build/gen` (in the page: from the extras file, which the
@@ -237,10 +249,13 @@ compiles the unity file `felucca.c` to LLVM IR, gives LLVM's `minsize` to the fu
 then compiles the IR at `-Os`. The firmware worker's `"felucca"` build does these steps; `"size"` in
 `device` is the list of files of `size_fns.py`. Felucca's hardware layer is in three folders, in this
 sequence: its own `firmware/hal`, and the chip and board folders of the felucca-bsp submodule
-(`firmware/bsp`); `"hal"` in `device` names them. The firmware compiler calls `__udivdi3` for FMINI-1's
-64-bit divisions, so this build links the compiler's helper routines (`libclang_rt.builtins.a`), as
-`opentc.py` does. Both take both flash chips (FMINI-1: `FL_JEDEC_OK` in `hal/fm1_flash_map.h`; Felucca
-1.8.2: `project.c`).
+(`firmware/bsp`); `"hal"` in `device` names them. Both take both flash chips (FMINI-1: `FL_JEDEC_OK` in
+`hal/fm1_flash_map.h`; Felucca 1.8.2: `project.c`).
+
+Each link of both builds has the compiler's helper routines (`libclang_rt.builtins.a`) at its end, as
+`opentc.py` gives them to `build.py`: the firmware compiler calls `__udivdi3` for a 64-bit division
+(FMINI-1, GR!MM), where JieLi's compiler needs no library. A link that needs none (AURORA, CS-1, FM-106)
+gets none of them.
 
 ### fm1project.json
 
@@ -262,9 +277,10 @@ is built. All parts are optional:
 
 `web` is for firmware that has its own browser emulator (see below). `device` is the build of such a
 firmware for a real FM-1: the firmware compiler then makes its package with the steps of its own build.
-Two builds are known now: `"dinghy"`, the build of AURORA, CS-1 and FM-106, and `"felucca"`, the build of
+Two builds are known now: `"dinghy"`, the build of AURORA, CS-1, FM-106 and GR!MM, and `"felucca"`, the build of
 Felucca and FMINI-1. FM-106's `device` also has `"flags"` (more options for each C file), `"dualCore": 0`
-(one core) and `"stub": true` (its boot stub). Those of Felucca and FMINI-1 have `"size"` (the files
+(one core) and `"stub": true` (its boot stub), and GR!MM's has `"ramFree": 4096` (the RAM that its build
+keeps free). Those of Felucca and FMINI-1 have `"size"` (the files
 whose functions are built for size), and Felucca's has `"hal"` (the folders of its hardware layer);
 `fm1.h` tells which files each build takes. The file list marks the files that the compiler gets with
 BUILD.
@@ -301,9 +317,10 @@ Three things that such a repository does not have come from this one:
   tools. They are in `src/extras/<id>.js`. Each file tells at its top where its parts come from. For
   SLOOP and GR!MM, the file also has the emulator source that FM-1 Studio compiles
   (`fm1studio/sloop_web.c`, `fm1studio/grimm_web.c`).
-- **Patches**: text changes in a loaded file, for firmware that cannot run here as it is. GR!MM has four.
-  CS-1 has nine, for the newer flash chip of the FM-1 (see "The gallery's firmware on a real FM-1").
-  Each change is marked with "FM-1 Studio" in a comment.
+- **Patches**: text changes in a loaded file, for firmware that cannot run here as it is, or not on the
+  newer flash chip of the FM-1. GR!MM has five for its browser build (in `#ifdef GRIMM_WEB`); CS-1 and
+  GR!MM have nine each for the flash chip (see "The gallery's firmware on a real FM-1"). Each change is
+  marked with "FM-1 Studio" in a comment.
 
 ## How it works
 
@@ -388,11 +405,11 @@ FM-106 it also compiles and links the boot stub, puts it in front of the image, 
 marker (a CRC-32 of the app) into the package, and compares the stub with `firmware/stub/stub.lock`. In
 the `"felucca"` build it compiles the C file through LLVM IR with the size pass of `tools/size_fns.py`,
 adds the code of the second core to the image, and checks the memory budgets that `firmware/app.ld`
-gives. As with JieLi's toolchain, the `"dinghy"` build links no helper routines of the compiler; the
-`"felucca"` build links them. Its checks are those of the firmware's `build.py` but the three that need a disassembly (no calls
-from RAM code into the flash, no calls in the loop of the second core, no address of the chip's ROM).
-`firmware/web/reference_device.sh` runs the firmware's `build.py` with the firmware compiler and all its
-checks; the page's package must have the same hash.
+gives. Each link has the compiler's helper routines at its end, as `opentc.py` gives them. Its checks are
+those of the firmware's `build.py` but those that need a disassembly (no calls from RAM code into the
+flash, no calls in the loop of the second core, no address of the chip's ROM, and GR!MM's depth of the
+stacks). `firmware/web/reference_device.sh` runs the firmware's `build.py` with the firmware compiler and
+all its checks; the page's package must have the same hash.
 
 ## Run it here
 
@@ -449,10 +466,11 @@ of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/ma
   their repositories: FIRMWARE and INSTALL are off for them, and their hints tell why. INSTALL installs
   the program of the project only, not other files such as M-VAVE's firmware. The package of an `fm1.h`
   program has no USB audio and no Bluetooth; USB MIDI in works.
-- The gallery's CS-1 is CS-1 0.3.4 with a change for the newer flash chip (see "The gallery's firmware on
-  a real FM-1"): its package is not the same as CS-1's own build of 0.3.4.
+- The gallery's CS-1 and GR!MM are CS-1 0.3.4 and GR!MM 2.0.2 with a change for the newer flash chip (see
+  "The gallery's firmware on a real FM-1"): their packages are not the same as their own builds of those
+  versions.
 - The page's FM-106 has no Bluetooth, and its boot stub is not the one of FM-106's `stub.lock`.
-- The page's FELUCCA package was not tried on a real FM-1.
+- The page's GR!MM and FELUCCA packages were not tried on a real FM-1.
 - For a changed firmware of the gallery, the firmware worker does not do the checks of its build that
   need a disassembly: run `firmware/web/reference_device.sh` for those.
 - The installer needs Chrome or Edge on a computer (Web MIDI).

@@ -129,6 +129,10 @@ bash firmware/web/reference_device.sh ~/fmini-1
 
 git clone --recurse-submodules --branch v1.8.2 https://github.com/hugelton/Felucca ~/felucca
 bash firmware/web/reference_device.sh ~/felucca --release 1.8.2
+
+git clone --branch v2.0.2 https://github.com/GRiMMBIENT/grimm ~/grimm
+(unzip the project zip of the gallery's GR!MM over ~/grimm, and change tools/stack_check.py: see below)
+bash firmware/web/reference_device.sh ~/grimm --release 2.0.2
 ```
 
 The arguments after the checkout go to its `build.py`.
@@ -143,6 +147,14 @@ and `src/extras/felucca.js`, and the two must be the same. FMINI-1 shows the dat
 (`__DATE__`): make its reference on the same day as the browser's package. Felucca is built as its
 releases are (`--release 1.8.2`: the identity `FM-1_918`), as the browser build does.
 
+For GR!MM: the gallery changes five of its files (the flash chip, and `grimm.c` for the browser, in
+`#ifdef GRIMM_WEB`); the checkout needs the same files, from the project zip that FM-1 Studio saves. Its
+`build.py` runs `tools/stack_check.py` on the disassembly, and that check stops the build at two functions
+of this compiler's code that call through a pointer and that its `TARGETS` do not have: `fl_erase4k` (it
+calls the flash driver's RAM code, as the functions in `TARGETS` with `RAMT` do) and `knob_param` (its
+jump table, `tbh`, has bytes that objdump shows as `call r4`). Add `"fl_erase4k": RAMT, "knob_param": []`
+to `TARGETS` in the checkout: the check then passes, and the package is the same bytes.
+
 This copies the checkout below `~/.cache/fm1studio/device-ref` and runs the firmware's own
 `tools/build.py` there with `opentc.py`. All checks of that `build.py` run, also those that need a
 disassembly. For a project with changes, unzip its project zip over the checkout first. The name of the
@@ -155,7 +167,9 @@ unchanged and with a changed preset name in `firmware/src/fm106_presets.h`, the 
 For FMINI-1 v2.5.12, unchanged and with a changed preset name in `firmware/src/eng_fmini_presets.h`, the
 hashes are the same, and the headers that its generators made are the same as those of the extras file.
 For Felucca v1.8.2 (release build), unchanged and with a changed menu name in
-`firmware/src/menu_items.c`, the same holds.
+`firmware/src/menu_items.c`, the same holds. For GR!MM v2.0.2 (release build) with the gallery's changes,
+the hashes are the same, also with `grimm.c` as released: the changes for the browser do not reach the
+build for the FM-1.
 
 ## Design choices
 

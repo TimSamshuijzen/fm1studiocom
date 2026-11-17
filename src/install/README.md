@@ -125,7 +125,7 @@ that kind writes to no FM-1.
 - **Chrome and Edge only.** Other browsers have no Web MIDI, or it was not tried.
 - **A package without a Felucca update loader** (its marker `FELUCCA-LOADER-1`) gets the slow install of
   M-VAVE's protocol. Packages built on fm1-base have felucca-bsp's loader; Felucca and the firmwares made
-  from it with their own loader (AURORA, CS-1, FM-106, FMINI-1) have the marker too.
+  from it with their own loader have the marker too.
 
 ## Used by
 

@@ -915,9 +915,9 @@ void loop(void) { }                         /* again and again: controls and scr
         <li>FIRMWARE is for <code>fm1.h</code> programs in C, and for the firmwares of the gallery with "yes"
           under "Real FM-1". The other firmwares of the gallery have their own builds in their repositories:
           FIRMWARE and INSTALL are off for them, and their hints tell why. INSTALL installs the program of the project only: to put the
-          firmware of M-VAVE back, use a tool of M-VAVE or another installer. CS-1 0.3.4 knows
-          only the first flash chip of the FM-1: the page changes it when it loads it, so that it also takes
-          the newer chip, as AURORA does. The package of FM-106 has no Bluetooth: its Bluetooth needs closed
+          firmware of M-VAVE back, use a tool of M-VAVE or another installer. CS-1 0.3.4 and GR!MM 2.0.2
+          know only the first flash chip of the FM-1: the page changes them when it loads them, so that they
+          also take the newer chip, as AURORA does. The package of FM-106 has no Bluetooth: its Bluetooth needs closed
           libraries of JieLi. A package of an <code>fm1.h</code> program has no USB audio and no Bluetooth;
           USB MIDI in works.</li>
         <li>INSTALL needs Chrome or Edge on a computer, and the page from a web server.</li>
@@ -1121,8 +1121,9 @@ void loop(void) { }                         /* again and again: controls and scr
  * are off for a project with "web". "device" has:
  *
  *   "build":   "dinghy"                  the steps of tools/build.py of AURORA,
- *                                        CS-1 and FM-106; "felucca": of Felucca
- *                                        and FMINI-1 (the only two builds known now)
+ *                                        CS-1, FM-106 and GR!MM; "felucca": of
+ *                                        Felucca and FMINI-1 (the only two builds
+ *                                        known now)
  *   "name":    "aurora"                  the package is aurora.fwsc
  *   "product": "FM-1_4747"               the identity of the package
  *   "sources": ["firmware/src/aurora.c"] the C files of the firmware
@@ -1130,6 +1131,7 @@ void loop(void) { }                         /* again and again: controls and scr
  *   "flags":   ["-mcpu=r3"]              more options for each C file
  *   "dualCore": 0                        "dinghy": one core (default 1: two)
  *   "stub":    true                      "dinghy": a boot stub in front of the app
+ *   "ramFree": 4096                      "dinghy": bytes of RAM that must stay free
  *   "size":    ["ui.c", "menu.c"]        "felucca": the files (from firmware/src)
  *                                        whose functions are built for size, as
  *                                        tools/size_fns.py does (without "size":
@@ -7242,10 +7244,11 @@ licence = "GPL-3.0-only"
 // file names and flags. Thus the package is the same bytes as the one that the firmware's own build
 // makes with this compiler (firmware/web/reference_device.sh makes that one, to compare).
 // Two builds are known:
-//   "dinghy"   the build of AURORA, CS-1 and FM-106 (tools/build.py of github.com/twochannels/AURORA
-//              and /CS-1 and github.com/PatttF/fm-106, on the platform Dinghy of Felucca). FM-106's
-//              build has three more things, which "device" turns on: more flags for the C files, one
-//              core, and a boot stub in front of the app.
+//   "dinghy"   the build of AURORA, CS-1, FM-106 and GR!MM (tools/build.py of github.com/twochannels/AURORA
+//              and /CS-1, github.com/PatttF/fm-106 and github.com/GRiMMBIENT/grimm, on the platform Dinghy
+//              of Felucca). FM-106's build has three more things, which "device" turns on: more flags for
+//              the C files, one core, and a boot stub in front of the app. GR!MM's keeps 4 KiB of RAM free
+//              ("ramFree").
 //   "felucca"  the build of Felucca and FMINI-1 (tools/build.py of github.com/hugelton/Felucca and
 //              github.com/ruppert/fmini-1, made from Felucca's): the headers in build/gen, the second
 //              core's code, a pass that builds the functions of the main loop for size ("size"), and
@@ -7384,7 +7387,7 @@ function halErrors(texts, dirs) {
 function readDevice(device, texts) {
   const where = `${MANIFEST}: "device"`;
   if (device === null || typeof device !== 'object' || Array.isArray(device)) throw new Error(`${where} must be an object.`);
-  if (!['dinghy', 'felucca'].includes(device.build)) throw new Error(`${where}: "build" must be "dinghy" (the build of AURORA, CS-1 and FM-106) or "felucca" (of FMINI-1 and Felucca): the only ones known.`);
+  if (!['dinghy', 'felucca'].includes(device.build)) throw new Error(`${where}: "build" must be "dinghy" (the build of AURORA, CS-1, FM-106 and GR!MM) or "felucca" (of FMINI-1 and Felucca): the only ones known.`);
   if (!/^[a-z0-9][a-z0-9._-]*$/.test(device.name ?? '')) throw new Error(`${where}: "name" must be the name of the package, as "aurora".`);
   if (!/^FM-1_\d{3,15}$/.test(device.product ?? '')) throw new Error(`${where}: "product" must be the identity of the package, as "FM-1_4747".`);
   for (const key of ['sources', 'define', 'flags', 'size', 'hal']) {
@@ -7394,7 +7397,10 @@ function readDevice(device, texts) {
   if (device.hal && !device.hal.length) throw new Error(`${where}: "hal" must name the folders of the hardware layer.`);
   if (![undefined, 0, 1].includes(device.dualCore)) throw new Error(`${where}: "dualCore" must be 0 or 1.`);
   if (![undefined, false, true].includes(device.stub)) throw new Error(`${where}: "stub" must be true or false.`);
-  const others = device.build === 'dinghy' ? ['size', 'hal'] : ['dualCore', 'stub'];  // the options of the other build
+  if (device.ramFree !== undefined && !(Number.isInteger(device.ramFree) && device.ramFree >= 0)) {
+    throw new Error(`${where}: "ramFree" must be a count of bytes.`);
+  }
+  const others = device.build === 'dinghy' ? ['size', 'hal'] : ['dualCore', 'stub', 'ramFree'];  // the options of the other build
   for (const key of others) if (device[key] !== undefined) throw new Error(`${where}: "${key}" is not for the "${device.build}" build.`);
   if (!device.sources?.length) throw new Error(`${where}: "sources" must name the C file of the firmware.`);
   for (const path of [...device.sources, ...appAssembly(device, texts), 'firmware/app.ld', ...LOADER_FILES,
@@ -7498,18 +7504,14 @@ async function buildDevice(texts, device) {
     ...args.filter((arg) => arg !== '-mfprev1')], work, cwd);
   const cflags = [...DINGHY_FLAGS, ...(device.flags ?? [])];  // CFLAGS of build.py: for each C file
   // `gc`: with --gc-sections and the entry _start, as the builds link all but the app of "felucca".
-  // "dinghy" links no library: as with JieLi's toolchain, its firmware has no helper routines (no float,
-  // no 64-bit division). "felucca" links the helper routines of this compiler, as opentc.py does: FMINI-1
-  // divides 64-bit numbers, which JieLi's compiler does without a library and this one with __udivdi3.
-  const helpers = device.build === 'felucca' ? ['/rt/libclang_rt.builtins.a'] : [];
-  const link = async (script, objects, elf, what, gc = true) => {
+  // Each link has the helper routines of this compiler at its end, as opentc.py gives them to build.py: a
+  // 64-bit division (FMINI-1, GR!MM) is a call of __udivdi3 here, where JieLi's compiler needs no library.
+  // A link that needs no helper routine (AURORA, CS-1, FM-106) gets none of them.
+  const link = async (script, objects, elf, gc = true) => {
     log(`link ${elf}\n`);
-    const result = await run(['ld.lld', ...(gc ? ['--gc-sections', '-e', '_start'] : []), '-T', script, ...objects, '-o', elf, ...helpers],
-      work, [`${cwd}/${elf}`], cwd);
+    const result = await run(['ld.lld', ...(gc ? ['--gc-sections', '-e', '_start'] : []), '-T', script, ...objects, '-o', elf,
+      '/rt/libclang_rt.builtins.a'], work, [`${cwd}/${elf}`], cwd);
     show(result.text);
-    if (/undefined symbol: __\w+/.test(result.text) && !helpers.length) {
-      log(`  FAIL  ${what} needs a helper routine of the compiler: the build has none (no float, no 64-bit division)\n`);
-    }
     if (result.code || !result.made.has(`${cwd}/${elf}`)) throw new Stopped();
     return result.made.get(`${cwd}/${elf}`);
   };
@@ -7520,7 +7522,7 @@ async function buildDevice(texts, device) {
   log('compile the update loader\n');
   await cc(['-c', 'firmware/loader/crt0_ldr.S', '-o', 'build/loader/crt0_ldr.o']);
   await cc([...cflags, ...halIncludes, '-Ifirmware/src', '-c', 'firmware/loader/loader.c', '-o', 'build/loader/loader.o']);
-  const loaderElf = await link('firmware/loader/loader.ld', ['build/loader/crt0_ldr.o', 'build/loader/loader.o'], 'build/loader/loader.elf', 'the update loader');
+  const loaderElf = await link('firmware/loader/loader.ld', ['build/loader/crt0_ldr.o', 'build/loader/loader.o'], 'build/loader/loader.elf');
   for (const section of elfSections(loaderElf)) {  // the loader rewrites the flash: nothing may run from it
     if (section.name.startsWith('.') && section.address >= 0x02000000 && section.size) {
       errors.push(`loader: section ${section.name} at 0x${section.address.toString(16)} is outside RAM`);
@@ -7538,7 +7540,7 @@ async function buildDevice(texts, device) {
     log('compile the boot stub\n');
     await cc(['-Ifirmware/stub', '-c', 'firmware/stub/crt0_stub.S', '-o', 'build/stub/crt0_stub.o']);
     await cc([...cflags, '-Ifirmware/stub', '-c', 'firmware/stub/stub.c', '-o', 'build/stub/stub.o']);
-    const stubElf = await link('firmware/stub/stub.ld', ['build/stub/crt0_stub.o', 'build/stub/stub.o'], 'build/stub/stub.elf', 'the boot stub');
+    const stubElf = await link('firmware/stub/stub.ld', ['build/stub/crt0_stub.o', 'build/stub/stub.o'], 'build/stub/stub.elf');
     const code = elfSection(stubElf, '.text');
     for (const section of elfSections(stubElf)) {
       if (section.name.startsWith('.') && section.size && !['.text', '.shstrtab', '.symtab', '.strtab'].includes(section.name)) {
@@ -7580,7 +7582,7 @@ async function buildDevice(texts, device) {
     await cc([...cflags, ...defines, '-Ifirmware/hal', '-Ifirmware/src', '-Ifirmware/gen', `-DFELUCCA_ID="${product}"`,
       ...(device.define ?? []).map((define) => '-D' + define), '-c', source, '-o', objects.at(-1)]);
   }
-  const elf = await link('firmware/app.ld', objects, `build/${name}.elf`, 'the firmware');
+  const elf = await link('firmware/app.ld', objects, `build/${name}.elf`);
   const symbols = elfSymbols(elf);
   const symbol = (id) => symbols.get(id) ?? 0;
   const base = APP_XIP + stub.length;  // the app after the stub: 0x02001000 with one
@@ -7602,6 +7604,8 @@ async function buildDevice(texts, device) {
   const ram = symbol('_bss_end') - 0x01C08000, pool = symbol('_pool_end') - 0x01C20000;
   notes.push(`image ${image.length} B of ${APP_SLOT}; RAM .data+.bss ${ram} B of 98304; pool ${pool} B of 344064`);
   if (ram > 96 * 1024) errors.push(`RAM .data+.bss ${ram} B > 96 KiB`);
+  // "ramFree": this much of the 96 KiB stays free (RAM_FREE_MIN of GR!MM's build.py)
+  else if (96 * 1024 - ram < (device.ramFree ?? 0)) errors.push(`RAM .data+.bss ${ram} B: ${96 * 1024 - ram} B free, under ${device.ramFree}`);
 
   // With a stub, app.bin also has the commit marker (fm1pkg_make.py of FM-106): "CRBM", format 1, the
   // length and CRC-32 of the app after the stub, and the CRC-32 of those 16 bytes.
@@ -7632,7 +7636,8 @@ async function buildDevice(texts, device) {
     for (const error of errors) log(`  FAIL  ${error}\n`);
     if (errors.length) throw new Stopped();
     log('  not checked here (they need a disassembly): calls from RAM code into the flash, calls in the\n' +
-      '        loop of CPU1, addresses in the ROM of the chip. firmware/web/reference_device.sh checks them.\n');
+      '        loop of CPU1, addresses in the ROM of the chip, and (GR!MM) the depth of the stacks.\n' +
+      '        firmware/web/reference_device.sh checks them.\n');
     const fwsc = packageFile(flashImage(app, true), loader, product);
     log(`${name}.fwsc: ${fwsc.length} bytes, identity ${product}\n`);
     log(`made with pi32v2-llvm ${about['pi32v2-llvm'].slice(0, 7)}, by the steps of the "${device.build}" build\n`);
@@ -7668,7 +7673,7 @@ async function buildDevice(texts, device) {
       await cc([...flags.filter((flag) => !/^-[IDW]/.test(flag)), '-c', `${stem}_size.ll`, '-o', `${stem}.o`]);
       work.delete(`${cwd}/${stem}_size.ll`);
     }
-    const elf = await link('firmware/app.ld', objects, `build/${name}.elf`, 'the firmware', false);
+    const elf = await link('firmware/app.ld', objects, `build/${name}.elf`, false);
     const symbols = elfSymbols(elf);
     const symbol = (id) => symbols.get(id) ?? 0;
     const image = programImage(elf, symbol);
@@ -8350,6 +8355,58 @@ const FELUCCA_PATHS = ['firmware/', 'tests/hostsim.c', 'web/emu/', 'LICENSE', 'L
 //          '/' at its end is a folder with all that is in it. `to` is the folder in the project.
 // patches: changes in the loaded files. `find` is text that is in the file `path` one time, `replace`
 //          is the text that comes in its place.
+
+// The flash chip change of the gallery's CS-1 and GR!MM. CS-1 0.3.4 and GR!MM 2.0.2, both on Dinghy (the
+// platform of AURORA), write their flash only when the chip is the Puya P25Q80 (0x856014) of the first FM-1
+// units. These changes let them take the UC25HQ80 (0xB36014) of the units sold since autumn 2026 too, as
+// AURORA 0.9.1 does (its hal/fm1_flash_id.h, FL_JEDEC_OK); CS-1's update loader is then the same bytes as
+// AURORA's. Without them, on such a unit the firmware's loader does not write, and the firmware cannot keep
+// its settings or take an update. `licence` is the first line of platform.c and recovery.c: the note of the
+// change goes below it, as a comment of its own, or as a line of the comment that it opens.
+const FLASH_CHIP_NOTE = 'FM-1 Studio changed this file in November 2026, when it loaded it: the flash chip check takes both chips.';
+function flashChipPatches(licence) {
+  const note = licence.endsWith('*/\n') ? `/* ${FLASH_CHIP_NOTE} */\n` : ` * ${FLASH_CHIP_NOTE}\n`;
+  return [
+    {
+      path: 'firmware/hal/fm1_flash.h',
+      find: '/* FM-1 SPI NOR at runtime:',
+      replace: '/* FM-1 Studio changed this file in November 2026, when it loaded it: FL_JEDEC_OK, both flash chips. */\n' +
+        '/* FM-1 SPI NOR at runtime:',
+    },
+    {
+      path: 'firmware/hal/fm1_flash.h',
+      find: '#include "fm1_xip.h"\n',
+      replace: '#include "fm1_xip.h"\n' +
+        '/* FM-1 Studio: the flash chips that this firmware writes to, as AURORA 0.9.1 has it (hal/fm1_flash_id.h):\n' +
+        ' * the Puya P25Q80 (0x856014) and the UC25HQ80 (0xB36014), both with the same SPI NOR commands */\n' +
+        '#define FL_JEDEC_OK(id) ((id) == 0x856014u || (id) == 0xB36014u)\n',
+    },
+    {
+      path: 'firmware/hal/fm1_flash.h',
+      find: 'fl_jedec_ram(void)                 /* expect 0x856014 */',
+      replace: 'fl_jedec_ram(void)                 /* FL_JEDEC_OK (FM-1 Studio: was "expect 0x856014") */',
+    },
+    ...['firmware/src/platform.c', 'firmware/src/recovery.c'].flatMap((path) => [
+      { path, find: licence, replace: licence + note },
+      {
+        path,
+        find: 'flash_ok = FL_FAR(fl_jedec_ram)() == 0x856014u;',
+        replace: 'flash_ok = FL_JEDEC_OK(FL_FAR(fl_jedec_ram)());   /* FM-1 Studio: was == 0x856014u */',
+      },
+    ]),
+    {
+      path: 'firmware/loader/loader.c',
+      find: '/* Felucca update loader (device side).',
+      replace: `/* ${FLASH_CHIP_NOTE} */\n/* Felucca update loader (device side).`,
+    },
+    {
+      path: 'firmware/loader/loader.c',
+      find: 'return fl_jedec_ram() == 0x856014u; }   /* as the app (project.c) */',
+      replace: 'return FL_JEDEC_OK(fl_jedec_ram()); }   /* as the app (project.c); FM-1 Studio: was == 0x856014u */',
+    },
+  ];
+}
+
 const GITHUB_PROJECTS = [
   {
     id: 'cs-1', label: 'CS-1', version: 'v0.3.4', about: 'a CS-80 in spirit', license: 'GPL-3.0-only', seconds: 3,
@@ -8357,56 +8414,7 @@ const GITHUB_PROJECTS = [
       repo: 'twochannels/CS-1', ref: 'v0.3.4',
       paths: ['firmware/', 'tests/fake_fm1.h', 'web/emu/', 'LICENSE', 'LICENSING.md', 'README.md'],
     }],
-    // CS-1 0.3.4 writes its flash only when the chip is the Puya P25Q80 (0x856014) of the first FM-1
-    // units. These changes let it take the UC25HQ80 (0xB36014) of the units sold since autumn 2026 too,
-    // as AURORA 0.9.1 of the same author does (its hal/fm1_flash_id.h, FL_JEDEC_OK): CS-1's update loader
-    // is then the same bytes as AURORA's. Without them, on such a unit CS-1's loader does not write, and
-    // CS-1 cannot keep its settings or take an update.
-    patches: [
-      {
-        path: 'firmware/hal/fm1_flash.h',
-        find: '/* FM-1 SPI NOR at runtime:',
-        replace: '/* FM-1 Studio changed this file in November 2026, when it loaded it: FL_JEDEC_OK, both flash chips. */\n' +
-          '/* FM-1 SPI NOR at runtime:',
-      },
-      {
-        path: 'firmware/hal/fm1_flash.h',
-        find: '#include "fm1_xip.h"\n',
-        replace: '#include "fm1_xip.h"\n' +
-          '/* FM-1 Studio: the flash chips that CS-1 writes to, as AURORA 0.9.1 has it (hal/fm1_flash_id.h): the\n' +
-          ' * Puya P25Q80 (0x856014) and the UC25HQ80 (0xB36014), both with the same SPI NOR commands */\n' +
-          '#define FL_JEDEC_OK(id) ((id) == 0x856014u || (id) == 0xB36014u)\n',
-      },
-      {
-        path: 'firmware/hal/fm1_flash.h',
-        find: 'fl_jedec_ram(void)                 /* expect 0x856014 */',
-        replace: 'fl_jedec_ram(void)                 /* FL_JEDEC_OK (FM-1 Studio: was "expect 0x856014") */',
-      },
-      ...['firmware/src/platform.c', 'firmware/src/recovery.c'].flatMap((path) => [
-        {
-          path,
-          find: '/* SPDX-License-Identifier: GPL-3.0-only */\n',
-          replace: '/* SPDX-License-Identifier: GPL-3.0-only */\n' +
-            '/* FM-1 Studio changed this file in November 2026, when it loaded it: the flash chip check takes both chips. */\n',
-        },
-        {
-          path,
-          find: 'flash_ok = FL_FAR(fl_jedec_ram)() == 0x856014u;',
-          replace: 'flash_ok = FL_JEDEC_OK(FL_FAR(fl_jedec_ram)());   /* FM-1 Studio: was == 0x856014u */',
-        },
-      ]),
-      {
-        path: 'firmware/loader/loader.c',
-        find: '/* Felucca update loader (device side).',
-        replace: '/* FM-1 Studio changed this file in November 2026, when it loaded it: the flash chip check takes both chips. */\n' +
-          '/* Felucca update loader (device side).',
-      },
-      {
-        path: 'firmware/loader/loader.c',
-        find: 'return fl_jedec_ram() == 0x856014u; }   /* as the app (project.c) */',
-        replace: 'return FL_JEDEC_OK(fl_jedec_ram()); }   /* as the app (project.c); FM-1 Studio: was == 0x856014u */',
-      },
-    ],
+    patches: flashChipPatches('/* SPDX-License-Identifier: GPL-3.0-only */\n'),  // both flash chips
     manifest: {
       sources: ['web/emu/cs1_web.c'],
       include: ['firmware/src', 'firmware/gen'],
@@ -8490,35 +8498,43 @@ const GITHUB_PROJECTS = [
     sources: [{ repo: 'GRiMMBIENT/grimm', ref: 'v2.0.2', paths: ['firmware/', 'LICENSE', 'LICENSING.md', 'LICENSES/', 'README.md'] }],
     extras: 'extras/grimm.js',
     // The main loop of GR!MM, app_main(), does not return: its own browser build stops it with Asyncify,
-    // which the compiler here does not have. These changes make one call of app_main() one turn of the
-    // loop: its variables stay between calls, its start runs one time, and its loop runs one time for
-    // each call. extras/grimm.js has the functions that call it.
+    // which the compiler here does not have. In the browser build (GRIMM_WEB), these changes make one call
+    // of app_main() one turn of the loop: its variables stay between calls, its start runs one time, and
+    // its loop runs one time for each call. extras/grimm.js has the functions that call it. The build for a
+    // real FM-1 has no GRIMM_WEB: it compiles app_main() as it was. Then the flash chip change, as CS-1's.
     patches: [
       {
         path: 'firmware/src/grimm.c',
         find: '/* SPDX-License-Identifier: GPL-3.0-only */\n',
         replace: '/* SPDX-License-Identifier: GPL-3.0-only */\n' +
-          '/* FM-1 Studio changed app_main() in this file in November 2026, when it loaded the file: see fm1studio/grimm_web.c. */\n',
+          '/* FM-1 Studio changed app_main() in this file in November 2026, when it loaded the file, for its browser build\n' +
+          ' * (GRIMM_WEB): see fm1studio/grimm_web.c. Without GRIMM_WEB, the code is as it was. */\n',
       },
       {
         path: 'firmware/src/grimm.c',
         find: 'static void app_main(void)\n{\n    uint32_t prev = 0,',
-        replace: 'static void app_main(void)                      /* FM-1 Studio: one call is one turn of the main loop */\n' +
-          '{\n    static uint32_t prev = 0,',
+        replace: 'static void app_main(void)                      /* FM-1 Studio: GRIMM_WEB, one call is one turn of the main loop */\n' +
+          '{\n#ifdef GRIMM_WEB\n    static\n#endif\n    uint32_t prev = 0,',
       },
-      { path: 'firmware/src/grimm.c', find: '    int8_t oct_before = 0;', replace: '    static int8_t oct_before = 0;' },
+      {
+        path: 'firmware/src/grimm.c',
+        find: '    int8_t oct_before = 0;',
+        replace: '#ifdef GRIMM_WEB                                /* FM-1 Studio */\n    static\n#endif\n    int8_t oct_before = 0;',
+      },
       {
         path: 'firmware/src/grimm.c',
         find: '    ima_init();',
-        replace: '    static int studio_started;                  /* FM-1 Studio: the variables above are static; the start runs one time */\n' +
-          '    if (!studio_started) {\n    studio_started = 1;\n    ima_init();',
+        replace: '#ifdef GRIMM_WEB                                /* FM-1 Studio: the variables above are static; the start runs one time */\n' +
+          '    static int studio_started;\n    if (!studio_started) {\n    studio_started = 1;\n#endif\n    ima_init();',
       },
       {
         path: 'firmware/src/grimm.c',
         find: '\n    for (;;) {\n        uint32_t keys, down, up, rel',
-        replace: '\n    }\n    for (int studio_turn = 0; !studio_turn; studio_turn = 1) {   /* FM-1 Studio: was for (;;) */\n' +
+        replace: '\n#ifdef GRIMM_WEB                                /* FM-1 Studio: one turn of the loop */\n    }\n' +
+          '    for (int studio_turn = 0; !studio_turn; studio_turn = 1) {\n#else\n    for (;;) {\n#endif\n' +
           '        uint32_t keys, down, up, rel',
       },
+      ...flashChipPatches('/* SPDX-License-Identifier: GPL-3.0-only\n'),
     ],
     manifest: {
       sources: ['fm1studio/grimm_web.c'],
@@ -8527,6 +8543,13 @@ const GITHUB_PROJECTS = [
       flags: ['-std=gnu99', '-w'],
       stack: 1048576,
       web: {},
+      // The firmware build ("device"): the steps of GR!MM's tools/build.py, as its releases are made
+      // (--release 2.0.2: APP_VER "2.0.2", identity FM-1_966 as always), without GRIMM_WEB; the RAM floor of
+      // its check (RAM_FREE_MIN)
+      device: {
+        build: 'dinghy', name: 'grimm-2.0.2', product: 'FM-1_966', sources: ['firmware/src/grimm.c'],
+        define: ['APP_VER="2.0.2"'], ramFree: 4096,
+      },
     },
   },
   {
