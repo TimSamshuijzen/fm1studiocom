@@ -78,7 +78,7 @@ project gives the name on the FM-1's start screen. An adapter makes the function
 and no `double`; the LOG panel tells when a program does not fit the FM-1.
 
 **FM-1 Studio was tested on a real FM-1, with all its features**: FIRMWARE and INSTALL, for `fm1.h`
-programs and for AURORA, CS-1 and FM-106. That FM-1 has the newer flash chip and m-bootloader
+programs and for AURORA, CS-1, FM-106 and FMINI-1. That FM-1 has the newer flash chip and m-bootloader
 2.4-395e6cc, installed with M-Flasher (see "Which FM-1"). Read this section to its end before you install
 a package.
 [firmware/README.md](firmware/README.md) tells what a program must keep to on the FM-1.
@@ -172,8 +172,8 @@ for CS-1, `FM-1_907` for FM-106, `FM-1_900` for FMINI-1 (as its released package
 These are not the released packages: the authors build with JieLi's compiler, the page with the open
 compiler. For AURORA 0.9.1, CS-1 0.3.4, FM-106 1.0 and FMINI-1 v2.5.12, unchanged and with a change, the page's package is
 the same bytes as the one that the firmware's own `build.py` makes with the page's compiler, and that
-build passes all its checks (`firmware/web/reference_device.sh`). The packages of AURORA, CS-1 and FM-106
-from the page were tested on a real FM-1 (see "Which FM-1").
+build passes all its checks (`firmware/web/reference_device.sh`). The packages of AURORA, CS-1, FM-106 and
+FMINI-1 from the page were tested on a real FM-1 (see "Which FM-1").
 
 **The page builds FM-106 without Bluetooth.** FM-106's own build links JieLi's closed Bluetooth libraries
 (with link-time optimisation, in Docker); the page does the build that its `build.py` makes with
@@ -201,7 +201,7 @@ files that `tools/size_fns.py` names, but not the functions that an interrupt ca
 the IR at `-Os`. The page's `"felucca"` build does these steps; `"size"` in `device` is the list of files
 of `size_fns.py`. The open compiler calls `__udivdi3` for FMINI-1's 64-bit divisions, so this build links
 the compiler's helper routines (`libclang_rt.builtins.a`), as `opentc.py` does. FMINI-1 takes both flash
-chips (`FL_JEDEC_OK` in `hal/fm1_flash_map.h`). Its package from the page was not tried on a real FM-1.
+chips (`FL_JEDEC_OK` in `hal/fm1_flash_map.h`).
 
 ### fm1project.json
 
@@ -406,7 +406,6 @@ of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/ma
 - The gallery's CS-1 is CS-1 0.3.4 with a change for the newer flash chip (see "AURORA, CS-1, FM-106 and
   FMINI-1 on a real FM-1"): its package is not the same as CS-1's own build of 0.3.4.
 - The page's FM-106 has no Bluetooth, and its boot stub is not the one of FM-106's `stub.lock`.
-- The page's FMINI-1 package was not tried on a real FM-1.
 - For a changed AURORA, CS-1, FM-106 or FMINI-1, the page does not do the checks of its build that need a
   disassembly: run `firmware/web/reference_device.sh` for those.
 - INSTALL needs Chrome or Edge on a computer (Web MIDI).
