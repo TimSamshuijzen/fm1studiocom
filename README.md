@@ -206,7 +206,8 @@ files go into the package. The package has the firmware's own update loader and 
 | GR!MM v2.0.2 | `"dinghy"`, as its release build (`--release 2.0.2`), with a change for the newer flash chip | `grimm-2.0.2.fwsc` | `FM-1_966`, as its releases | Yes | Not tried |
 | FELUCCA v1.8.2 | `"felucca"`, as its release build (`--release 1.8.2`) | `felucca-1.8.2.fwsc` | `FM-1_918`, as its release | Yes | Not tried |
 | SLOOP v2.8.5 | `"felucca"`, without the size pass | `sloop-2.8.5.fwsc` | `FM-1_900`, as its releases | Yes | Tested |
-| SKIFF v2.5.1 | `"felucca"`, as its release build (`--release 2.5.1`), with a change for the firmware compiler | `skiff-2.5.1.fwsc` | `FM-1_725`, as its release | Yes | Not tried |
+| SKIFF v2.5.1 | `"felucca"`, as its release build (`--release 2.5.1`), with a change for the firmware compiler | `skiff-2.5.1.fwsc` | `FM-1_725`, as its release | Yes | Tested |
+| JIANT v0.9.18 | `"felucca"`, with its hot RAM code and layout, with changes for the firmware compiler and the newer flash chip | `jiant-0.9.18.fwsc` | `FM-1_900`, as its releases | Yes | Not tried |
 
 These are not the released packages: the authors build with JieLi's compiler, FM-1 Studio with the
 firmware compiler. "Same bytes": unchanged and with a change, the page's package is the same bytes as the
@@ -278,6 +279,35 @@ them. The `patches` of the gallery's SKIFF give the four helpers `always_inline`
 the firmware does. Each changed file says so at its top. With the change, SKIFF's own `build.py` links and
 passes all its checks, with 20 KB of the flash free.
 
+**JIANT: the `"felucca"` build, with its hot RAM code.** JIANT is made from Felucca too. The gallery loads
+the commit of JIANT's main branch that published its release V10.7.23, but the firmware there is that of
+2026-10-20, v0.9.18 (V10.7.23 was built from another branch, with a much bigger build). The page builds
+it as JIANT's release workflow runs `build.py` (identity `FM-1_900`). Its `build.py` has more steps, which
+`device` turns on:
+
+- **Its size pass** has a third root (`"sizeRoots"`), follows the globals that interrupt code names to the
+  functions in them (`"sizeGlobals"`), skips an `__attribute__` before a function's name
+  (`"sizeAttributes"`), and builds event functions (a MIDI message, a note, a step) for size also when an
+  interrupt reaches them (`"sizeEvents"`, `"sizeEventKeep"`).
+- **Its hot RAM code** (`"hot"`): the IR is optimised first; then eight sound functions get a section in
+  RAM (`.hot_text`), and the functions and tables that an interrupt reaches get sections that `app.ld` puts
+  first in the image; then only the code generator runs.
+- **A bigger app slot** (`"appSlot": 584336`, its packer's `0x8EA90`), which must be `app.ld`'s XIP
+  region; the second core's stacks after the pool in the pool check; 2 KiB of RAM code room kept free; no
+  `fm1_cpu1.S` (it starts the second core from C); and no RAM kept free (`"ramFree": 0`).
+
+Its `build.py` also checks from the disassembly that each call from RAM code reaches its target with
+12 KiB to spare: the page does not, but the linker stops at a call out of reach.
+
+The `patches` of the gallery's JIANT make two changes. **For the firmware compiler:** it makes a call of
+`memmove` for a struct copy, as a compiler may for C without a library, and JIANT's `libc.c` has `memset`,
+`memcpy` and `memcmp` but not `memmove`, so the link stops. The patches add `memmove` to `libc.c`, and give
+it another name in the browser build (`tests/hostsim.c`), as JIANT does for the other three. **For the
+newer flash chip:** JIANT 0.9.18 saves only on the first chip (`project.c`); on the newer one it installs
+(its update loader checks no chip) but stays RAM-only. The patches make that check take both chips, as
+SKIFF 2.2 and later have it. Each changed file says so at its top. With the changes, JIANT's own `build.py`
+links and passes all its checks, with 35 KB of its slot free.
+
 Each link of both builds has the compiler's helper routines (`libclang_rt.builtins.a`) at its end, as
 `opentc.py` gives them to `build.py`: the firmware compiler calls `__udivdi3` for a 64-bit division
 (FMINI-1, GR!MM), where JieLi's compiler needs no library. A link that needs none (AURORA, CS-1, FM-106)
@@ -304,13 +334,15 @@ is built. All parts are optional:
 `web` is for firmware that has its own browser emulator (see below). `device` is the build of such a
 firmware for a real FM-1: the firmware compiler then makes its package with the steps of its own build.
 Two builds are known now: `"dinghy"`, the build of AURORA, CS-1, FM-106 and GR!MM, and `"felucca"`, the
-build of Felucca, FMINI-1, SLOOP and SKIFF. FM-106's `device` also has `"flags"` (more options for each C
-file), `"dualCore": 0` (one core) and `"stub": true` (its boot stub), and GR!MM's has `"ramFree": 4096`
-(the RAM that its build keeps free; SLOOP's and SKIFF's have `"ramFree": 0`, as the `"felucca"` build
-otherwise keeps 4 KiB free). Those of Felucca, FMINI-1 and SKIFF have `"size"` (the files whose functions
-are built for size), Felucca's has `"hal"` (the folders of its hardware layer), and SKIFF's has
-`"loaderFlags"`, `"loaderMax"`, `"giants"` and `"keepInline"` (see SKIFF above); `fm1.h` tells which
-files each build takes. The file list marks the files that the compiler gets with BUILD.
+build of Felucca, FMINI-1, SLOOP, SKIFF and JIANT. FM-106's `device` also has `"flags"` (more options for
+each C file), `"dualCore": 0` (one core) and `"stub": true` (its boot stub), and GR!MM's has
+`"ramFree": 4096` (the RAM that its build keeps free; SLOOP's, SKIFF's and JIANT's have `"ramFree": 0`, as
+the `"felucca"` build otherwise keeps 4 KiB free). Those of Felucca, FMINI-1, SKIFF and JIANT have
+`"size"` (the files whose functions are built for size), Felucca's has `"hal"` (the folders of its
+hardware layer), SKIFF's has `"loaderFlags"`, `"loaderMax"`, `"giants"` and `"keepInline"`, and JIANT's
+has `"sizeRoots"`, `"sizeGlobals"`, `"sizeAttributes"`, `"sizeEvents"`, `"sizeEventKeep"`, `"hot"` and
+`"appSlot"` (see SKIFF and JIANT above); `fm1.h` tells what each option does and which files each build
+takes. The file list marks the files that the compiler gets with BUILD.
 
 ## Firmware gallery
 
@@ -328,7 +360,7 @@ page.
 | SLOOP | v2.8.5 | a live groovebox | [isod89/sloop-fm1](https://github.com/isod89/sloop-fm1) |
 | FELUCCA | v1.8.2 | a multi-engine synthesizer | [hugelton/Felucca](https://github.com/hugelton/Felucca) |
 | SKIFF | v2.5.1 | a six-track groovebox | [illuminus5/skiff](https://github.com/illuminus5/skiff) |
-| JIANT | V10.7.23 | a bio-synthetic groovebox | [juanjiant-bit/JIANT](https://github.com/juanjiant-bit/JIANT) |
+| JIANT | v0.9.18 | a bio-synthetic groovebox | [juanjiant-bit/JIANT](https://github.com/juanjiant-bit/JIANT) |
 
 A compile takes from a few seconds (CS-1) to more than a minute (SKIFF, JIANT) on a fast computer.
 
@@ -346,9 +378,9 @@ Three things that such a repository does not have come from this one:
   (`fm1studio/sloop_web.c`, `fm1studio/grimm_web.c`).
 - **Patches**: text changes in a loaded file, for firmware that cannot run here as it is, or not on the
   newer flash chip of the FM-1, or not with the firmware compiler. GR!MM has five for its browser build
-  (in `#ifdef GRIMM_WEB`); CS-1 and GR!MM have nine each for the flash chip, and SKIFF six for the
-  firmware compiler (see "The gallery's firmware on a real FM-1"). Each change is marked with "FM-1
-  Studio" in a comment.
+  (in `#ifdef GRIMM_WEB`); CS-1 and GR!MM have nine each for the flash chip, SKIFF six for the firmware
+  compiler, and JIANT five for the firmware compiler and two for the flash chip (see "The gallery's
+  firmware on a real FM-1"). Each change is marked with "FM-1 Studio" in a comment.
 
 ## How it works
 
@@ -432,11 +464,14 @@ firmware's linker script, makes the image, and packs it as the firmware's `fm1pk
 FM-106 it also compiles and links the boot stub, puts it in front of the image, and writes the commit
 marker (a CRC-32 of the app) into the package, and compares the stub with `firmware/stub/stub.lock`. In
 the `"felucca"` build it compiles the C file through LLVM IR with the size pass of `tools/size_fns.py`
-(with `"size"`, and SKIFF's `noinline` with `"giants"`), adds the code of the second core to the image, and checks the memory budgets that
-`firmware/app.ld` gives. Each link has the compiler's helper routines at its end, as `opentc.py` gives them. Its checks are
-those of the firmware's `build.py` but those that need a disassembly (no calls from RAM code into the
-flash, no calls in the loop of the second core, no address of the chip's ROM, and GR!MM's depth of the
-stacks). `firmware/web/reference_device.sh` runs the firmware's `build.py` with the firmware compiler and
+(with `"size"`, and the options of SKIFF's and JIANT's passes), with `"hot"` optimises the IR, gives
+sections to the hot and the interrupt code and then generates the code, adds the code of the second core
+to the image, and checks the memory budgets that `firmware/app.ld` gives. Each link has the compiler's
+helper routines at its end, as `opentc.py` gives them. Its checks are those of the firmware's `build.py`
+but those that need a disassembly (no calls from RAM code into the flash, no calls in the loop of the
+second core, no address of the chip's ROM, GR!MM's depth of the stacks, and the reach of JIANT's calls
+from RAM code), and the check of JIANT's packer for all: no sector of the image may look like an update
+record. `firmware/web/reference_device.sh` runs the firmware's `build.py` with the firmware compiler and
 all its checks; the page's package must have the same hash.
 
 ## Run it here
@@ -497,9 +532,10 @@ of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/ma
 - The gallery's CS-1 and GR!MM are CS-1 0.3.4 and GR!MM 2.0.2 with a change for the newer flash chip (see
   "The gallery's firmware on a real FM-1"): their packages are not the same as their own builds of those
   versions. The gallery's SKIFF is SKIFF 2.5.1 with a change for the firmware compiler, which changes
-  nothing that it does.
+  nothing that it does. The gallery's JIANT is the firmware of its main branch, v0.9.18 (not its release
+  V10.7.23), with a `memmove` for the firmware compiler and a change for the newer flash chip.
 - The page's FM-106 has no Bluetooth, and its boot stub is not the one of FM-106's `stub.lock`.
-- The page's GR!MM, FELUCCA and SKIFF packages were not tried on a real FM-1.
+- The page's GR!MM, FELUCCA and JIANT packages were not tried on a real FM-1.
 - The page's SLOOP build does not build again with the boot logo as text when the flash is full, as
   SLOOP's `build.py` does (see "The gallery's firmware on a real FM-1").
 - For a changed firmware of the gallery, the firmware worker does not do the checks of its build that

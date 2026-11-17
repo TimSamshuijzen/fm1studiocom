@@ -140,6 +140,11 @@ bash firmware/web/reference_device.sh ~/sloop
 git clone --branch v2.5.1 https://github.com/illuminus5/skiff ~/skiff
 (unzip the project zip of the gallery's SKIFF over ~/skiff: see below)
 bash firmware/web/reference_device.sh ~/skiff --release 2.5.1
+
+git clone https://github.com/juanjiant-bit/JIANT ~/jiant
+git -C ~/jiant checkout d247fd9c311be4b33bde64d8794d6d83ec8a99b4
+(unzip the project zip of the gallery's JIANT over ~/jiant: see below)
+bash firmware/web/reference_device.sh ~/jiant
 ```
 
 The arguments after the checkout go to its `build.py`.
@@ -148,10 +153,10 @@ For FM-106: `FELUCCA_BLE=0` is the build without Bluetooth, the one that the bro
 `splash.png`, its `build.py` uses the `firmware/src/splash_data.h` of the repository, as the browser
 build does (it does not have `splash.png`, and making the header again needs Pillow).
 
-For FMINI-1, Felucca, SLOOP and SKIFF: their `build.py` makes the headers of `build/gen` with its own
-generators (Pillow; for FMINI-1, Felucca and SKIFF also Raqm, and fontTools for the icons); the browser
-build has them from `src/extras/fmini-1.js`, `src/extras/felucca.js`, `src/extras/sloop.js` and
-`src/extras/skiff.js`, and the two must be the same. FMINI-1 shows the date of its build
+For FMINI-1, Felucca, SLOOP, SKIFF and JIANT: their `build.py` makes the headers of `build/gen` with its
+own generators (Pillow; for FMINI-1, Felucca, SKIFF and JIANT also Raqm, and fontTools for the icons); the
+browser build has them from `src/extras/<id>.js` (`fmini-1`, `felucca`, `sloop`, `skiff`, `jiant`), and
+the two must be the same. FMINI-1 shows the date of its build
 (`__DATE__`): make its reference on the same day as the browser's package. Felucca is built as its
 releases are (`--release 1.8.2`: the identity `FM-1_918`), as the browser build does.
 
@@ -167,6 +172,12 @@ For SKIFF: as released, its `build.py` stops at the link with this compiler (fou
 code in RAM to the flash, out of reach). The gallery changes two of its files (`always_inline` on those
 four helpers, in `firmware/src/voice.c` and `firmware/src/slicer.c`); the checkout needs the same files,
 from the project zip that FM-1 Studio saves. Its generators need fontTools, as Felucca's do.
+
+For JIANT: as on its main branch, its `build.py` stops at the link with this compiler (`memmove` is
+missing). The gallery changes three of its files (`memmove` in `firmware/src/libc.c` and its other name in
+`tests/hostsim.c`, and the flash chip check in `firmware/src/project.c`); the checkout needs the same
+files, from the project zip that FM-1 Studio saves. Its release workflow runs `build.py` without
+arguments, as here.
 
 This copies the checkout below `~/.cache/fm1studio/device-ref` and runs the firmware's own
 `tools/build.py` there with `opentc.py`. All checks of that `build.py` run, also those that need a
@@ -185,7 +196,8 @@ the hashes are the same, also with `grimm.c` as released: the changes for the br
 build for the FM-1. For SLOOP v2.8.5, unchanged and with a changed page name in `firmware/src/params.c`,
 the hashes are the same, and the headers that its generators made are the same as those of the extras
 file. For SKIFF v2.5.1 (release build) with the gallery's change, unchanged and with a changed menu name in
-`firmware/src/menu_items.c`, the same holds.
+`firmware/src/menu_items.c`, the same holds, and for JIANT v0.9.18 (commit `d247fd9c`) with the gallery's
+changes too.
 
 ## Design choices
 
