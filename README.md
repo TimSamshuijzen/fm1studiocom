@@ -37,7 +37,8 @@ A project is a name and a set of text files. SAVE downloads it as a zip file and
 PROG-1, the first card of the gallery, loads a demo project in place of the project: a progressive rock
 band in an FM-1, by Hans Dam. SPACE-1, the second card, loads space funk: an original piece in the spirit
 of the space sounds and the synth bass of "Macho City" (Steve Miller Band, 1981), with laser shots, a
-flying saucer and sonar pings on the buttons.
+flying saucer and sonar pings on the buttons. GAME-1, the third card, loads a game: NEON REEF, a vertical
+shooter. Fly with the computer keys `A`, `W`, `S` and `D`, and fire with `J`.
 The page keeps nothing between visits: save a project before you close the page.
 
 ## Write a program
@@ -219,8 +220,8 @@ BUILD.
 
 ## Firmware gallery
 
-The first two cards, PROG-1 and SPACE-1, load the demo projects of the page (see "Use"). Each other card
-loads one firmware from its own repository on GitHub, at a fixed tag or commit, and compiles it in the
+The first three cards, PROG-1, SPACE-1 and GAME-1, load the demo projects of the page (see "Use"). Each
+other card loads one firmware from its own repository on GitHub, at a fixed tag or commit, and compiles it in the
 page.
 
 | Firmware | Version | What | Repository |
@@ -265,6 +266,7 @@ files of the INSTALL button in `src/install`. The page has the styles, the page 
 | `fm1project.json`, `main.c` | The demo project |
 | `prog-1/fm1project.json`, `prog-1/main.c` | The demo project of the PROG-1 card, by Hans Dam |
 | `space-1/fm1project.json`, `space-1/main.c` | The demo project of the SPACE-1 card |
+| `game-1/fm1project.json`, `game-1/main.c` | The demo project of the GAME-1 card: NEON REEF (`src/examples/neonreef`) |
 | `compiler-worker.js` | The compiler worker |
 | `fm1-worklet.js` | The audio worklet that runs the program |
 | `firmware-worker.js` | The worker of the FIRMWARE button |
@@ -372,8 +374,8 @@ The firmware must have a C source that gives the `web_` interface: `web_boot`, `
 in its build also needs an extras file: a script that calls `fm1Extras({ path: text, ... })`.
 
 A demo project is an entry in `DEMO_PROJECTS` (`id`, `label` and `about`), and its files as text blocks
-of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/main.c`. Its card has no
-licence and no link.
+of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/main.c`. Its card shows
+"demo" in place of a licence, and has no link.
 
 ## Limits
 
