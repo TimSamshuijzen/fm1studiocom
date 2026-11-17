@@ -62,10 +62,9 @@ and runs it. Browsers block sound until a click or a key press, so click the pag
 
 A project is a name and a set of text files. SAVE downloads it as a zip file and LOAD reads one back.
 PROG-1, the first card of the gallery, loads a demo project in place of the project: a progressive rock
-band in an FM-1, by Hans Dam. SPACE-1, the second card, loads space funk: an original piece in the spirit
-of the space sounds and the synth bass of "Macho City" (Steve Miller Band, 1981), with laser shots, a
-flying saucer and sonar pings on the buttons. GAME-1, the third card, loads a game: NEON REEF, a vertical
-shooter. Fly with the computer keys `A`, `W`, `S` and `D`, and fire with `J`.
+band in an FM-1, by Hans Dam. SPACE-1, the second card, loads an original piece in the spirit
+of space sounds and synth bass, with laser shots, a flying saucer and sonar pings on the buttons. 
+GAME-1, the third card, loads a game: NEON REEF, a vertical shooter. Fly with the computer keys `A`, `W`, `S` and `D`, and fire with `J`.
 The page keeps nothing between visits: save a project before you close the page.
 
 ## Write a program
