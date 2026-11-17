@@ -1122,13 +1122,17 @@ void loop(void) { }                         /* again and again: controls and scr
  *
  *   "build":   "dinghy"                  the steps of tools/build.py of AURORA,
  *                                        CS-1, FM-106 and GR!MM; "felucca": of
- *                                        Felucca, FMINI-1 and SLOOP (the only two
- *                                        builds known now)
+ *                                        Felucca, FMINI-1, SLOOP and SKIFF (the
+ *                                        only two builds known now)
  *   "name":    "aurora"                  the package is aurora.fwsc
  *   "product": "FM-1_4747"               the identity of the package
  *   "sources": ["firmware/src/aurora.c"] the C files of the firmware
  *   "define":  ["APP_VER=\"0.9.1\""]     more #defines for those files
  *   "flags":   ["-mcpu=r3"]              more options for each C file
+ *   "loaderFlags": ["-Oz"]               more options for the C file of the
+ *                                        update loader, after those
+ *   "loaderMax": 7936                    the most bytes that the update loader
+ *                                        (ota.bin) can have
  *   "dualCore": 0                        "dinghy": one core (default 1: two)
  *   "stub":    true                      "dinghy": a boot stub in front of the app
  *   "ramFree": 4096                      bytes of RAM that must stay free (default:
@@ -1137,6 +1141,10 @@ void loop(void) { }                         /* again and again: controls and scr
  *                                        whose functions are built for size, as
  *                                        tools/size_fns.py does (without "size":
  *                                        all at -Os, as FELUCCA_SIZE=0)
+ *   "giants":  ["draw_graph", "ui_input"] with "size": a function that only one
+ *                                        of these calls (one time) also gets
+ *                                        noinline, as SKIFF's size_fns.py does
+ *   "keepInline": ["midi_pc_poll"]       with "giants": but not these
  *   "hal":     ["firmware/hal", "firmware/bsp/chip"]
  *                                        "felucca": the folders of the hardware
  *                                        layer, in the sequence of the build
@@ -7251,12 +7259,15 @@ licence = "GPL-3.0-only"
 //              of Felucca). FM-106's build has three more things, which "device" turns on: more flags for
 //              the C files, one core, and a boot stub in front of the app. GR!MM's keeps 4 KiB of RAM free
 //              ("ramFree").
-//   "felucca"  the build of Felucca, FMINI-1 and SLOOP (tools/build.py of github.com/hugelton/Felucca,
-//              github.com/ruppert/fmini-1 and github.com/isod89/sloop-fm1, made from Felucca's): the
-//              headers in build/gen, the second core's code, a pass that builds the functions of the main
-//              loop for size ("size"; SLOOP's build has none), and other memory checks (SLOOP's keeps no
-//              RAM free: "ramFree"). Felucca's hardware layer is in three folders ("hal"): its own
-//              firmware/hal, and the chip and board folders of felucca-bsp.
+//   "felucca"  the build of Felucca, FMINI-1, SLOOP and SKIFF (tools/build.py of github.com/hugelton/Felucca,
+//              github.com/ruppert/fmini-1, github.com/isod89/sloop-fm1 and github.com/illuminus5/skiff,
+//              made from Felucca's): the headers in build/gen, the second core's code, a pass that builds
+//              the functions of the main loop for size ("size"; SLOOP's build has none, SKIFF's also keeps
+//              the helpers of its biggest functions out of line: "giants"), and other memory checks (SLOOP's
+//              and SKIFF's keep no RAM free: "ramFree"). Felucca's hardware layer is in three folders
+//              ("hal"): its own firmware/hal, and the chip and board folders of felucca-bsp. SKIFF's update
+//              loader is built at -Oz with its own identity ("loaderFlags"), and must fit the room that the
+//              stock firmware has for it ("loaderMax").
 // Their steps and checks, but those that need a disassembly: reference_device.sh runs those.
 
 // LZ4 blocks, the same bytes as tools/lz4blk.py of AURORA writes: a match is looked for only at the
@@ -7390,20 +7401,21 @@ function halErrors(texts, dirs) {
 function readDevice(device, texts) {
   const where = `${MANIFEST}: "device"`;
   if (device === null || typeof device !== 'object' || Array.isArray(device)) throw new Error(`${where} must be an object.`);
-  if (!['dinghy', 'felucca'].includes(device.build)) throw new Error(`${where}: "build" must be "dinghy" (the build of AURORA, CS-1, FM-106 and GR!MM) or "felucca" (of Felucca, FMINI-1 and SLOOP): the only ones known.`);
+  if (!['dinghy', 'felucca'].includes(device.build)) throw new Error(`${where}: "build" must be "dinghy" (the build of AURORA, CS-1, FM-106 and GR!MM) or "felucca" (of Felucca, FMINI-1, SLOOP and SKIFF): the only ones known.`);
   if (!/^[a-z0-9][a-z0-9._-]*$/.test(device.name ?? '')) throw new Error(`${where}: "name" must be the name of the package, as "aurora".`);
   if (!/^FM-1_\d{3,15}$/.test(device.product ?? '')) throw new Error(`${where}: "product" must be the identity of the package, as "FM-1_4747".`);
-  for (const key of ['sources', 'define', 'flags', 'size', 'hal']) {
+  for (const key of ['sources', 'define', 'flags', 'loaderFlags', 'size', 'giants', 'keepInline', 'hal']) {
     const list = device[key] ?? [];
     if (!Array.isArray(list) || list.some((item) => typeof item !== 'string')) throw new Error(`${where}: "${key}" must be a list of texts.`);
   }
   if (device.hal && !device.hal.length) throw new Error(`${where}: "hal" must name the folders of the hardware layer.`);
+  if ((device.giants || device.keepInline) && !device.size) throw new Error(`${where}: "giants" and "keepInline" are for the size pass: "size" must name its files.`);
   if (![undefined, 0, 1].includes(device.dualCore)) throw new Error(`${where}: "dualCore" must be 0 or 1.`);
   if (![undefined, false, true].includes(device.stub)) throw new Error(`${where}: "stub" must be true or false.`);
-  if (device.ramFree !== undefined && !(Number.isInteger(device.ramFree) && device.ramFree >= 0)) {
-    throw new Error(`${where}: "ramFree" must be a count of bytes.`);
+  for (const key of ['ramFree', 'loaderMax']) {
+    if (device[key] !== undefined && !(Number.isInteger(device[key]) && device[key] >= 0)) throw new Error(`${where}: "${key}" must be a count of bytes.`);
   }
-  const others = device.build === 'dinghy' ? ['size', 'hal'] : ['dualCore', 'stub'];  // the options of the other build
+  const others = device.build === 'dinghy' ? ['size', 'giants', 'keepInline', 'hal'] : ['dualCore', 'stub'];  // the options of the other build
   for (const key of others) if (device[key] !== undefined) throw new Error(`${where}: "${key}" is not for the "${device.build}" build.`);
   if (!device.sources?.length) throw new Error(`${where}: "sources" must name the C file of the firmware.`);
   for (const path of [...device.sources, ...appAssembly(device, texts), 'firmware/app.ld', ...LOADER_FILES,
@@ -7431,11 +7443,11 @@ const DINGHY_STUB_FILES = ['firmware/stub/crt0_stub.S', 'firmware/stub/stub.c', 
 const DINGHY_FLAGS = ['-Os', '-ffunction-sections', '-fno-builtin', '-Wall', '-Wno-unused-function'];
 const DINGHY_RAM = 0x01C00000;  // the internal RAM, where code runs while the flash is off
 
-// The size pass of the "felucca" build (tools/size_fns.py of FMINI-1 and Felucca, GPL-3.0-only, Copyright
-// (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments): the unity C file goes to LLVM IR without the
-// optimizer, the functions that the files of "size" (paths from firmware/src) define get LLVM's minsize,
-// but those that an interrupt can run, and then the IR is compiled at -Os. The patterns are those of
-// size_fns.py.
+// The size pass of the "felucca" build (tools/size_fns.py of FMINI-1, Felucca and SKIFF, GPL-3.0-only,
+// Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments): the unity C file goes to LLVM IR
+// without the optimizer, the functions that the files of "size" (paths from firmware/src) define get LLVM's
+// minsize, but those that an interrupt can run, and then the IR is compiled at -Os. The patterns are those
+// of size_fns.py.
 const SIZE_ISR_ROOTS = ['fm1_alnk0_irq', 'fm1_timer5_irq'];  // fm1_isr.S: the audio ISR, the key and LED scan
 const SIZE_DEF = /^(?:static|void|int|uint\w*|int\w*|const)\b[^;=(]*?\b([A-Za-z_]\w*)\s*\(/gm;
 const IR_DEF = /^(define [^\n]*?@"?([\w.]+)"?\([^\n]*\)(?: unnamed_addr| local_unnamed_addr)?)( #\d+[^\n]*\{)$/gm;
@@ -7471,18 +7483,32 @@ function interruptFunctions(ir) {
   return seen;
 }
 
-// The IR with minsize on the functions of the files `files`. Logs what size_fns.py prints.
-function sizeIR(ir, files, texts) {
+// The helpers of the giants (giant_helpers of SKIFF's size_fns.py, from 2.5): the functions that are called
+// one time in all the IR, from one of the functions `giants`, but those of `keep`.
+const IR_CALL = /\bcall [^@\n]*@"?([\w.]+)"?\(/g;
+function giantHelpers(ir, giants, keep) {
+  const bodies = new Map([...ir.matchAll(IR_BODY)].map((found) => [found[1], found[2]]));
+  const calls = new Map();
+  for (const [, name] of ir.matchAll(IR_CALL)) calls.set(name, (calls.get(name) ?? 0) + 1);
+  return new Set(giants.flatMap((giant) => [...(bodies.get(giant) ?? '').matchAll(IR_CALL)].map((found) => found[1]))
+    .filter((name) => calls.get(name) === 1 && !keep.includes(name)));
+}
+
+// The IR with minsize on the functions of the files `files`, and noinline too on the helpers of `giants`.
+// Logs what size_fns.py prints.
+function sizeIR(ir, files, texts, giants, keep) {
   const interrupt = interruptFunctions(ir);
   const all = new Set(files.flatMap((file) => definedFunctions(texts.get(tidy(`firmware/src/${file}`)))));
   const names = new Set([...all].filter((name) => !interrupt.has(name))), hit = new Set();
+  const helpers = giants ? giantHelpers(ir, giants, keep ?? []) : new Set();
   const marked = ir.replace(IR_DEF, (line, head, name, tail) => {
     if (!names.has(name)) return line;
     hit.add(name);
-    return `${head} minsize${tail}`;
+    return `${head} minsize${helpers.has(name) ? ' noinline' : ''}${tail}`;
   });
+  const outOfLine = giants ? `; ${[...helpers].filter((name) => hit.has(name)).length} of the giants' helpers out of line` : '';
   log(`size: ${hit.size} main-loop functions built for size (${names.size - hit.size} not in this build; ` +
-    `${all.size - names.size} reached from an interrupt kept -Os)\n`);
+    `${all.size - names.size} reached from an interrupt kept -Os${outOfLine})\n`);
   return marked;
 }
 
@@ -7524,7 +7550,8 @@ async function buildDevice(texts, device) {
   // 1. The update loader (build_loader): it runs from RAM and writes the flash.
   log('compile the update loader\n');
   await cc(['-c', 'firmware/loader/crt0_ldr.S', '-o', 'build/loader/crt0_ldr.o']);
-  await cc([...cflags, ...halIncludes, '-Ifirmware/src', '-c', 'firmware/loader/loader.c', '-o', 'build/loader/loader.o']);
+  // "loaderFlags": more options for the loader's C file (SKIFF: -Oz, after -Os, and its identity "ota-" + product)
+  await cc([...cflags, ...(device.loaderFlags ?? []), ...halIncludes, '-Ifirmware/src', '-c', 'firmware/loader/loader.c', '-o', 'build/loader/loader.o']);
   const loaderElf = await link('firmware/loader/loader.ld', ['build/loader/crt0_ldr.o', 'build/loader/loader.o'], 'build/loader/loader.elf');
   for (const section of elfSections(loaderElf)) {  // the loader rewrites the flash: nothing may run from it
     if (section.name.startsWith('.') && section.address >= 0x02000000 && section.size) {
@@ -7535,6 +7562,8 @@ async function buildDevice(texts, device) {
   if (!loaderImage.length || loaderImage.length > 0x14000) errors.push('loader: image empty or too big');
   const loader = loaderFile(loaderImage);
   notes.push(`loader: image ${loaderImage.length} B at 0x${LOADER_LOAD.toString(16)}, ota.bin ${loader.length} B`);
+  // "loaderMax": the room for ota.bin where the stock firmware puts it before an update (LDR_MAX of SKIFF's build)
+  if (loader.length > (device.loaderMax ?? Infinity)) errors.push(`loader: ota.bin ${loader.length} B, over the ${device.loaderMax} B that the stock firmware stages`);
 
   // 2. The boot stub (build_stub of FM-106), with "stub": code and constants only, built from its own
   // files. firmware/stub/stub.lock has the version and SHA-256 of the stub that is meant to ship.
@@ -7672,7 +7701,7 @@ async function buildDevice(texts, device) {
       await cc([...flags, '-S', '-emit-llvm', '-Xclang', '-disable-llvm-optzns', '-c', source, '-o', `${stem}.ll`]);
       const ir = new TextDecoder().decode(work.get(`${cwd}/${stem}.ll`));
       work.delete(`${cwd}/${stem}.ll`);  // each tool run gets all the files of `work`: not these big ones
-      work.set(`${cwd}/${stem}_size.ll`, encoder.encode(sizeIR(ir, device.size, texts)));
+      work.set(`${cwd}/${stem}_size.ll`, encoder.encode(sizeIR(ir, device.size, texts, device.giants, device.keepInline)));
       log(`compile ${stem}_size.ll\n`);
       await cc([...flags.filter((flag) => !/^-[IDW]/.test(flag)), '-c', `${stem}_size.ll`, '-o', `${stem}.o`]);
       work.delete(`${cwd}/${stem}_size.ll`);
@@ -7683,11 +7712,12 @@ async function buildDevice(texts, device) {
     const image = programImage(elf, symbol);
     if (symbol('_start') !== APP_XIP) errors.push(`_start is not at 0x${APP_XIP.toString(16)}`);
     if (!sameBytes(image.subarray(0, 4), ENTRY)) errors.push('the image does not start with the entry stub');
-    // The waiting loop of the second core: between _c1_start and _c1_end, in a section of its own (FMINI-1)
-    // or at the end of .ram_text (Felucca)
+    // The waiting loop of the second core: between _c1_start and _c1_end, in a section of its own (FMINI-1,
+    // SLOOP) or at the end of .ram_text (Felucca). SKIFF's linker script puts it in .ram_text without these
+    // two symbols, and its build does not check it.
     const c1 = symbol('_c1_end') - symbol('_c1_start');
     if (c1 > 0) notes.push(`.c1_text: ${c1} B, the waiting loop of the second core`);
-    else errors.push('.c1_text: the second core\'s waiting loop is missing (fm1_cpu1.h)');
+    else if (symbols.has('_c1_start')) errors.push('.c1_text: the second core\'s waiting loop is missing (fm1_cpu1.h)');
     if (image.length > APP_SLOT) errors.push(`image ${image.length} B exceeds the app slot`);
     const regions = memoryRegions(texts.get('firmware/app.ld'));  // the budgets, from the linker script
     if (!regions.RAM || !regions.POOL) throw new Error('firmware/app.ld has no MEMORY region RAM or POOL.');
@@ -8629,6 +8659,47 @@ const GITHUB_PROJECTS = [
     id: 'skiff', label: 'SKIFF', version: 'v2.5.1', about: 'a six-track groovebox', license: 'GPL-3.0-only', seconds: 81,
     sources: [{ repo: 'illuminus5/skiff', ref: 'v2.5.1', paths: FELUCCA_PATHS }],
     extras: 'extras/skiff.js',
+    // SKIFF's sound code in RAM (fx.c mix_part: AUDIO_RAM, with flatten) must not call the flash: a direct call
+    // cannot reach it. JieLi's compiler inlines four helpers into track_render first, and flatten then puts
+    // them into mix_part with it. The firmware compiler (clang 23) inlines track_render first: the four stay
+    // calls, and the link stops. always_inline on the four puts them into track_render, as JieLi's compiler
+    // does. This changes nothing that the firmware does, also in the browser build.
+    patches: [
+      {
+        path: 'firmware/src/voice.c',
+        find: '/* SPDX-License-Identifier: GPL-3.0-only\n',
+        replace: '/* SPDX-License-Identifier: GPL-3.0-only\n' +
+          ' * FM-1 Studio changed this file in November 2026, when it loaded it: always_inline on track_lfo_adv,\n' +
+          ' * env_tick and lfo_pitch, which mix_part (in RAM) must not call in the flash.\n',
+      },
+      {
+        path: 'firmware/src/voice.c',
+        find: '\nstatic void track_lfo_adv(track_t *t)\n',
+        replace: '\nstatic inline __attribute__((always_inline)) void track_lfo_adv(track_t *t)\n',
+      },
+      {
+        path: 'firmware/src/voice.c',
+        find: '\nstatic int32_t env_tick(track_t *t, voice_t *v)\n',
+        replace: '\nstatic inline __attribute__((always_inline)) int32_t env_tick(track_t *t, voice_t *v)\n',
+      },
+      {
+        path: 'firmware/src/voice.c',
+        find: '\nstatic void lfo_pitch(int32_t lfo, int32_t d, int32_t *p16, int32_t *fine)\n',
+        replace: '\nstatic inline __attribute__((always_inline)) void lfo_pitch(int32_t lfo, int32_t d, int32_t *p16, int32_t *fine)\n',
+      },
+      {
+        path: 'firmware/src/slicer.c',
+        find: '/* SPDX-License-Identifier: GPL-3.0-only\n',
+        replace: '/* SPDX-License-Identifier: GPL-3.0-only\n' +
+          ' * FM-1 Studio changed this file in November 2026, when it loaded it: always_inline on sl_pattern,\n' +
+          ' * which mix_part (in RAM) must not call in the flash.\n',
+      },
+      {
+        path: 'firmware/src/slicer.c',
+        find: '\nstatic uint32_t sl_pattern(const track_t *t) {',
+        replace: '\nstatic inline __attribute__((always_inline)) uint32_t sl_pattern(const track_t *t) {',
+      },
+    ],
     manifest: {
       sources: ['web/emu/felucca_web.c'],
       include: ['build/gen', 'firmware/src', 'fm1studio'],
@@ -8636,6 +8707,26 @@ const GITHUB_PROJECTS = [
       flags: ['-std=gnu99', '-w'],
       stack: 1048576,
       web: FELUCCA_WEB,
+      // The firmware build ("device"): the steps of SKIFF's tools/build.py for the FM-1, as its releases are made
+      // (--release 2.5.1: identity FM-1_725, the version string v2.5.1, no serial console), with its update
+      // loader at -Oz with its identity and in the room of the stock firmware (LDR_MAX), the files of its
+      // tools/size_fns.py (SIZE_FILES) and the functions whose helpers stay out of line (GIANTS, KEEP_INLINE).
+      // It does not keep RAM free.
+      device: {
+        build: 'felucca', name: 'skiff-2.5.1', product: 'FM-1_725', sources: ['firmware/src/felucca.c'],
+        define: ['FELUCCA_VERSION="v2.5.1"', 'FELUCCA_CDC=0'],
+        loaderFlags: ['-Oz', '-DFELUCCA_ID="ota-FM-1_725"'], loaderMax: 7936, ramFree: 0,
+        size: ['ui.c', 'favorites.c', 'menu_items.c', 'icons.c', 'ui_graph.c', 'ui_draw.c', 'ui_menu.c', 'ui_input.c',
+          'storage.c', 'upreset.c', 'project.c', 'settings_persist.c',
+          'editor.c', 'editor_preferences.c', 'editor_backup.c', 'editor_menu.c', 'console.c',
+          'usb.c', 'midi_uart.c', 'midi_control.c', 'midi_clock.c', 'seq.c', 'chord.c', 'motion.c',
+          'panel.c', 'lcd.c', 'gfx.c', 'ota.c', 'ota_hw.c', 'up_fm6.c', 'slice_store.c', 'params.c', 'editor_fm6.c',
+          'ui_layer.c', 'ui_name.c', 'ui_slice.c', 'ui_events.c', 'main.c', 'libc.c', 'storage_hw.c', 'engines.c', 'fm4_convert.c',
+          'ui_blocks.c', 'ui_pgraph.c', 'ui_crypt.c', 'ui_neon.c', 'ui_quark.c', 'ui_fm6.c', 'ui_dx.c', 'ui_home.c',
+          'ui_take.c', 'ui_tools.c', 'bank.c', 'take.c', 'editor_project.c', 'editor_song.c'],
+        giants: ['draw_graph', 'ui_input', 'ed_handle', 'ui_draw_page', 'fm_draw', 'edit_param'],
+        keepInline: ['midi_pc_poll', 'unit_g_poll', 'graph_follow', 'scr_input', 'rec_clear_poll'],
+      },
     },
   },
   {

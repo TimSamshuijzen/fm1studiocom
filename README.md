@@ -205,7 +205,8 @@ files go into the package. The package has the firmware's own update loader and 
 | FMINI-1 v2.5.12 | `"felucca"` | `fmini-1-fm1-2.5.12.fwsc` | `FM-1_900`, as its releases | Yes | Tested |
 | GR!MM v2.0.2 | `"dinghy"`, as its release build (`--release 2.0.2`), with a change for the newer flash chip | `grimm-2.0.2.fwsc` | `FM-1_966`, as its releases | Yes | Not tried |
 | FELUCCA v1.8.2 | `"felucca"`, as its release build (`--release 1.8.2`) | `felucca-1.8.2.fwsc` | `FM-1_918`, as its release | Yes | Not tried |
-| SLOOP v2.8.5 | `"felucca"`, without the size pass | `sloop-2.8.5.fwsc` | `FM-1_900`, as its releases | Yes | Not tried |
+| SLOOP v2.8.5 | `"felucca"`, without the size pass | `sloop-2.8.5.fwsc` | `FM-1_900`, as its releases | Yes | Tested |
+| SKIFF v2.5.1 | `"felucca"`, as its release build (`--release 2.5.1`), with a change for the firmware compiler | `skiff-2.5.1.fwsc` | `FM-1_725`, as its release | Yes | Not tried |
 
 These are not the released packages: the authors build with JieLi's compiler, FM-1 Studio with the
 firmware compiler. "Same bytes": unchanged and with a change, the page's package is the same bytes as the
@@ -260,6 +261,23 @@ compiles all of `felucca.c` at `-Os` (no `"size"`), and does not keep 4 KiB of R
 `"FELUCCA_LOGO_TEXT=1"` to `"define"` of `device` for that build. With the firmware compiler, SLOOP 2.8.5
 leaves 21 KB of the flash free. SLOOP 2.8.5 takes both flash chips (`hal/fm1_flash_id.h`).
 
+**SKIFF: the `"felucca"` build, with a change for the firmware compiler.** SKIFF is made from Felucca too,
+and is built as its release (`--release 2.5.1`: identity `FM-1_725`, the version string `v2.5.1`, no
+serial console). Its `build.py` has more steps, which `device` turns on: the update loader at `-Oz` with
+its own identity (`"loaderFlags"`), and not bigger than the room that the stock firmware has for it
+(`"loaderMax": 7936`); in the size pass, a helper that only one of six big functions calls gets
+`noinline` too (`"giants"`, `"keepInline"`); and no RAM kept free (`"ramFree": 0`). SKIFF 2.5.1 takes
+both flash chips (`hal/fm1_flash_map.h`).
+
+SKIFF 2.5.1 as released does not link with the firmware compiler. Its sound code in RAM (`mix_part` in
+`fx.c`, with `flatten`) must not call the flash, which is more than 4 MiB away. JieLi's compiler inlines
+four helpers (`track_lfo_adv`, `env_tick` and `lfo_pitch` in `voice.c`, `sl_pattern` in `slicer.c`) into
+the functions that call them first, and `flatten` then puts them into `mix_part` too. Clang 23's
+`flatten` inlines only the direct calls of `mix_part`, so the four stay calls, and the linker stops at
+them. The `patches` of the gallery's SKIFF give the four helpers `always_inline`. This changes nothing that
+the firmware does. Each changed file says so at its top. With the change, SKIFF's own `build.py` links and
+passes all its checks, with 20 KB of the flash free.
+
 Each link of both builds has the compiler's helper routines (`libclang_rt.builtins.a`) at its end, as
 `opentc.py` gives them to `build.py`: the firmware compiler calls `__udivdi3` for a 64-bit division
 (FMINI-1, GR!MM), where JieLi's compiler needs no library. A link that needs none (AURORA, CS-1, FM-106)
@@ -286,12 +304,13 @@ is built. All parts are optional:
 `web` is for firmware that has its own browser emulator (see below). `device` is the build of such a
 firmware for a real FM-1: the firmware compiler then makes its package with the steps of its own build.
 Two builds are known now: `"dinghy"`, the build of AURORA, CS-1, FM-106 and GR!MM, and `"felucca"`, the
-build of Felucca, FMINI-1 and SLOOP. FM-106's `device` also has `"flags"` (more options for each C file),
-`"dualCore": 0` (one core) and `"stub": true` (its boot stub), and GR!MM's has `"ramFree": 4096` (the RAM
-that its build keeps free; SLOOP's has `"ramFree": 0`, as the `"felucca"` build otherwise keeps 4 KiB
-free). Those of Felucca and FMINI-1 have `"size"` (the files whose functions are built for size), and
-Felucca's has `"hal"` (the folders of its hardware layer); `fm1.h` tells which files each build takes.
-The file list marks the files that the compiler gets with BUILD.
+build of Felucca, FMINI-1, SLOOP and SKIFF. FM-106's `device` also has `"flags"` (more options for each C
+file), `"dualCore": 0` (one core) and `"stub": true` (its boot stub), and GR!MM's has `"ramFree": 4096`
+(the RAM that its build keeps free; SLOOP's and SKIFF's have `"ramFree": 0`, as the `"felucca"` build
+otherwise keeps 4 KiB free). Those of Felucca, FMINI-1 and SKIFF have `"size"` (the files whose functions
+are built for size), Felucca's has `"hal"` (the folders of its hardware layer), and SKIFF's has
+`"loaderFlags"`, `"loaderMax"`, `"giants"` and `"keepInline"` (see SKIFF above); `fm1.h` tells which
+files each build takes. The file list marks the files that the compiler gets with BUILD.
 
 ## Firmware gallery
 
@@ -326,9 +345,10 @@ Three things that such a repository does not have come from this one:
   SLOOP and GR!MM, the file also has the emulator source that FM-1 Studio compiles
   (`fm1studio/sloop_web.c`, `fm1studio/grimm_web.c`).
 - **Patches**: text changes in a loaded file, for firmware that cannot run here as it is, or not on the
-  newer flash chip of the FM-1. GR!MM has five for its browser build (in `#ifdef GRIMM_WEB`); CS-1 and
-  GR!MM have nine each for the flash chip (see "The gallery's firmware on a real FM-1"). Each change is
-  marked with "FM-1 Studio" in a comment.
+  newer flash chip of the FM-1, or not with the firmware compiler. GR!MM has five for its browser build
+  (in `#ifdef GRIMM_WEB`); CS-1 and GR!MM have nine each for the flash chip, and SKIFF six for the
+  firmware compiler (see "The gallery's firmware on a real FM-1"). Each change is marked with "FM-1
+  Studio" in a comment.
 
 ## How it works
 
@@ -412,7 +432,7 @@ firmware's linker script, makes the image, and packs it as the firmware's `fm1pk
 FM-106 it also compiles and links the boot stub, puts it in front of the image, and writes the commit
 marker (a CRC-32 of the app) into the package, and compares the stub with `firmware/stub/stub.lock`. In
 the `"felucca"` build it compiles the C file through LLVM IR with the size pass of `tools/size_fns.py`
-(with `"size"`), adds the code of the second core to the image, and checks the memory budgets that
+(with `"size"`, and SKIFF's `noinline` with `"giants"`), adds the code of the second core to the image, and checks the memory budgets that
 `firmware/app.ld` gives. Each link has the compiler's helper routines at its end, as `opentc.py` gives them. Its checks are
 those of the firmware's `build.py` but those that need a disassembly (no calls from RAM code into the
 flash, no calls in the loop of the second core, no address of the chip's ROM, and GR!MM's depth of the
@@ -476,9 +496,10 @@ of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/ma
   program has no USB audio and no Bluetooth; USB MIDI in works.
 - The gallery's CS-1 and GR!MM are CS-1 0.3.4 and GR!MM 2.0.2 with a change for the newer flash chip (see
   "The gallery's firmware on a real FM-1"): their packages are not the same as their own builds of those
-  versions.
+  versions. The gallery's SKIFF is SKIFF 2.5.1 with a change for the firmware compiler, which changes
+  nothing that it does.
 - The page's FM-106 has no Bluetooth, and its boot stub is not the one of FM-106's `stub.lock`.
-- The page's GR!MM, FELUCCA and SLOOP packages were not tried on a real FM-1.
+- The page's GR!MM, FELUCCA and SKIFF packages were not tried on a real FM-1.
 - The page's SLOOP build does not build again with the boot logo as text when the flash is full, as
   SLOOP's `build.py` does (see "The gallery's firmware on a real FM-1").
 - For a changed firmware of the gallery, the firmware worker does not do the checks of its build that

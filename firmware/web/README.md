@@ -136,6 +136,10 @@ bash firmware/web/reference_device.sh ~/grimm --release 2.0.2
 
 git clone --branch v2.8.5 https://github.com/isod89/sloop-fm1 ~/sloop
 bash firmware/web/reference_device.sh ~/sloop
+
+git clone --branch v2.5.1 https://github.com/illuminus5/skiff ~/skiff
+(unzip the project zip of the gallery's SKIFF over ~/skiff: see below)
+bash firmware/web/reference_device.sh ~/skiff --release 2.5.1
 ```
 
 The arguments after the checkout go to its `build.py`.
@@ -144,10 +148,10 @@ For FM-106: `FELUCCA_BLE=0` is the build without Bluetooth, the one that the bro
 `splash.png`, its `build.py` uses the `firmware/src/splash_data.h` of the repository, as the browser
 build does (it does not have `splash.png`, and making the header again needs Pillow).
 
-For FMINI-1, Felucca and SLOOP: their `build.py` makes the headers of `build/gen` with its own generators
-(Pillow; for FMINI-1 and Felucca also Raqm, and fontTools for the icons); the browser build has them
-from `src/extras/fmini-1.js`, `src/extras/felucca.js` and `src/extras/sloop.js`, and the two must be the
-same. FMINI-1 shows the date of its build
+For FMINI-1, Felucca, SLOOP and SKIFF: their `build.py` makes the headers of `build/gen` with its own
+generators (Pillow; for FMINI-1, Felucca and SKIFF also Raqm, and fontTools for the icons); the browser
+build has them from `src/extras/fmini-1.js`, `src/extras/felucca.js`, `src/extras/sloop.js` and
+`src/extras/skiff.js`, and the two must be the same. FMINI-1 shows the date of its build
 (`__DATE__`): make its reference on the same day as the browser's package. Felucca is built as its
 releases are (`--release 1.8.2`: the identity `FM-1_918`), as the browser build does.
 
@@ -158,6 +162,11 @@ of this compiler's code that call through a pointer and that its `TARGETS` do no
 calls the flash driver's RAM code, as the functions in `TARGETS` with `RAMT` do) and `knob_param` (its
 jump table, `tbh`, has bytes that objdump shows as `call r4`). Add `"fl_erase4k": RAMT, "knob_param": []`
 to `TARGETS` in the checkout: the check then passes, and the package is the same bytes.
+
+For SKIFF: as released, its `build.py` stops at the link with this compiler (four calls from its sound
+code in RAM to the flash, out of reach). The gallery changes two of its files (`always_inline` on those
+four helpers, in `firmware/src/voice.c` and `firmware/src/slicer.c`); the checkout needs the same files,
+from the project zip that FM-1 Studio saves. Its generators need fontTools, as Felucca's do.
 
 This copies the checkout below `~/.cache/fm1studio/device-ref` and runs the firmware's own
 `tools/build.py` there with `opentc.py`. All checks of that `build.py` run, also those that need a
@@ -175,7 +184,8 @@ For Felucca v1.8.2 (release build), unchanged and with a changed menu name in
 the hashes are the same, also with `grimm.c` as released: the changes for the browser do not reach the
 build for the FM-1. For SLOOP v2.8.5, unchanged and with a changed page name in `firmware/src/params.c`,
 the hashes are the same, and the headers that its generators made are the same as those of the extras
-file.
+file. For SKIFF v2.5.1 (release build) with the gallery's change, unchanged and with a changed menu name in
+`firmware/src/menu_items.c`, the same holds.
 
 ## Design choices
 
