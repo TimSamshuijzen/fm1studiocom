@@ -133,6 +133,9 @@ bash firmware/web/reference_device.sh ~/felucca --release 1.8.2
 git clone --branch v2.0.2 https://github.com/GRiMMBIENT/grimm ~/grimm
 (unzip the project zip of the gallery's GR!MM over ~/grimm, and change tools/stack_check.py: see below)
 bash firmware/web/reference_device.sh ~/grimm --release 2.0.2
+
+git clone --branch v2.8.5 https://github.com/isod89/sloop-fm1 ~/sloop
+bash firmware/web/reference_device.sh ~/sloop
 ```
 
 The arguments after the checkout go to its `build.py`.
@@ -141,9 +144,10 @@ For FM-106: `FELUCCA_BLE=0` is the build without Bluetooth, the one that the bro
 `splash.png`, its `build.py` uses the `firmware/src/splash_data.h` of the repository, as the browser
 build does (it does not have `splash.png`, and making the header again needs Pillow).
 
-For FMINI-1 and Felucca: their `build.py` makes the headers of `build/gen` with its own generators
-(Pillow with Raqm, and fontTools for the icons); the browser build has them from `src/extras/fmini-1.js`
-and `src/extras/felucca.js`, and the two must be the same. FMINI-1 shows the date of its build
+For FMINI-1, Felucca and SLOOP: their `build.py` makes the headers of `build/gen` with its own generators
+(Pillow; for FMINI-1 and Felucca also Raqm, and fontTools for the icons); the browser build has them
+from `src/extras/fmini-1.js`, `src/extras/felucca.js` and `src/extras/sloop.js`, and the two must be the
+same. FMINI-1 shows the date of its build
 (`__DATE__`): make its reference on the same day as the browser's package. Felucca is built as its
 releases are (`--release 1.8.2`: the identity `FM-1_918`), as the browser build does.
 
@@ -169,7 +173,9 @@ hashes are the same, and the headers that its generators made are the same as th
 For Felucca v1.8.2 (release build), unchanged and with a changed menu name in
 `firmware/src/menu_items.c`, the same holds. For GR!MM v2.0.2 (release build) with the gallery's changes,
 the hashes are the same, also with `grimm.c` as released: the changes for the browser do not reach the
-build for the FM-1.
+build for the FM-1. For SLOOP v2.8.5, unchanged and with a changed page name in `firmware/src/params.c`,
+the hashes are the same, and the headers that its generators made are the same as those of the extras
+file.
 
 ## Design choices
 

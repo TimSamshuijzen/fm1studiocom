@@ -1122,8 +1122,8 @@ void loop(void) { }                         /* again and again: controls and scr
  *
  *   "build":   "dinghy"                  the steps of tools/build.py of AURORA,
  *                                        CS-1, FM-106 and GR!MM; "felucca": of
- *                                        Felucca and FMINI-1 (the only two builds
- *                                        known now)
+ *                                        Felucca, FMINI-1 and SLOOP (the only two
+ *                                        builds known now)
  *   "name":    "aurora"                  the package is aurora.fwsc
  *   "product": "FM-1_4747"               the identity of the package
  *   "sources": ["firmware/src/aurora.c"] the C files of the firmware
@@ -1131,7 +1131,8 @@ void loop(void) { }                         /* again and again: controls and scr
  *   "flags":   ["-mcpu=r3"]              more options for each C file
  *   "dualCore": 0                        "dinghy": one core (default 1: two)
  *   "stub":    true                      "dinghy": a boot stub in front of the app
- *   "ramFree": 4096                      "dinghy": bytes of RAM that must stay free
+ *   "ramFree": 4096                      bytes of RAM that must stay free (default:
+ *                                        0 for "dinghy", 4096 for "felucca")
  *   "size":    ["ui.c", "menu.c"]        "felucca": the files (from firmware/src)
  *                                        whose functions are built for size, as
  *                                        tools/size_fns.py does (without "size":
@@ -1148,7 +1149,8 @@ void loop(void) { }                         /* again and again: controls and scr
  * firmware/stub, as FM-106 has it. "felucca" takes the same files, and also
  * fm1_cpu1.S (the second core), with the headers in build/gen in place of
  * firmware/gen. With "hal", it takes the assembly files from the first
- * folder of "hal" that has them. It links the compiler's helper routines.
+ * folder of "hal" that has them. Both builds link the compiler's helper
+ * routines.
  */
 #ifndef FM1_H
 #define FM1_H
@@ -7249,10 +7251,11 @@ licence = "GPL-3.0-only"
 //              of Felucca). FM-106's build has three more things, which "device" turns on: more flags for
 //              the C files, one core, and a boot stub in front of the app. GR!MM's keeps 4 KiB of RAM free
 //              ("ramFree").
-//   "felucca"  the build of Felucca and FMINI-1 (tools/build.py of github.com/hugelton/Felucca and
-//              github.com/ruppert/fmini-1, made from Felucca's): the headers in build/gen, the second
-//              core's code, a pass that builds the functions of the main loop for size ("size"), and
-//              other memory checks. Felucca's hardware layer is in three folders ("hal"): its own
+//   "felucca"  the build of Felucca, FMINI-1 and SLOOP (tools/build.py of github.com/hugelton/Felucca,
+//              github.com/ruppert/fmini-1 and github.com/isod89/sloop-fm1, made from Felucca's): the
+//              headers in build/gen, the second core's code, a pass that builds the functions of the main
+//              loop for size ("size"; SLOOP's build has none), and other memory checks (SLOOP's keeps no
+//              RAM free: "ramFree"). Felucca's hardware layer is in three folders ("hal"): its own
 //              firmware/hal, and the chip and board folders of felucca-bsp.
 // Their steps and checks, but those that need a disassembly: reference_device.sh runs those.
 
@@ -7387,7 +7390,7 @@ function halErrors(texts, dirs) {
 function readDevice(device, texts) {
   const where = `${MANIFEST}: "device"`;
   if (device === null || typeof device !== 'object' || Array.isArray(device)) throw new Error(`${where} must be an object.`);
-  if (!['dinghy', 'felucca'].includes(device.build)) throw new Error(`${where}: "build" must be "dinghy" (the build of AURORA, CS-1, FM-106 and GR!MM) or "felucca" (of FMINI-1 and Felucca): the only ones known.`);
+  if (!['dinghy', 'felucca'].includes(device.build)) throw new Error(`${where}: "build" must be "dinghy" (the build of AURORA, CS-1, FM-106 and GR!MM) or "felucca" (of Felucca, FMINI-1 and SLOOP): the only ones known.`);
   if (!/^[a-z0-9][a-z0-9._-]*$/.test(device.name ?? '')) throw new Error(`${where}: "name" must be the name of the package, as "aurora".`);
   if (!/^FM-1_\d{3,15}$/.test(device.product ?? '')) throw new Error(`${where}: "product" must be the identity of the package, as "FM-1_4747".`);
   for (const key of ['sources', 'define', 'flags', 'size', 'hal']) {
@@ -7400,7 +7403,7 @@ function readDevice(device, texts) {
   if (device.ramFree !== undefined && !(Number.isInteger(device.ramFree) && device.ramFree >= 0)) {
     throw new Error(`${where}: "ramFree" must be a count of bytes.`);
   }
-  const others = device.build === 'dinghy' ? ['size', 'hal'] : ['dualCore', 'stub', 'ramFree'];  // the options of the other build
+  const others = device.build === 'dinghy' ? ['size', 'hal'] : ['dualCore', 'stub'];  // the options of the other build
   for (const key of others) if (device[key] !== undefined) throw new Error(`${where}: "${key}" is not for the "${device.build}" build.`);
   if (!device.sources?.length) throw new Error(`${where}: "sources" must name the C file of the firmware.`);
   for (const path of [...device.sources, ...appAssembly(device, texts), 'firmware/app.ld', ...LOADER_FILES,
@@ -7414,7 +7417,7 @@ function readDevice(device, texts) {
 const LOADER_FILES = ['firmware/loader/crt0_ldr.S', 'firmware/loader/loader.c', 'firmware/loader/loader.ld'];
 // The folders of the hardware layer, for #include and the register check: "hal" of "device", in its
 // sequence (HAL_DIRS of Felucca's build.py: firmware/hal, then felucca-bsp's chip and board folders), or
-// firmware/hal, as the builds of AURORA, CS-1, FM-106 and FMINI-1 have it.
+// firmware/hal, as the other builds have it.
 const halDirs = (device) => device.hal ?? ['firmware/hal'];
 // The assembly files of the app. With "hal", each one is in the first folder of the hardware layer that has
 // it (hal_file of Felucca's build.py). Without it, crt0.S is in firmware/ and the others in firmware/hal.
@@ -7630,7 +7633,8 @@ async function buildDevice(texts, device) {
   function finish(image, app) {
     const hal = halErrors(texts, halDirs(device));
     errors.push(...hal);
-    if (!hal.length) notes.push(`register access: hal/ only (src/, ${device.build === 'felucca' ? 'engines/src/, ' : ''}loader/ clean)`);
+    const engines = [...texts.keys()].some((path) => path.startsWith('firmware/engines/src/'));  // FMINI-1, Felucca
+    if (!hal.length) notes.push(`register access: hal/ only (src/, ${engines ? 'engines/src/, ' : ''}loader/ clean)`);
     for (const note of notes) log(`  ok    ${note}\n`);
     for (const warning of warnings) log(`  NOTE  ${warning}\n`);
     for (const error of errors) log(`  FAIL  ${error}\n`);
@@ -7691,7 +7695,10 @@ async function buildDevice(texts, device) {
     const ram = symbol('_bss_end') - ramOrigin, pool = symbol('_pool_end') - symbol('_pool_start');
     notes.push(`image ${image.length} B of ${APP_SLOT}; RAM .data+.bss ${ram} B of ${ramLength}; pool ${pool} B of ${poolLength}`);
     if (ramOrigin + ramLength !== poolOrigin) errors.push('app.ld: POOL does not start where RAM ends');
-    if (ramLength - ram < 4096) errors.push(`RAM headroom ${ramLength - ram} B < 4096 B`);  // for what the interrupts use
+    // "ramFree": the RAM that stays free, for what the interrupts use: 4 KiB in the build of FMINI-1 and
+    // Felucca, none in SLOOP's
+    const ramFree = device.ramFree ?? 4096;
+    if (ramLength - ram < ramFree) errors.push(`RAM headroom ${ramLength - ram} B < ${ramFree} B`);
     if (poolLength - pool < 8192) errors.push(`pool headroom ${poolLength - pool} B < 8192 B`);
     return image;
   }
@@ -8567,6 +8574,10 @@ const GITHUB_PROJECTS = [
       flags: ['-std=gnu99', '-w'],
       stack: 1048576,
       web: FELUCCA_WEB,
+      // The firmware build ("device"): the steps of SLOOP's tools/build.py for the FM-1, as its releases are made
+      // (identity FM-1_900, no --release: the version "SLOOP 2.8.5" of firmware/src/ui.c), all at -Os: SLOOP's
+      // build has no size pass, and does not keep RAM free
+      device: { build: 'felucca', name: 'sloop-2.8.5', product: 'FM-1_900', sources: ['firmware/src/felucca.c'], ramFree: 0 },
     },
   },
   {

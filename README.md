@@ -205,6 +205,7 @@ files go into the package. The package has the firmware's own update loader and 
 | FMINI-1 v2.5.12 | `"felucca"` | `fmini-1-fm1-2.5.12.fwsc` | `FM-1_900`, as its releases | Yes | Tested |
 | GR!MM v2.0.2 | `"dinghy"`, as its release build (`--release 2.0.2`), with a change for the newer flash chip | `grimm-2.0.2.fwsc` | `FM-1_966`, as its releases | Yes | Not tried |
 | FELUCCA v1.8.2 | `"felucca"`, as its release build (`--release 1.8.2`) | `felucca-1.8.2.fwsc` | `FM-1_918`, as its release | Yes | Not tried |
+| SLOOP v2.8.5 | `"felucca"`, without the size pass | `sloop-2.8.5.fwsc` | `FM-1_900`, as its releases | Yes | Not tried |
 
 These are not the released packages: the authors build with JieLi's compiler, FM-1 Studio with the
 firmware compiler. "Same bytes": unchanged and with a change, the page's package is the same bytes as the
@@ -252,6 +253,13 @@ sequence: its own `firmware/hal`, and the chip and board folders of the felucca-
 (`firmware/bsp`); `"hal"` in `device` names them. Both take both flash chips (FMINI-1: `FL_JEDEC_OK` in
 `hal/fm1_flash_map.h`; Felucca 1.8.2: `project.c`).
 
+**SLOOP: the `"felucca"` build without the size pass.** SLOOP is made from Felucca too. Its `build.py`
+compiles all of `felucca.c` at `-Os` (no `"size"`), and does not keep 4 KiB of RAM free as Felucca's does
+(`"ramFree": 0`). When the image does not fit the flash, it builds again with the boot logo as text
+(`FELUCCA_LOGO_TEXT=1`, 4.6 KB less); the page does not: such a link stops with the linker's error. Add
+`"FELUCCA_LOGO_TEXT=1"` to `"define"` of `device` for that build. With the firmware compiler, SLOOP 2.8.5
+leaves 21 KB of the flash free. SLOOP 2.8.5 takes both flash chips (`hal/fm1_flash_id.h`).
+
 Each link of both builds has the compiler's helper routines (`libclang_rt.builtins.a`) at its end, as
 `opentc.py` gives them to `build.py`: the firmware compiler calls `__udivdi3` for a 64-bit division
 (FMINI-1, GR!MM), where JieLi's compiler needs no library. A link that needs none (AURORA, CS-1, FM-106)
@@ -277,13 +285,13 @@ is built. All parts are optional:
 
 `web` is for firmware that has its own browser emulator (see below). `device` is the build of such a
 firmware for a real FM-1: the firmware compiler then makes its package with the steps of its own build.
-Two builds are known now: `"dinghy"`, the build of AURORA, CS-1, FM-106 and GR!MM, and `"felucca"`, the build of
-Felucca and FMINI-1. FM-106's `device` also has `"flags"` (more options for each C file), `"dualCore": 0`
-(one core) and `"stub": true` (its boot stub), and GR!MM's has `"ramFree": 4096` (the RAM that its build
-keeps free). Those of Felucca and FMINI-1 have `"size"` (the files
-whose functions are built for size), and Felucca's has `"hal"` (the folders of its hardware layer);
-`fm1.h` tells which files each build takes. The file list marks the files that the compiler gets with
-BUILD.
+Two builds are known now: `"dinghy"`, the build of AURORA, CS-1, FM-106 and GR!MM, and `"felucca"`, the
+build of Felucca, FMINI-1 and SLOOP. FM-106's `device` also has `"flags"` (more options for each C file),
+`"dualCore": 0` (one core) and `"stub": true` (its boot stub), and GR!MM's has `"ramFree": 4096` (the RAM
+that its build keeps free; SLOOP's has `"ramFree": 0`, as the `"felucca"` build otherwise keeps 4 KiB
+free). Those of Felucca and FMINI-1 have `"size"` (the files whose functions are built for size), and
+Felucca's has `"hal"` (the folders of its hardware layer); `fm1.h` tells which files each build takes.
+The file list marks the files that the compiler gets with BUILD.
 
 ## Firmware gallery
 
@@ -403,9 +411,9 @@ loader and packs it as LZ4 blocks, compiles the firmware's assembly files and C 
 firmware's linker script, makes the image, and packs it as the firmware's `fm1pkg_make.py` does. For
 FM-106 it also compiles and links the boot stub, puts it in front of the image, and writes the commit
 marker (a CRC-32 of the app) into the package, and compares the stub with `firmware/stub/stub.lock`. In
-the `"felucca"` build it compiles the C file through LLVM IR with the size pass of `tools/size_fns.py`,
-adds the code of the second core to the image, and checks the memory budgets that `firmware/app.ld`
-gives. Each link has the compiler's helper routines at its end, as `opentc.py` gives them. Its checks are
+the `"felucca"` build it compiles the C file through LLVM IR with the size pass of `tools/size_fns.py`
+(with `"size"`), adds the code of the second core to the image, and checks the memory budgets that
+`firmware/app.ld` gives. Each link has the compiler's helper routines at its end, as `opentc.py` gives them. Its checks are
 those of the firmware's `build.py` but those that need a disassembly (no calls from RAM code into the
 flash, no calls in the loop of the second core, no address of the chip's ROM, and GR!MM's depth of the
 stacks). `firmware/web/reference_device.sh` runs the firmware's `build.py` with the firmware compiler and
@@ -470,7 +478,9 @@ of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/ma
   "The gallery's firmware on a real FM-1"): their packages are not the same as their own builds of those
   versions.
 - The page's FM-106 has no Bluetooth, and its boot stub is not the one of FM-106's `stub.lock`.
-- The page's GR!MM and FELUCCA packages were not tried on a real FM-1.
+- The page's GR!MM, FELUCCA and SLOOP packages were not tried on a real FM-1.
+- The page's SLOOP build does not build again with the boot logo as text when the flash is full, as
+  SLOOP's `build.py` does (see "The gallery's firmware on a real FM-1").
 - For a changed firmware of the gallery, the firmware worker does not do the checks of its build that
   need a disassembly: run `firmware/web/reference_device.sh` for those.
 - The installer needs Chrome or Edge on a computer (Web MIDI).
