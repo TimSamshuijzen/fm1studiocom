@@ -439,10 +439,11 @@
   .port { position: relative; }  /* the COMPILE button and its cable */
   /* Below the bar of the compile, 8px from it: the WebAssembly logo. Its hint tells which compiler makes
      the program. For its room, the buttons of the program are lower than the other big buttons: the
-     column is as high as without the logo, and RUN stays at the same place. */
+     column is as high as without the logo, and RUN stays at the same place. The logo counts as 10px in
+     the column (its margins) and hangs into the room below it, to 1px above the bottom of the board. */
   .program .big-button { height: 32px; gap: 3px; }
-  .wasm-logo { display: block; width: 16px; height: 16px; margin-top: -6px; }
-  .wasm-logo svg { display: block; width: 100%; height: 100%; border-radius: 1px; filter: drop-shadow(0 1px 1px #000a); }
+  .wasm-logo { display: block; width: 29px; height: 29px; margin: -6px 0 -13px; }
+  .wasm-logo svg { display: block; width: 100%; height: 100%; border-radius: 2px; filter: drop-shadow(0 1px 1px #000a); }
   /* The cable from the COMPILE button to connector J1 of the program board: drawBoard() draws J1
      at the height of the cable. `left` and `width` put its plugs against the button and on the
      left edge of the board. */
