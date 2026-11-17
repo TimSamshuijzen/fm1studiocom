@@ -545,6 +545,7 @@
   .dialog-text table { width: 100%; border-collapse: collapse; font-size: 15px; }
   .dialog-text th, .dialog-text td { padding: 6px 10px; border: 1px solid var(--paper-rule); text-align: left; vertical-align: top; }
   .dialog-text th { background: var(--paper-code); }
+  .dialog-text .nowrap { white-space: nowrap; }  /* a name that must not break at its hyphen */
   @media (max-width: 620px) {  /* a narrow window: a long name in a table can break */
     .dialog-text table { font-size: 14px; }
     .dialog-text th, .dialog-text td { padding: 5px 6px; overflow-wrap: anywhere; }
@@ -835,7 +836,7 @@ void loop(void) { }                         /* again and again: controls and scr
         above. The other cards load the source code of open-source FM-1 firmware from GitHub, at a fixed version, and
         compile it in this page. Each firmware is the work of its authors and has its own licence.</p>
       <table>
-        <thead><tr><th>Firmware</th><th>Version</th><th>What</th><th>Repository</th><th>Licence</th></tr></thead>
+        <thead><tr><th>Firmware</th><th>Version</th><th>What</th><th>Repository</th><th>Licence</th><th class="nowrap">Real FM-1</th></tr></thead>
         <tbody id="about-gallery"></tbody>
       </table>
       <p>These firmwares do not use <code>fm1.h</code>. Each one has its own FM-1 for the browser inside:
@@ -852,8 +853,8 @@ void loop(void) { }                         /* again and again: controls and scr
         <a class="ref" href="https://github.com/charlesvestal/fm1-base" target="_blank" rel="noopener" title="fm1-base">[3]</a>,
         the open platform for FM-1 firmware, and felucca-bsp
         <a class="ref" href="https://github.com/hugelton/felucca-bsp" target="_blank" rel="noopener" title="felucca-bsp">[4]</a>.
-        For AURORA, CS-1, FM-106 and FMINI-1 of the gallery, FIRMWARE does the steps of the firmware's own
-        build instead, with the changes that you made in its files.</p>
+        For a firmware of the gallery with "yes" under "Real FM-1" in the table above, FIRMWARE does the
+        steps of the firmware's own build instead, with the changes that you made in its files.</p>
       <p>The INSTALL button makes the same package and writes it to an FM-1 over USB. A dialog shows the
         steps: read, connect the FM-1, install. It uses Web MIDI, so it needs Chrome or Edge. The firmware
         on the FM-1 checks the package and starts the update loader of the package, and that loader writes
@@ -894,8 +895,8 @@ void loop(void) { }                         /* again and again: controls and scr
           <a class="ref" href="https://github.com/jvitkauskas/pi32v2-llvm" target="_blank" rel="noopener" title="pi32v2-llvm">[5]</a>:
           clang 23.1.5 and ld.lld for pi32v2, built from its source as WebAssembly with Emscripten
           <a class="ref" href="https://emscripten.org" target="_blank" rel="noopener" title="Emscripten">[7]</a>
-          by FM-1 Studio, in a second Web Worker. It does the steps of fm1-base's own build, and for AURORA,
-          CS-1, FM-106 and FMINI-1 those of the firmware's own build. For the projects that were compared,
+          by FM-1 Studio, in a second Web Worker. It does the steps of fm1-base's own build, and for a
+          firmware of the gallery those of the firmware's own build. For the projects that were compared,
           the package is the same bytes as the one from that build with the same compiler.</li>
       </ol>
       <p>The WebAssembly logos in the PROGRAM and FIRMWARE panels name their compiler in their hints. The
@@ -911,9 +912,9 @@ void loop(void) { }                         /* again and again: controls and scr
         <li>The LEDs are on or off: the dim levels of some firmware are not shown.</li>
         <li>GitHub gives the list of files of a repository 60 times in an hour to one address. A firmware
           of the gallery uses one or more of these for its first load.</li>
-        <li>FIRMWARE is for <code>fm1.h</code> programs in C, and for AURORA, CS-1, FM-106 and FMINI-1. The other
-          firmwares of the gallery have their own builds in their repositories: FIRMWARE and INSTALL are off
-          for them, and their hints tell why. INSTALL installs the program of the project only: to put the
+        <li>FIRMWARE is for <code>fm1.h</code> programs in C, and for the firmwares of the gallery with "yes"
+          under "Real FM-1". The other firmwares of the gallery have their own builds in their repositories:
+          FIRMWARE and INSTALL are off for them, and their hints tell why. INSTALL installs the program of the project only: to put the
           firmware of M-VAVE back, use a tool of M-VAVE or another installer. CS-1 0.3.4 knows
           only the first flash chip of the FM-1: the page changes it when it loads it, so that it also takes
           the newer chip, as AURORA does. The package of FM-106 has no Bluetooth: its Bluetooth needs closed
@@ -1120,8 +1121,8 @@ void loop(void) { }                         /* again and again: controls and scr
  * are off for a project with "web". "device" has:
  *
  *   "build":   "dinghy"                  the steps of tools/build.py of AURORA,
- *                                        CS-1 and FM-106; "felucca": of FMINI-1
- *                                        (the only two builds known now)
+ *                                        CS-1 and FM-106; "felucca": of Felucca
+ *                                        and FMINI-1 (the only two builds known now)
  *   "name":    "aurora"                  the package is aurora.fwsc
  *   "product": "FM-1_4747"               the identity of the package
  *   "sources": ["firmware/src/aurora.c"] the C files of the firmware
@@ -1129,18 +1130,23 @@ void loop(void) { }                         /* again and again: controls and scr
  *   "flags":   ["-mcpu=r3"]              more options for each C file
  *   "dualCore": 0                        "dinghy": one core (default 1: two)
  *   "stub":    true                      "dinghy": a boot stub in front of the app
- *   "size":    ["ui.c", "menu.c"]        "felucca": the files of firmware/src
+ *   "size":    ["ui.c", "menu.c"]        "felucca": the files (from firmware/src)
  *                                        whose functions are built for size, as
  *                                        tools/size_fns.py does (without "size":
  *                                        all at -Os, as FELUCCA_SIZE=0)
+ *   "hal":     ["firmware/hal", "firmware/bsp/chip"]
+ *                                        "felucca": the folders of the hardware
+ *                                        layer, in the sequence of the build
+ *                                        (default: firmware/hal)
  *
  * "dinghy" also takes these files of the project: firmware/crt0.S,
  * firmware/hal/fm1_vec.S, firmware/hal/fm1_isr.S, firmware/app.ld and the
  * update loader in firmware/loader, with the headers in firmware/hal,
  * firmware/src and firmware/gen. With "stub", also the boot stub in
  * firmware/stub, as FM-106 has it. "felucca" takes the same files, and also
- * firmware/hal/fm1_cpu1.S (the second core), with the headers in build/gen
- * in place of firmware/gen. It links the compiler's helper routines.
+ * fm1_cpu1.S (the second core), with the headers in build/gen in place of
+ * firmware/gen. With "hal", it takes the assembly files from the first
+ * folder of "hal" that has them. It links the compiler's helper routines.
  */
 #ifndef FM1_H
 #define FM1_H
@@ -7009,9 +7015,10 @@ const PROGRAM_SECTION = /^$|^\.(text|rodata|data|sdata|bss|sbss|comment|note|sym
 
 // ---- The build ----
 
-// The image of the program in the flash: the code, then the RAM code (also that of the second core,
-// which only FMINI-1 has) and the data at their load addresses (crt0 copies them to RAM). As in
-// tools/build.py of fm1-base, AURORA and FMINI-1. `base` is the address of the code as the processor sees it.
+// The image of the program in the flash: the code, then the RAM code (also that of the second core, when
+// it is a section of its own, as in FMINI-1) and the data at their load addresses (crt0 copies them to RAM).
+// As in tools/build.py of fm1-base and of the firmwares with their own build. `base` is the address of the
+// code as the processor sees it.
 function programImage(elf, symbol, base = APP_XIP) {
   let image = elfSection(elf, '.text');
   for (const [section, loadSymbol] of [['.ram_text', '_rt_load'], ['.c1_text', '_c1_load'], ['.data', '_data_load']]) {
@@ -7239,9 +7246,11 @@ licence = "GPL-3.0-only"
 //              and /CS-1 and github.com/PatttF/fm-106, on the platform Dinghy of Felucca). FM-106's
 //              build has three more things, which "device" turns on: more flags for the C files, one
 //              core, and a boot stub in front of the app.
-//   "felucca"  the build of FMINI-1 (tools/build.py of github.com/ruppert/fmini-1, made from Felucca's):
-//              the headers in build/gen, the second core's code, a pass that builds the functions of the
-//              main loop for size ("size"), and other memory checks.
+//   "felucca"  the build of Felucca and FMINI-1 (tools/build.py of github.com/hugelton/Felucca and
+//              github.com/ruppert/fmini-1, made from Felucca's): the headers in build/gen, the second
+//              core's code, a pass that builds the functions of the main loop for size ("size"), and
+//              other memory checks. Felucca's hardware layer is in three folders ("hal"): its own
+//              firmware/hal, and the chip and board folders of felucca-bsp.
 // Their steps and checks, but those that need a disassembly: reference_device.sh runs those.
 
 // LZ4 blocks, the same bytes as tools/lz4blk.py of AURORA writes: a match is looked for only at the
@@ -7348,12 +7357,14 @@ function loaderFile(image) {
   return join(loaderHead(crc16(body), 0x20, body.length, 0x41, LOADER_NAME), body);
 }
 
-// Register access is for firmware/hal only (mmio_check of AURORA's and FMINI-1's build.py): in
-// firmware/src, firmware/engines/src (FMINI-1) and firmware/loader, no address of a register or a
-// reserved window, no pointer cast to volatile, no assembly, and no register macro of hal/.
+// Register access is for the hardware layer only (mmio_check of the build.py of AURORA, FMINI-1 and
+// Felucca): in firmware/src, firmware/engines/src (FMINI-1, Felucca) and firmware/loader, no address of a
+// register or a reserved window, no pointer cast to volatile, no assembly, and no register macro of the
+// headers in the folders `dirs` of the hardware layer.
 const MMIO_LITERAL = /\b0x0*(1[0-3][0-9a-f]{3}|4[0-3][0-9a-f]{3}|5[01][0-9a-f]{3}|1ee[0-9a-f]{4}|1c7f[0-9a-f]{3}|20[0-9a-f]{5})u?l?\b/i;
-function halErrors(texts) {
-  const registers = registerNames(Object.fromEntries([...texts].filter(([path]) => /^firmware\/hal\/[^/]+\.h$/.test(path))));
+function halErrors(texts, dirs) {
+  const header = (path) => dirs.some((dir) => path.startsWith(dir + '/') && /^[^/]+\.h$/.test(path.slice(dir.length + 1)));
+  const registers = registerNames(Object.fromEntries([...texts].filter(([path]) => header(path))));
   const errors = [];
   const checked = [...texts.keys()].filter((path) => /^firmware\/((src|engines\/src)\/[^/]+\.[ch]|loader\/[^/]+\.c)$/.test(path)).sort();
   for (const path of checked) {
@@ -7373,20 +7384,21 @@ function halErrors(texts) {
 function readDevice(device, texts) {
   const where = `${MANIFEST}: "device"`;
   if (device === null || typeof device !== 'object' || Array.isArray(device)) throw new Error(`${where} must be an object.`);
-  if (!Object.hasOwn(BUILD_FILES, device.build ?? '')) throw new Error(`${where}: "build" must be "dinghy" (the build of AURORA, CS-1 and FM-106) or "felucca" (of FMINI-1): the only ones known.`);
+  if (!['dinghy', 'felucca'].includes(device.build)) throw new Error(`${where}: "build" must be "dinghy" (the build of AURORA, CS-1 and FM-106) or "felucca" (of FMINI-1 and Felucca): the only ones known.`);
   if (!/^[a-z0-9][a-z0-9._-]*$/.test(device.name ?? '')) throw new Error(`${where}: "name" must be the name of the package, as "aurora".`);
   if (!/^FM-1_\d{3,15}$/.test(device.product ?? '')) throw new Error(`${where}: "product" must be the identity of the package, as "FM-1_4747".`);
-  for (const key of ['sources', 'define', 'flags', 'size']) {
+  for (const key of ['sources', 'define', 'flags', 'size', 'hal']) {
     const list = device[key] ?? [];
     if (!Array.isArray(list) || list.some((item) => typeof item !== 'string')) throw new Error(`${where}: "${key}" must be a list of texts.`);
   }
+  if (device.hal && !device.hal.length) throw new Error(`${where}: "hal" must name the folders of the hardware layer.`);
   if (![undefined, 0, 1].includes(device.dualCore)) throw new Error(`${where}: "dualCore" must be 0 or 1.`);
   if (![undefined, false, true].includes(device.stub)) throw new Error(`${where}: "stub" must be true or false.`);
-  const others = device.build === 'dinghy' ? ['size'] : ['dualCore', 'stub'];  // the options of the other build
+  const others = device.build === 'dinghy' ? ['size', 'hal'] : ['dualCore', 'stub'];  // the options of the other build
   for (const key of others) if (device[key] !== undefined) throw new Error(`${where}: "${key}" is not for the "${device.build}" build.`);
   if (!device.sources?.length) throw new Error(`${where}: "sources" must name the C file of the firmware.`);
-  for (const path of [...device.sources, ...BUILD_FILES[device.build], ...(device.stub ? DINGHY_STUB_FILES : []),
-    ...(device.size ?? []).map((file) => `firmware/src/${file}`)]) {
+  for (const path of [...device.sources, ...appAssembly(device, texts), 'firmware/app.ld', ...LOADER_FILES,
+    ...(device.stub ? DINGHY_STUB_FILES : []), ...(device.size ?? []).map((file) => tidy(`firmware/src/${file}`))]) {
     if (!texts.has(path)) throw new Error(`${where}: the project has no file ${path}.`);
   }
   return device;
@@ -7394,20 +7406,28 @@ function readDevice(device, texts) {
 
 // The files that a build takes from the project, beside the "sources" of "device".
 const LOADER_FILES = ['firmware/loader/crt0_ldr.S', 'firmware/loader/loader.c', 'firmware/loader/loader.ld'];
-const BUILD_FILES = {
-  dinghy: ['firmware/crt0.S', 'firmware/hal/fm1_vec.S', 'firmware/hal/fm1_isr.S', 'firmware/app.ld', ...LOADER_FILES],
-  felucca: ['firmware/crt0.S', 'firmware/hal/fm1_vec.S', 'firmware/hal/fm1_isr.S', 'firmware/hal/fm1_cpu1.S', 'firmware/app.ld',
-    ...LOADER_FILES],
-};
+// The folders of the hardware layer, for #include and the register check: "hal" of "device", in its
+// sequence (HAL_DIRS of Felucca's build.py: firmware/hal, then felucca-bsp's chip and board folders), or
+// firmware/hal, as the builds of AURORA, CS-1, FM-106 and FMINI-1 have it.
+const halDirs = (device) => device.hal ?? ['firmware/hal'];
+// The assembly files of the app. With "hal", each one is in the first folder of the hardware layer that has
+// it (hal_file of Felucca's build.py). Without it, crt0.S is in firmware/ and the others in firmware/hal.
+// "felucca" also has the entry of the second core, fm1_cpu1.S (FELUCCA_CPU2, the default).
+function appAssembly(device, texts) {
+  const names = ['crt0.S', 'fm1_vec.S', 'fm1_isr.S', ...(device.build === 'felucca' ? ['fm1_cpu1.S'] : [])];
+  if (!device.hal) return names.map((name) => (name === 'crt0.S' ? 'firmware/crt0.S' : `firmware/hal/${name}`));
+  return names.map((name) => device.hal.map((dir) => `${dir}/${name}`).find((path) => texts.has(path)) ?? `${device.hal[0]}/${name}`);
+}
 const DINGHY_STUB_FILES = ['firmware/stub/crt0_stub.S', 'firmware/stub/stub.c', 'firmware/stub/stub.ld'];
 const DINGHY_FLAGS = ['-Os', '-ffunction-sections', '-fno-builtin', '-Wall', '-Wno-unused-function'];
 const DINGHY_RAM = 0x01C00000;  // the internal RAM, where code runs while the flash is off
 
-// The size pass of the "felucca" build (tools/size_fns.py of FMINI-1, GPL-3.0-only, Copyright (C) 2026
-// Leo Kuroshita (@kurogedelic), Hügelton Instruments): the unity C file goes to LLVM IR without the
-// optimizer, the functions that the files of "size" (in firmware/src) define get LLVM's minsize, but those
-// that an interrupt can run, and then the IR is compiled at -Os. The patterns are those of size_fns.py.
-const SIZE_ISR_ROOTS = ['fm1_alnk0_irq', 'fm1_timer5_irq'];  // hal/fm1_isr.S: the audio ISR, the key and LED scan
+// The size pass of the "felucca" build (tools/size_fns.py of FMINI-1 and Felucca, GPL-3.0-only, Copyright
+// (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments): the unity C file goes to LLVM IR without the
+// optimizer, the functions that the files of "size" (paths from firmware/src) define get LLVM's minsize,
+// but those that an interrupt can run, and then the IR is compiled at -Os. The patterns are those of
+// size_fns.py.
+const SIZE_ISR_ROOTS = ['fm1_alnk0_irq', 'fm1_timer5_irq'];  // fm1_isr.S: the audio ISR, the key and LED scan
 const SIZE_DEF = /^(?:static|void|int|uint\w*|int\w*|const)\b[^;=(]*?\b([A-Za-z_]\w*)\s*\(/gm;
 const IR_DEF = /^(define [^\n]*?@"?([\w.]+)"?\([^\n]*\)(?: unnamed_addr| local_unnamed_addr)?)( #\d+[^\n]*\{)$/gm;
 const IR_BODY = /^define [^\n]*?@"?([\w.]+)"?\(([\s\S]*?)^\}/gm;
@@ -7445,7 +7465,7 @@ function interruptFunctions(ir) {
 // The IR with minsize on the functions of the files `files`. Logs what size_fns.py prints.
 function sizeIR(ir, files, texts) {
   const interrupt = interruptFunctions(ir);
-  const all = new Set(files.flatMap((file) => definedFunctions(texts.get(`firmware/src/${file}`))));
+  const all = new Set(files.flatMap((file) => definedFunctions(texts.get(tidy(`firmware/src/${file}`)))));
   const names = new Set([...all].filter((name) => !interrupt.has(name))), hit = new Set();
   const marked = ir.replace(IR_DEF, (line, head, name, tail) => {
     if (!names.has(name)) return line;
@@ -7477,7 +7497,7 @@ async function buildDevice(texts, device) {
   const cc = (args) => compileUnit([...(args[args.indexOf('-c') + 1].endsWith('.c') ? ['-std=gnu11'] : []), '-target', 'pi32v2',
     ...args.filter((arg) => arg !== '-mfprev1')], work, cwd);
   const cflags = [...DINGHY_FLAGS, ...(device.flags ?? [])];  // CFLAGS of build.py: for each C file
-  // `gc`: with --gc-sections and the entry _start, as the builds link all but FMINI-1's app.
+  // `gc`: with --gc-sections and the entry _start, as the builds link all but the app of "felucca".
   // "dinghy" links no library: as with JieLi's toolchain, its firmware has no helper routines (no float,
   // no 64-bit division). "felucca" links the helper routines of this compiler, as opentc.py does: FMINI-1
   // divides 64-bit numbers, which JieLi's compiler does without a library and this one with __udivdi3.
@@ -7494,11 +7514,12 @@ async function buildDevice(texts, device) {
     return result.made.get(`${cwd}/${elf}`);
   };
   const errors = [], notes = [], warnings = [];
+  const halIncludes = halDirs(device).map((dir) => '-I' + dir);
 
   // 1. The update loader (build_loader): it runs from RAM and writes the flash.
   log('compile the update loader\n');
   await cc(['-c', 'firmware/loader/crt0_ldr.S', '-o', 'build/loader/crt0_ldr.o']);
-  await cc([...cflags, '-Ifirmware/hal', '-Ifirmware/src', '-c', 'firmware/loader/loader.c', '-o', 'build/loader/loader.o']);
+  await cc([...cflags, ...halIncludes, '-Ifirmware/src', '-c', 'firmware/loader/loader.c', '-o', 'build/loader/loader.o']);
   const loaderElf = await link('firmware/loader/loader.ld', ['build/loader/crt0_ldr.o', 'build/loader/loader.o'], 'build/loader/loader.elf', 'the update loader');
   for (const section of elfSections(loaderElf)) {  // the loader rewrites the flash: nothing may run from it
     if (section.name.startsWith('.') && section.address >= 0x02000000 && section.size) {
@@ -7599,11 +7620,11 @@ async function buildDevice(texts, device) {
   }
   return finish(image, app);
 
-  // The checks of both builds, the log of all checks, and 5. the package (fm1pkg_make.py of AURORA and
-  // FMINI-1): as the one of an fm1.h program, but with the firmware's own loader, and the boot code in the
+  // The checks of both builds, the log of all checks, and 5. the package (fm1pkg_make.py of AURORA, FMINI-1
+  // and Felucca): as the one of an fm1.h program, but with the firmware's own loader, and the boot code in the
   // head as the SDK file is. `app` is app.bin of the package.
   function finish(image, app) {
-    const hal = halErrors(texts);
+    const hal = halErrors(texts, halDirs(device));
     errors.push(...hal);
     if (!hal.length) notes.push(`register access: hal/ only (src/, ${device.build === 'felucca' ? 'engines/src/, ' : ''}loader/ clean)`);
     for (const note of notes) log(`  ok    ${note}\n`);
@@ -7623,12 +7644,12 @@ async function buildDevice(texts, device) {
   // does by default), without it straight to an object (as FELUCCA_SIZE=0). The second core is built in
   // (FELUCCA_CPU2, the default).
   async function buildFeluccaApp() {
-    const flags = [...cflags, '-Ifirmware/hal', '-Ifirmware/src', '-Ibuild/gen', `-DFELUCCA_ID="${product}"`,
+    const flags = [...cflags, ...halIncludes, '-Ifirmware/src', '-Ibuild/gen', `-DFELUCCA_ID="${product}"`,
       ...(device.define ?? []).map((define) => '-D' + define)];
     const objects = [];
-    for (const file of ['crt0', 'hal/fm1_vec', 'hal/fm1_isr', 'hal/fm1_cpu1']) {
-      objects.push(`build/${file.replace('hal/', '')}.o`);
-      await cc(['-c', `firmware/${file}.S`, '-o', objects.at(-1)]);
+    for (const file of appAssembly(device, texts)) {
+      objects.push(`build/${file.slice(file.lastIndexOf('/') + 1).replace(/\.S$/, '')}.o`);
+      await cc(['-c', file, '-o', objects.at(-1)]);
     }
     for (const source of device.sources) {
       const stem = `build/${source.slice(source.lastIndexOf('/') + 1).replace(/\.c$/i, '')}`;
@@ -7653,9 +7674,11 @@ async function buildDevice(texts, device) {
     const image = programImage(elf, symbol);
     if (symbol('_start') !== APP_XIP) errors.push(`_start is not at 0x${APP_XIP.toString(16)}`);
     if (!sameBytes(image.subarray(0, 4), ENTRY)) errors.push('the image does not start with the entry stub');
-    const c1 = elfSection(elf, '.c1_text').length;
-    if (c1) notes.push(`.c1_text: ${c1} B, the waiting loop of the second core`);
-    else errors.push('.c1_text: the second core\'s waiting loop is missing (firmware/hal/fm1_cpu1.h fm1_c1_main)');
+    // The waiting loop of the second core: between _c1_start and _c1_end, in a section of its own (FMINI-1)
+    // or at the end of .ram_text (Felucca)
+    const c1 = symbol('_c1_end') - symbol('_c1_start');
+    if (c1 > 0) notes.push(`.c1_text: ${c1} B, the waiting loop of the second core`);
+    else errors.push('.c1_text: the second core\'s waiting loop is missing (fm1_cpu1.h)');
     if (image.length > APP_SLOT) errors.push(`image ${image.length} B exceeds the app slot`);
     const regions = memoryRegions(texts.get('firmware/app.ld'));  // the budgets, from the linker script
     if (!regions.RAM || !regions.POOL) throw new Error('firmware/app.ld has no MEMORY region RAM or POOL.');
@@ -7952,7 +7975,10 @@ $('about-open').onclick = () => {
       const link = Object.assign(document.createElement('a'),
         { href: `https://github.com/${repo}`, target: '_blank', rel: 'noopener', textContent: repo });
       const row = gallery.insertRow();
-      for (const text of [entry.label, entry.version, entry.about, '', entry.license]) row.insertCell().textContent = text;
+      // Real FM-1: FIRMWARE and INSTALL can build the firmware with its own build ("device")
+      for (const text of [entry.label, entry.version, entry.about, '', entry.license, entry.manifest.device ? 'yes' : 'no']) {
+        row.insertCell().textContent = text;
+      }
       row.cells[3].append(link);
     }
   }
@@ -8548,6 +8574,21 @@ const GITHUB_PROJECTS = [
       flags: ['-std=gnu99', '-w', '-ffp-contract=off'],  // -ffp-contract=off: as web/emu/build.sh of v1.8.1
       stack: 1048576,
       web: FELUCCA_WEB,
+      // The firmware build ("device"): the steps of Felucca's tools/build.py, as its releases are made
+      // (--release 1.8.2: identity FM-1_918, the version string v1.8.2), with its hardware layer (HAL_DIRS)
+      // and the files of its tools/size_fns.py (SIZE_FILES)
+      device: {
+        build: 'felucca', name: 'felucca-1.8.2', product: 'FM-1_918', sources: ['firmware/src/felucca.c'],
+        define: ['FELUCCA_VERSION="v1.8.2"'],
+        hal: ['firmware/hal', 'firmware/bsp/chip', 'firmware/bsp/boards/fm1'],
+        size: ['ui.c', 'favorites.c', 'menu_items.c', 'icons.c', 'ui_graph.c', 'ui_draw.c', 'ui_menu.c', 'ui_input.c',
+          'storage.c', 'upreset.c', 'project.c', 'settings_persist.c',
+          'editor.c', 'editor_preferences.c', 'editor_backup.c', 'editor_menu.c', 'console.c',
+          '../bsp/chip/usb.c', 'midi_uart.c', 'midi_control.c', 'midi_clock.c', 'seq.c', 'song_chain.c', 'chord.c', 'motion.c',
+          'panel.c', 'lcd.c', 'gfx.c', '../bsp/chip/ota.c', 'ota_hw.c', 'up_fm6.c', 'slice_store.c', 'params.c', 'editor_fm6.c',
+          'ui_layer.c', 'ui_name.c', 'ui_slice.c', 'ui_events.c', 'main.c', '../bsp/chip/libc.c', 'storage_hw.c', 'engines.c',
+          'fm4_convert.c'],
+      },
     },
   },
   {

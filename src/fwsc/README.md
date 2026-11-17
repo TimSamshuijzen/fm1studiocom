@@ -171,8 +171,8 @@ c9113eb13497667a7241278ca29b6d6c89f32007ce47ab00b5867c53367cd9ee  llvm.js
 To check what the compiler makes: `firmware/web/reference.sh PROJECT.zip` builds a project with fm1-base's
 own build and this compiler (run by Node). A package that a page makes from the same project must be the
 same bytes. For four `fm1.h` projects it is. `firmware/web/reference_device.sh` does the same for a
-firmware with its own build: for AURORA 0.9.1, CS-1 0.3.4, FM-106 1.0 and FMINI-1 v2.5.12 the bytes are
-the same too (November 2026).
+firmware with its own build: for each firmware that FM-1 Studio builds that way (AURORA, CS-1, FM-106,
+FMINI-1 and Felucca, at the versions of its gallery) the bytes are the same too (November 2026).
 
 ## Limits
 
@@ -184,8 +184,8 @@ the same too (November 2026).
   register on the FM-1, and fm1-base's build gives a note when it finds them. JieLi's compiler does not
   make them, and this compiler at `-Os` does not make them. How fast `-Os` code runs on the FM-1 is not
   known.
-- **C, assembly and LLVM IR only.** LLVM IR as FMINI-1's build gives it (its size pass). Nothing else was
-  tried.
+- **C, assembly and LLVM IR only.** LLVM IR as the builds of Felucca and FMINI-1 give it (their size
+  pass). Nothing else was tried.
 - **The files were built one time.** It is not known if a second build gives the same bytes.
 - **`llvm.wasm` is large.** A page must load it only when it is needed.
 

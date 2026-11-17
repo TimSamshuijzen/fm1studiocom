@@ -16,7 +16,7 @@ and to `build/`. Nothing is installed outside those folders.
 | `make_platform.py` | fm1-base, felucca-bsp and the SDK files in `~/.cache/fm1studio`; `firmware/adapter`; the compiler for Node | `src/fwsc/platform.json` |
 | `opentc.py` | The compiler for Node | A toolchain folder for fm1-base's `tools/build.py` |
 | `reference.sh` | A project zip | `build/fwsc-reference/NAME/`: the package, the image, `SHA256SUMS`, `build-log.txt` |
-| `reference_device.sh` | A checkout of a firmware with its own build (AURORA, CS-1, FM-106, FMINI-1) | `build/fwsc-reference/NAME/`: the package, `SHA256SUMS`, `build-log.txt` |
+| `reference_device.sh` | A checkout of a firmware with its own build (`device`), and arguments for its `build.py` | `build/fwsc-reference/NAME/`: the package, `SHA256SUMS`, `build-log.txt` |
 
 ## Origins
 
@@ -109,8 +109,8 @@ and the same name. The name of the zip file gives the name of the firmware. For 
 and for a project with a folder, an include path, defines and a flag, the hashes are the same
 (November 2026).
 
-For AURORA, CS-1, FM-106 and FMINI-1, which have their own build (`device` in their `fm1project.json`),
-with the commit or tag of the gallery:
+For a firmware with its own build (`device` in its `fm1project.json`), with the commit or tag of the
+gallery:
 
 ```
 git clone https://github.com/twochannels/AURORA ~/aurora
@@ -126,16 +126,22 @@ FELUCCA_BLE=0 bash firmware/web/reference_device.sh ~/fm-106
 
 git clone --recurse-submodules --branch v2.5.12 https://github.com/ruppert/fmini-1 ~/fmini-1
 bash firmware/web/reference_device.sh ~/fmini-1
+
+git clone --recurse-submodules --branch v1.8.2 https://github.com/hugelton/Felucca ~/felucca
+bash firmware/web/reference_device.sh ~/felucca --release 1.8.2
 ```
+
+The arguments after the checkout go to its `build.py`.
 
 For FM-106: `FELUCCA_BLE=0` is the build without Bluetooth, the one that the browser build does. Without
 `splash.png`, its `build.py` uses the `firmware/src/splash_data.h` of the repository, as the browser
 build does (it does not have `splash.png`, and making the header again needs Pillow).
 
-For FMINI-1: its `build.py` makes the headers of `build/gen` with its own generators (Pillow with Raqm,
-and fontTools for the icons); the browser build has them from `src/extras/fmini-1.js`, and the two must
-be the same. The firmware shows the date of its build (`__DATE__`): make the reference on the same day as
-the browser's package.
+For FMINI-1 and Felucca: their `build.py` makes the headers of `build/gen` with its own generators
+(Pillow with Raqm, and fontTools for the icons); the browser build has them from `src/extras/fmini-1.js`
+and `src/extras/felucca.js`, and the two must be the same. FMINI-1 shows the date of its build
+(`__DATE__`): make its reference on the same day as the browser's package. Felucca is built as its
+releases are (`--release 1.8.2`: the identity `FM-1_918`), as the browser build does.
 
 This copies the checkout below `~/.cache/fm1studio/device-ref` and runs the firmware's own
 `tools/build.py` there with `opentc.py`. All checks of that `build.py` run, also those that need a
@@ -148,6 +154,8 @@ as FM-1 Studio's gallery loads it, with the `patches` of its entry (the same cha
 unchanged and with a changed preset name in `firmware/src/fm106_presets.h`, the hashes are the same too.
 For FMINI-1 v2.5.12, unchanged and with a changed preset name in `firmware/src/eng_fmini_presets.h`, the
 hashes are the same, and the headers that its generators made are the same as those of the extras file.
+For Felucca v1.8.2 (release build), unchanged and with a changed menu name in
+`firmware/src/menu_items.c`, the same holds.
 
 ## Design choices
 
@@ -170,8 +178,8 @@ hashes are the same, and the headers that its generators made are the same as th
 - **The build steps are there two times.** `firmware/make_app.py` and fm1-base's `build.py` do them in
   Python. The browser build that uses `src/fwsc` (`firmware-worker.js` in `src/index.html`) does them in
   JavaScript. A change in one must be made in the other, or the hashes are not the same. The same holds
-  for the `build.py`, `fm1pkg_make.py` and `lz4blk.py` of AURORA, CS-1 and FM-106 and the `"dinghy"`
-  build of the worker, and for those files and `size_fns.py` of FMINI-1 and its `"felucca"` build.
+  for the `build.py`, `fm1pkg_make.py`, `lz4blk.py` and `size_fns.py` of the firmwares with their own
+  build, and the `"dinghy"` and `"felucca"` builds of the worker.
 
 ## Licences
 
