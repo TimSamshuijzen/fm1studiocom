@@ -324,12 +324,9 @@
 
   .firmware { display: grid; grid-template-columns: auto auto; justify-content: space-evenly; align-items: center; }
   .firmware .transport { grid-template-columns: auto auto; justify-content: center; gap: 14px 20px; }
-  /* Left of the buttons: the WebAssembly logo (purple, with its notch and WA), and what it means. */
-  .wasm-badge {
-    display: grid; justify-items: center; gap: 7px; text-align: center;
-    font-family: var(--font-panel); font-size: 9px; font-weight: 700; letter-spacing: 0.08em; line-height: 1.3;
-    color: var(--silk-dim);
-  }
+  /* Left of the buttons: the WebAssembly logo (purple, with its notch and WA). Its hint tells which
+     compiler makes the firmware. */
+  .wasm-badge { display: grid; }
   .wasm-badge svg { width: 36px; height: 36px; border-radius: 2px; filter: drop-shadow(0 1px 1px #000a); }
   .wasm-badge path, .wasm-logo path { fill: #654ff0; }
   .wasm-badge text, .wasm-logo text { fill: #fff; font: 800 42px var(--font-label); text-anchor: end; }
@@ -671,13 +668,12 @@
         <section class="section firmware" style="--accent: var(--stripe-3)">
           <h2 class="legend">FIRMWARE</h2>
           <!-- The compiler of the firmware runs in the page: clang and ld.lld for the FM-1, as WebAssembly (fwsc/). -->
-          <div class="wasm-badge" title="The firmware is compiled in this page, for the processor of the FM-1 (JieLi pi32v2).
+          <div class="wasm-badge" role="img" aria-label="WebAssembly compiler" title="The firmware is compiled in this page, for the processor of the FM-1 (JieLi pi32v2).
 Compiler: pi32v2-llvm by Julius Vitkauskas (github.com/jvitkauskas/pi32v2-llvm, Apache-2.0 with LLVM exceptions):
 clang 23.1.5 and ld.lld, release pi32v2-23.1.5-5, built as WebAssembly with Emscripten 7.0.0.
 Loaded from fwsc/ of this site the first time (52 MB).
 It runs in a Web Worker; its output is a .fwsc package for a real FM-1.">
             <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M0 0H37A13 13 0 0 0 63 0H100V100H0Z"/><text x="96" y="94">WA</text></svg>
-            <span>WebAssembly<br>compiler</span>
           </div>
           <div class="transport">
             <button class="big-button amber down" id="firmware" title="Build and download project as a .fwsc package. You can load this .fwsc package onto your FM-1 with M-Flasher, at your own risk. Make sure you have m-bootloader installed on your device first."><i></i>FIRMWARE</button>
@@ -9645,23 +9641,29 @@ function drawBoard() {
   svg(board, 'rect', { class: 'smd-led red', x: ramX + 4, y: ledY - 6, width: 8, height: 5, rx: 1 });
   svg(board, 'text', { class: 'silk-small', x: ramX + 15, y: ledY - 1 }, 'TRAP');
 
-  // The CPU: the WebAssembly module.
+  // The CPU: the WebAssembly module. Its hint tells what runs the program.
+  const cpu = svg(board, 'g', {});
+  svg(cpu, 'title', {}, 'WebAssembly: the processor of the program in this page.\n' +
+    'The browser runs fm1.wasm, the module that the simulator compiler (wasm-clang) made from the project,\n' +
+    'on its audio thread (an AudioWorklet). For each block of 256 frames it calls loop() and then audio()\n' +
+    '(a firmware of the gallery: web_render()).\n' +
+    'J1: the module from COMPILE. ROM: the module. RAM: its memory. J2: the FM-1 API.');
   for (let i = 0; i < 8; i++) {
     for (const side of [-1, 1]) {
       const edge = side * (size / 2 + 2.5);
-      svg(board, 'rect', { class: 'chip-pin', x: cx + pin(i) - 1.5, y: cy + edge - 2.5, width: 3, height: 5 });
-      svg(board, 'rect', { class: 'chip-pin', x: cx + edge - 2.5, y: cy + pin(i) - 1.5, width: 5, height: 3 });
+      svg(cpu, 'rect', { class: 'chip-pin', x: cx + pin(i) - 1.5, y: cy + edge - 2.5, width: 3, height: 5 });
+      svg(cpu, 'rect', { class: 'chip-pin', x: cx + edge - 2.5, y: cy + pin(i) - 1.5, width: 5, height: 3 });
     }
   }
-  svg(board, 'rect', { class: 'chip-body', x: cx - size / 2, y: cy - size / 2, width: size, height: size, rx: 3 });
-  svg(board, 'circle', { class: 'pin1', cx: cx - size / 2 + 6, cy: cy - size / 2 + 6, r: 2 });
+  svg(cpu, 'rect', { class: 'chip-body', x: cx - size / 2, y: cy - size / 2, width: size, height: size, rx: 3 });
+  svg(cpu, 'circle', { class: 'pin1', cx: cx - size / 2 + 6, cy: cy - size / 2 + 6, r: 2 });
   const mark = size * 0.5, markX = cx - mark / 2, markY = cy - mark / 2 - 5, notch = mark * 0.13;
-  svg(board, 'path', {
+  svg(cpu, 'path', {
     class: 'wasm-mark',
     d: `M${markX} ${markY}H${cx - notch}A${notch} ${notch} 0 0 0 ${cx + notch} ${markY}H${markX + mark}v${mark}H${markX}Z`,
   });
-  svg(board, 'text', { class: 'wasm-text', x: markX + mark - 3, y: markY + mark - 4, 'font-size': mark * 0.42 }, 'WA');
-  svg(board, 'text', { class: 'chip-text', x: cx, y: cy + size / 2 - 16 }, 'WEBASSEMBLY');
+  svg(cpu, 'text', { class: 'wasm-text', x: markX + mark - 3, y: markY + mark - 4, 'font-size': mark * 0.42 }, 'WA');
+  svg(cpu, 'text', { class: 'chip-text', x: cx, y: cy + size / 2 - 16 }, 'WEBASSEMBLY');
 
   showStats();
 }
