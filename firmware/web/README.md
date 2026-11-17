@@ -128,22 +128,22 @@ git clone --recurse-submodules --branch v2.5.12 https://github.com/ruppert/fmini
 bash firmware/web/reference_device.sh ~/fmini-1
 ```
 
-For FM-106: `FELUCCA_BLE=0` is the build without Bluetooth, the one that the page makes. Without
-`splash.png`, its `build.py` uses the `firmware/src/splash_data.h` of the repository, as the page does
-(the page does not load `splash.png`, and making the header again needs Pillow).
+For FM-106: `FELUCCA_BLE=0` is the build without Bluetooth, the one that the browser build does. Without
+`splash.png`, its `build.py` uses the `firmware/src/splash_data.h` of the repository, as the browser
+build does (it does not have `splash.png`, and making the header again needs Pillow).
 
 For FMINI-1: its `build.py` makes the headers of `build/gen` with its own generators (Pillow with Raqm,
-and fontTools for the icons); the page has them from `src/extras/fmini-1.js`, and the two must be the
-same. The firmware shows the date of its build (`__DATE__`): make the reference on the same day as the
-page's package.
+and fontTools for the icons); the browser build has them from `src/extras/fmini-1.js`, and the two must
+be the same. The firmware shows the date of its build (`__DATE__`): make the reference on the same day as
+the browser's package.
 
 This copies the checkout below `~/.cache/fm1studio/device-ref` and runs the firmware's own
 `tools/build.py` there with `opentc.py`. All checks of that `build.py` run, also those that need a
-disassembly. For a project with changes, save it in the page (SAVE) and unzip it over the checkout first.
-The name of the folder gives the folder of the result. The page's package had the same hash for AURORA
+disassembly. For a project with changes, unzip its project zip over the checkout first. The name of the
+folder gives the folder of the result. The browser's package had the same hash for AURORA
 0.9.1 unchanged and with a change in `firmware/src/aurora.c`, and for CS-1 0.3.4 unchanged and with
-AURORA's flash chip change (a new `firmware/hal/fm1_flash_id.h`, four changed lines) (November 2026). The
-gallery's CS-1, with the `patches` of its entry (the same change, with `FL_JEDEC_OK` in
+AURORA's flash chip change (a new `firmware/hal/fm1_flash_id.h`, four changed lines) (November 2026). CS-1
+as FM-1 Studio's gallery loads it, with the `patches` of its entry (the same change, with `FL_JEDEC_OK` in
 `firmware/hal/fm1_flash.h`), gives the same package as that second one. For FM-106 1.0 without Bluetooth,
 unchanged and with a changed preset name in `firmware/src/fm106_presets.h`, the hashes are the same too.
 For FMINI-1 v2.5.12, unchanged and with a changed preset name in `firmware/src/eng_fmini_presets.h`, the
@@ -168,10 +168,10 @@ hashes are the same, and the headers that its generators made are the same as th
   builtins library of that build came from the Windows package of the same release.
 - **One build, on one computer.** It is not known if a second build gives the same bytes.
 - **The build steps are there two times.** `firmware/make_app.py` and fm1-base's `build.py` do them in
-  Python. The page that uses `src/fwsc` does them in JavaScript. A change in one must be made in the
-  other, or the hashes are not the same. The same holds for the `build.py`, `fm1pkg_make.py` and
-  `lz4blk.py` of AURORA, CS-1 and FM-106, and the `"dinghy"` build of the page, and for those files and
-  `size_fns.py` of FMINI-1, and the `"felucca"` build.
+  Python. The browser build that uses `src/fwsc` (`firmware-worker.js` in `src/index.html`) does them in
+  JavaScript. A change in one must be made in the other, or the hashes are not the same. The same holds
+  for the `build.py`, `fm1pkg_make.py` and `lz4blk.py` of AURORA, CS-1 and FM-106 and the `"dinghy"`
+  build of the worker, and for those files and `size_fns.py` of FMINI-1 and its `"felucca"` build.
 
 ## Licences
 
@@ -180,4 +180,5 @@ parts of `src/fwsc` and their licences.
 
 ## Used by
 
-FM-1 Studio: the files of `src/fwsc` are for its FIRMWARE button.
+The firmware compiler of [FM-1 Studio](https://github.com/TimSamshuijzen/fm1studiocom): the files of
+`src/fwsc` that these scripts make. `reference.sh` and `reference_device.sh` check its packages.

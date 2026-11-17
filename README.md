@@ -3,25 +3,52 @@
 A code workstation for the M-VAVE FM-1 synthesizer that runs in the browser: **[fm1studio.com](https://fm1studio.com)**.
 
 Write a program in C, press COMPILE, and play it on a simulated FM-1. The compiler, the program
-and the simulator all run in the page. There is no server side and nothing to install. It is a simulation 
-of the FM-1 API, not an emulation of the CPUs. The FIRMWARE button makes an installable package for a
-real FM-1 from a project, also in the page. The INSTALL button writes it to an FM-1 over USB.
-Code that works in this simulator does not guarantee it will work on a real FM-1.
+and the simulator all run in the page. There is no server side and nothing to install. It is a simulation
+of the FM-1 API, not an emulation of the CPUs. A second compiler, also in the page, makes an installable
+package for a real FM-1 from a project (FIRMWARE), and an installer writes it to an FM-1 over USB
+(INSTALL). Code that works in this simulator does not guarantee it will work on a real FM-1.
 
 - **Code editor** with a file list, syntax colours and projects of more than one file.
-- **Compiler**: clang and wasm-ld as WebAssembly, in a Web Worker. The output is one WebAssembly module.
+- **Simulator compiler**: clang 8.0.1 and wasm-ld as WebAssembly (wasm-clang), in a Web Worker. The output
+  is one WebAssembly module.
 - **FM-1 simulator**: the front panel with its 240 x 240 screen, 27 note keys, 14 buttons, 7 encoders,
   the MASTER pot and the LEDs, in the six colours of the device.
 - **Sound** on the audio thread of the browser (an AudioWorklet), with a scope and a level meter.
 - **MIDI input** from the keyboards and controllers of the computer (Web MIDI).
 - **Firmware gallery**: loads a demo project, or the source code of open-source FM-1 firmware from
   GitHub, compiles it and runs it.
-- **Firmware for a real FM-1**: a second compiler in the page, clang for the FM-1's processor, makes a
-  `.fwsc` package of a project. The page can install it on an FM-1 over USB MIDI (Chrome or Edge).
+- **Firmware compiler**: clang 23.1.5 and ld.lld for the FM-1's processor as WebAssembly (pi32v2-llvm),
+  in a second Web Worker. It makes a `.fwsc` package of a project for a real FM-1.
+- **Installer**: fm1-base's installer writes the package to an FM-1 over USB MIDI (Chrome or Edge).
+
+## The compilers
+
+Both compilers are LLVM's clang and linker, built as WebAssembly, and run in the browser. They come from
+these places:
+
+| | Simulator compiler | Firmware compiler |
+| --- | --- | --- |
+| What | clang 8.0.1 and wasm-ld, for WebAssembly | clang 23.1.5 and ld.lld, for the FM-1's processor (JieLi pi32v2) |
+| Project | [wasm-clang](https://github.com/binji/wasm-clang) by Ben Smith, a demo of his CppCon 2019 talk | [pi32v2-llvm](https://github.com/jvitkauskas/pi32v2-llvm) by Julius Vitkauskas: LLVM with a target for pi32v2, which its author calls experimental |
+| Version | The files of wasm-clang's demo site at the time of the load. In its repository, `clang` and `lld` last changed in commit `88838f3` (May 2020) | Commit `60b0340f47083cf088903030a9b55d8a65525dde`, release `pi32v2-23.1.5-5` |
+| Built by | Ben Smith, from his LLVM fork ([binji/llvm-project](https://github.com/binji/llvm-project)), compiled for WASI; `memfs` gives it a file system in memory | This repository: `firmware/web/build_compiler.sh` builds it from source with Emscripten 7.0.0 |
+| Loaded from | `https://binji.github.io/wasm-clang/`: `clang`, `lld`, `memfs`, `sysroot.tar`, `shared.js` (about 60 MB) | `src/fwsc` of this site: `llvm.js`, `llvm.wasm` (52 MB), `platform.json` |
+| Runs in | `compiler-worker.js` in `src/index.html` | `firmware-worker.js` in `src/index.html` |
+| Makes | `fm1.wasm`, which the simulator runs | A `.fwsc` package for a real FM-1 |
+| Licence | Apache-2.0 | Apache-2.0 with LLVM exceptions; Emscripten's runtime and musl: MIT and others |
+
+The page loads the simulator compiler when it opens, and the firmware compiler at the first FIRMWARE or
+INSTALL. The WebAssembly logo in the PROGRAM panel and the one in the FIRMWARE panel name their compiler
+in their hints.
+[src/fwsc/README.md](src/fwsc/README.md) lists all parts of the firmware compiler, and
+[firmware/web/README.md](firmware/web/README.md) tells how to build it again and how to check its
+packages. On a computer, `firmware/build.sh` builds the same kind of package with JieLi's own compiler
+(clang 4.0.1 for pi32v2, a binary from JieLi's server, without source code):
+[firmware/README.md](firmware/README.md).
 
 ## Use
 
-Open the page. The first time, it downloads the compiler (about 60 MB). It then compiles the demo project
+Open the page. The first time, it downloads the simulator compiler (about 60 MB). It then compiles the demo project
 and runs it. Browsers block sound until a click or a key press, so click the page one time.
 
 | Control | How |
@@ -71,8 +98,9 @@ a small FM synthesizer with an arpeggiator, an echo and its own screen.
 
 ### On a real FM-1
 
-The FIRMWARE button makes a `.fwsc` package of the project and downloads it. The first time, it loads a
-second compiler (52 MB, less when the server compresses it); after that, a package takes some seconds. The NAME of the
+The FIRMWARE button makes a `.fwsc` package of the project with the firmware compiler, and downloads it.
+The first time, the page loads that compiler (52 MB, less when the server compresses it); after that, a
+package takes some seconds. The NAME of the
 project gives the name on the FM-1's start screen. An adapter makes the functions of `fm1.h` from
 [fm1-base](https://github.com/charlesvestal/fm1-base) and felucca-bsp. The program must be C, with `float`
 and no `double`; the LOG panel tells when a program does not fit the FM-1.
@@ -163,24 +191,24 @@ Keep M-VAVE's `FM-1.fwsc` on your computer before you install anything.
 
 #### AURORA, CS-1, FM-106 and FMINI-1 on a real FM-1
 
-AURORA, CS-1, FM-106 and FMINI-1 are the firmwares of the gallery that FIRMWARE and INSTALL can build. The
+AURORA, CS-1, FM-106 and FMINI-1 are the firmwares of the gallery that the firmware compiler can build. The
 `device` part of their `fm1project.json` tells the firmware worker to do the steps of the firmware's own
 `tools/build.py`, with the files of the project: changes that you make in its files go into the package.
 The package has the firmware's own update loader and its identity: `FM-1_4747` for AURORA, `FM-1_950`
 for CS-1, `FM-1_907` for FM-106, `FM-1_900` for FMINI-1 (as its released packages).
 
-These are not the released packages: the authors build with JieLi's compiler, the page with the open
-compiler. For AURORA 0.9.1, CS-1 0.3.4, FM-106 1.0 and FMINI-1 v2.5.12, unchanged and with a change, the page's package is
-the same bytes as the one that the firmware's own `build.py` makes with the page's compiler, and that
-build passes all its checks (`firmware/web/reference_device.sh`). The packages of AURORA, CS-1, FM-106 and
-FMINI-1 from the page were tested on a real FM-1 (see "Which FM-1").
+These are not the released packages: the authors build with JieLi's compiler, FM-1 Studio with the
+firmware compiler. For AURORA 0.9.1, CS-1 0.3.4, FM-106 1.0 and FMINI-1 v2.5.12, unchanged and with a
+change, the page's package is the same bytes as the one that the firmware's own `build.py` makes with the
+firmware compiler, and that build passes all its checks (`firmware/web/reference_device.sh`). The
+packages of AURORA, CS-1, FM-106 and FMINI-1 from the page were tested on a real FM-1 (see "Which FM-1").
 
 **The page builds FM-106 without Bluetooth.** FM-106's own build links JieLi's closed Bluetooth libraries
 (with link-time optimisation, in Docker); the page does the build that its `build.py` makes with
 `FELUCCA_BLE=0`, which has no Bluetooth MIDI or audio. FM-106 1.0 takes both flash chips. It has a boot
 stub in front of the app (`firmware/stub`): the chip's boot code starts the stub on every start, and the
 stub starts the app only when the commit marker that the packer writes is right. `firmware/stub/stub.lock`
-has the hash of the stub that JieLi's compiler made. The page's stub, from the open compiler, is another
+has the hash of the stub that JieLi's compiler made. The page's stub, from the firmware compiler, is another
 one, and the log says so, as FM-106's `build.py` does: an install then also writes the flash sector of
 the stub.
 
@@ -198,8 +226,8 @@ than AURORA's: the headers in `build/gen` (in the page: from the extras file, wh
 generators made), the code of the second core (`hal/fm1_cpu1.S`), and a size pass. That pass compiles the
 unity file `felucca.c` to LLVM IR, gives LLVM's `minsize` to the functions of the main loop (those of the
 files that `tools/size_fns.py` names, but not the functions that an interrupt can run), and then compiles
-the IR at `-Os`. The page's `"felucca"` build does these steps; `"size"` in `device` is the list of files
-of `size_fns.py`. The open compiler calls `__udivdi3` for FMINI-1's 64-bit divisions, so this build links
+the IR at `-Os`. The firmware worker's `"felucca"` build does these steps; `"size"` in `device` is the
+list of files of `size_fns.py`. The firmware compiler calls `__udivdi3` for FMINI-1's 64-bit divisions, so this build links
 the compiler's helper routines (`libclang_rt.builtins.a`), as `opentc.py` does. FMINI-1 takes both flash
 chips (`FL_JEDEC_OK` in `hal/fm1_flash_map.h`).
 
@@ -222,7 +250,7 @@ is built. All parts are optional:
 ```
 
 `web` is for firmware that has its own browser emulator (see below). `device` is the build of such a
-firmware for a real FM-1: FIRMWARE and INSTALL then make its package with the steps of its own build.
+firmware for a real FM-1: the firmware compiler then makes its package with the steps of its own build.
 Two builds are known now: `"dinghy"`, the build of AURORA, CS-1 and FM-106, and `"felucca"`, the build of
 FMINI-1. FM-106's `device` also has `"flags"` (more options for each C file), `"dualCore": 0` (one core)
 and `"stub": true` (its boot stub). FMINI-1's has `"size"` (the files whose functions are built for size);
@@ -267,8 +295,9 @@ Three things that such a repository does not have come from this one:
 
 ## How it works
 
-The application is one file, `src/index.html`, the files of the FIRMWARE button in `src/fwsc`, and the
-files of the INSTALL button in `src/install`. The page has the styles, the page script, and these text blocks that the page script reads:
+The application is one file, `src/index.html`, the firmware compiler in `src/fwsc`, and the installer
+in `src/install`. The page has the styles, the page script, and these text blocks that the page script
+reads:
 
 | Block | What |
 |---|---|
@@ -278,12 +307,12 @@ files of the INSTALL button in `src/install`. The page has the styles, the page 
 | `prog-1/fm1project.json`, `prog-1/main.c` | The demo project of the PROG-1 card, by Hans Dam |
 | `space-1/fm1project.json`, `space-1/main.c` | The demo project of the SPACE-1 card |
 | `game-1/fm1project.json`, `game-1/main.c` | The demo project of the GAME-1 card: NEON REEF (`src/examples/neonreef`) |
-| `compiler-worker.js` | The compiler worker |
+| `compiler-worker.js` | The compiler worker: the simulator compiler |
 | `fm1-worklet.js` | The audio worklet that runs the program |
-| `firmware-worker.js` | The worker of the FIRMWARE button |
+| `firmware-worker.js` | The firmware worker: the firmware compiler and the build of a package |
 
-1. The page starts the **compiler worker**. It loads
-   [wasm-clang](https://github.com/binji/wasm-clang) (clang 8) from `binji.github.io/wasm-clang` and
+1. The page starts the **compiler worker**. It loads the simulator compiler,
+   [wasm-clang](https://github.com/binji/wasm-clang) (clang 8.0.1), from `binji.github.io/wasm-clang` and
    compiles `fm1_runtime.c` one time.
 2. For each compile, the worker makes a new file system in memory, writes the project files to it,
    compiles the sources and links them to `fm1.wasm`.
@@ -294,14 +323,14 @@ files of the INSTALL button in `src/install`. The page has the styles, the page 
    the keys, encoders, MASTER position and MIDI messages to the worklet.
 
 The page is made so that it also works when `index.html` is opened from disk: the worker and the worklet
-start from text in the page, and the extras are scripts. Only the FIRMWARE and INSTALL buttons need a
-web server.
+start from text in the page, and the extras are scripts. Only the firmware compiler and the installer
+need a web server.
 
 ### The firmware worker
 
-The **firmware worker** starts at the first click on FIRMWARE. It loads `src/fwsc/llvm.wasm` (clang 23
-and ld.lld for the FM-1's pi32v2 processor, built from
-[pi32v2-llvm](https://github.com/jvitkauskas/pi32v2-llvm)) and `src/fwsc/platform.json` (the sources of
+The **firmware worker** starts at the first FIRMWARE or INSTALL. It loads the firmware compiler,
+`src/fwsc/llvm.wasm` (clang 23.1.5 and ld.lld for the FM-1's pi32v2 processor, built from
+[pi32v2-llvm](https://github.com/jvitkauskas/pi32v2-llvm)), and `src/fwsc/platform.json` (the sources of
 fm1-base and felucca-bsp, the adapter, the update loader and three files of JieLi's SDK).
 [src/fwsc/README.md](src/fwsc/README.md) tells how a page calls this compiler.
 
@@ -349,8 +378,9 @@ FMINI-1 it compiles the C file through LLVM IR with the size pass of `tools/size
 the second core to the image, and checks the memory budgets that `firmware/app.ld` gives. As with JieLi's
 toolchain, the link of AURORA, CS-1 and FM-106 has no helper routines of the compiler; that of FMINI-1 has
 them. Its checks are those of the firmware's `build.py` but the three that need a disassembly (no calls
-from RAM code into the flash, no calls in the loop of the second core, no address of the chip's ROM). `firmware/web/reference_device.sh` runs the firmware's
-`build.py` with the page's compiler and all its checks; the page's package must have the same hash.
+from RAM code into the flash, no calls in the loop of the second core, no address of the chip's ROM).
+`firmware/web/reference_device.sh` runs the firmware's `build.py` with the firmware compiler and all its
+checks; the page's package must have the same hash.
 
 ## Run it here
 
@@ -360,13 +390,14 @@ There is no build step. Serve the folder `src`:
 python -m http.server 8765 --bind 127.0.0.1 --directory src
 ```
 
-Then open `http://127.0.0.1:8765`. The page needs the internet for the compiler and for the gallery.
+Then open `http://127.0.0.1:8765`. The page needs the internet for the simulator compiler (from
+wasm-clang's demo site) and for the gallery.
 
 ```
 src/index.html                 the application
 src/extras/                    files for the firmware of the gallery
-src/fwsc/                      a compiler for the FM-1 as WebAssembly, and the platform (for FIRMWARE)
-src/install/                   the installer of fm1-base (for INSTALL)
+src/fwsc/                      the firmware compiler: clang for the FM-1 as WebAssembly, and the platform
+src/install/                   the installer of fm1-base
 src/error.html                 the page for an address that does not exist
 src/staticwebapp.config.json   configuration of the host
 .github/workflows/             deployment
@@ -392,25 +423,27 @@ of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/ma
 
 ## Limits
 
-- The compiler is clang 8. C++ files are compiled as C++14. It has no Asyncify, so a program whose main
-  loop does not return cannot run as it is.
-- A project holds text files only, and the compiler has room for about 570 files and folders.
+- The simulator compiler is clang 8.0.1. C++ files are compiled as C++14. It has no Asyncify, so a
+  program whose main loop does not return cannot run as it is.
+- The page loads the simulator compiler from wasm-clang's demo site, not from this repository: COMPILE
+  needs that site, and has the files that the site has at the time.
+- A project holds text files only, and the simulator compiler has room for about 570 files and folders.
 - GitHub gives the list of files of a repository 60 times in an hour to one address. The first LOAD of
   a firmware uses one such request for each item in its `sources` (four for FELUCCA). After that, the
   page has the files until it is closed.
 - The LEDs are on or off: the dim levels of some firmware are not shown.
-- FIRMWARE is for `fm1.h` programs in C, and for AURORA, CS-1, FM-106 and FMINI-1. The other firmwares of the
-  gallery have their own builds in their repositories: FIRMWARE and INSTALL are off for them, and their
-  hints tell why. INSTALL installs the program of the project only, not other files such as M-VAVE's
+- The firmware compiler is for `fm1.h` programs in C, and for AURORA, CS-1, FM-106 and FMINI-1. The other
+  firmwares of the gallery have their own builds in their repositories: FIRMWARE and INSTALL are off for
+  them, and their hints tell why. INSTALL installs the program of the project only, not other files such as M-VAVE's
   firmware. The package of an `fm1.h` program has no USB audio and no Bluetooth; USB MIDI in works.
 - The gallery's CS-1 is CS-1 0.3.4 with a change for the newer flash chip (see "AURORA, CS-1, FM-106 and
   FMINI-1 on a real FM-1"): its package is not the same as CS-1's own build of 0.3.4.
 - The page's FM-106 has no Bluetooth, and its boot stub is not the one of FM-106's `stub.lock`.
-- For a changed AURORA, CS-1, FM-106 or FMINI-1, the page does not do the checks of its build that need a
-  disassembly: run `firmware/web/reference_device.sh` for those.
-- INSTALL needs Chrome or Edge on a computer (Web MIDI).
-- FIRMWARE and INSTALL were tested on one FM-1 only: the newer flash chip, with m-bootloader (see
-  "Which FM-1").
+- For a changed AURORA, CS-1, FM-106 or FMINI-1, the firmware worker does not do the checks of its build
+  that need a disassembly: run `firmware/web/reference_device.sh` for those.
+- The installer needs Chrome or Edge on a computer (Web MIDI).
+- The packages of the firmware compiler and the installer were tested on one FM-1 only: the newer flash
+  chip, with m-bootloader (see "Which FM-1").
 
 ## Licence
 
@@ -430,14 +463,15 @@ from that code, and their licences apply to them.
 The progressive rock band of the PROG-1 card (`prog-1/main.c` in `src/index.html`, and
 `src/examples/prog-1`) is by Hans Dam.
 
-The compiler is [wasm-clang](https://github.com/binji/wasm-clang) by Ben Smith, loaded from its demo
-site.
+The simulator compiler is [wasm-clang](https://github.com/binji/wasm-clang) by Ben Smith (Apache-2.0),
+loaded from its demo site (see "The compilers").
 
-The folder `src/fwsc` has work of others, for the FIRMWARE button: LLVM with the pi32v2 target of
-Julius Vitkauskas (Apache-2.0 with LLVM exceptions), built with Emscripten; the sources of fm1-base and
-felucca-bsp (MPL-2.0); and three files of JieLi's AC79 SDK (Apache-2.0). A package that the button makes
-has code of fm1-base and felucca-bsp and those three files. [src/fwsc/README.md](src/fwsc/README.md)
-lists the parts, their versions and their licences. Not affiliated with M-VAVE or JieLi.
+The folder `src/fwsc` has work of others, the firmware compiler: LLVM with the pi32v2 target of Julius
+Vitkauskas (Apache-2.0 with LLVM exceptions), built with Emscripten; the sources of fm1-base and
+felucca-bsp (MPL-2.0); and three files of JieLi's AC79 SDK (Apache-2.0). A package of an `fm1.h` program
+has code of fm1-base and felucca-bsp and those three files; a package of a firmware of the gallery has
+the code of that firmware and the three files. [src/fwsc/README.md](src/fwsc/README.md) lists the parts,
+their versions and their licences. Not affiliated with M-VAVE or JieLi.
 
-The folder `src/install` has the installer of fm1-base (MPL-2.0), for the INSTALL button:
+The folder `src/install` has the installer of fm1-base (MPL-2.0):
 [src/install/README.md](src/install/README.md).

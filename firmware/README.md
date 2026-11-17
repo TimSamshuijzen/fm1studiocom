@@ -10,7 +10,8 @@ LEDs, encoders, MASTER, MIDI). It has three parts:
 - **`build.sh`**: gets fm1-base and JieLi's compiler, builds the app, runs it in fm1-base's host
   simulator, and packs it as an installable `.fwsc` package.
 
-The folder [web](web/README.md) has the scripts for a second compiler, which runs in a browser.
+The folder [web](web/README.md) has the scripts for a second, open compiler that runs in a browser:
+[pi32v2-llvm](https://github.com/jvitkauskas/pi32v2-llvm) as WebAssembly.
 
 ## Contents
 
@@ -164,7 +165,7 @@ A project zip has the text files of one program. A file that is not text is left
 | `define` | `NAME` or `NAME=VALUE` |
 | `flags` | Compiler flags, after those of the build |
 | `stack` | Not used |
-| `web` | Refused: such a project is a firmware of its own, and its repository builds it |
+| `web` | Refused: such a project is a firmware with its own build (`device`), which `web/reference_device.sh` runs |
 
 ## What a program must keep to
 
@@ -208,7 +209,8 @@ A program can also be built with the open compiler of [web](web/README.md) and `
 
 | | `build.sh` | `web/reference.sh`, or a browser with `src/fwsc` |
 | --- | --- | --- |
-| Compiler | JieLi's clang 4.0.1 | [pi32v2-llvm](https://github.com/jvitkauskas/pi32v2-llvm), clang 23.1.5 |
+| Compiler | JieLi's clang 4.0.1 for pi32v2 | [pi32v2-llvm](https://github.com/jvitkauskas/pi32v2-llvm) by Julius Vitkauskas, clang 23.1.5 and ld.lld, release `pi32v2-23.1.5-5` |
+| Source | A binary from JieLi's server (pkgman.jieliapp.com), through fm1-base's `tools/get_toolchain.sh`. No source code, no licence file | Built from source as WebAssembly with Emscripten 7.0.0 by `web/build_compiler.sh`; the result is in `src/fwsc` |
 | The program is compiled at | `-O2` | `-Os` |
 | Runs on | Linux x86-64 | Node, or a browser |
 | Host simulator | Yes | No |
@@ -238,5 +240,6 @@ licence files come with the downloads in `~/.cache/fm1studio`. Not affiliated wi
 
 ## Used by
 
-FM-1 Studio: the build of an `fm1.h` project for a real FM-1, on a computer (`build.sh`) and in the page
-(the adapter is in `src/fwsc/platform.json`).
+The firmware compiler of [FM-1 Studio](https://github.com/TimSamshuijzen/fm1studiocom), for `fm1.h`
+projects: the adapter is in `src/fwsc/platform.json`, and `make_app.py` gives the steps that its worker
+`firmware-worker.js` does in `src/index.html`.

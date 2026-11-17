@@ -2,17 +2,18 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) 2026 Tim Samshuijzen
 #
-# reference_device.sh - the package that the FIRMWARE button must make for a firmware of the gallery that has
-# "device" in its fm1project.json (AURORA), made by the firmware's own build.
+# reference_device.sh - the package that the firmware compiler of FM-1 Studio (src/fwsc) must make for a
+# firmware with its own build ("device" in its fm1project.json: AURORA, CS-1, FM-106, FMINI-1), made by
+# that firmware's own build.
 #
 #   firmware/web/reference_device.sh CHECKOUT
 #
 # CHECKOUT is a folder with the firmware's repository at the commit of the gallery: it has tools/build.py.
-# For a project with changes, save the project in the page (SAVE) and unzip it over the checkout first.
+# For a project with changes, unzip its project zip over the checkout first.
 # The script copies CHECKOUT below ~/.cache/fm1studio/device-ref and runs its tools/build.py there with the
-# compiler of the page (opentc.py). All checks of build.py run, also those that need a disassembly (with JieLi's
+# firmware compiler (opentc.py). All checks of build.py run, also those that need a disassembly (with JieLi's
 # objdump). The result is in build/fwsc-reference/NAME/, NAME being the name of the folder CHECKOUT: the
-# package, build-log.txt and SHA256SUMS. The page's package of the same project must have that hash.
+# package, build-log.txt and SHA256SUMS. The browser's package of the same project must have that hash.
 # It runs on Linux x86-64 (on Windows: in WSL), after firmware/build.sh and firmware/web/build_compiler.sh.
 set -euo pipefail
 
@@ -29,7 +30,7 @@ esac
 [ -f "$SRC/tools/build.py" ] || { echo "reference_device: $SRC has no tools/build.py" >&2; exit 1; }
 [ -d "$WORK/ac79-sdk" ] || { echo "reference_device: run firmware/build.sh one time first" >&2; exit 1; }
 
-# the compiler of the page as a toolchain folder
+# the firmware compiler (src/fwsc, run by Node) as a toolchain folder
 [ -e "$FM1_WASM/opentc/pi32v2/bin/clang" ] || python3 "$HERE/opentc.py" --make "$FM1_WASM/opentc" > /dev/null
 
 NAME=$(basename "$(cd "$SRC" && pwd)")

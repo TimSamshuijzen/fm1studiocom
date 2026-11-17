@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) 2026 Tim Samshuijzen
 #
-# build_compiler.sh - clang and ld.lld for the FM-1's processor (pi32v2) as WebAssembly, for the FIRMWARE
-# button of FM-1 Studio: src/fwsc/llvm.js and src/fwsc/llvm.wasm.
+# build_compiler.sh - clang and ld.lld for the FM-1's processor (pi32v2) as WebAssembly, from the source of
+# pi32v2-llvm: the firmware compiler of FM-1 Studio, src/fwsc/llvm.js and src/fwsc/llvm.wasm.
 #
 #   firmware/web/build_compiler.sh
 #

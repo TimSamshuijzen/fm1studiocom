@@ -1,9 +1,9 @@
 # src/install: the installer of fm1-base, for a web page
 
 This directory has the code that writes a `.fwsc` package to an M-VAVE FM-1 from a browser, over USB
-MIDI. It is the installer of [fm1-base](https://github.com/charlesvestal/fm1-base), the platform that
-the packages of FM-1 Studio are built on. The files are copies, not changed: do not change them by hand.
-They are the work of others, under their own licence. Not affiliated with M-VAVE or JieLi.
+MIDI. It is the installer of [fm1-base](https://github.com/charlesvestal/fm1-base), the open platform
+for FM-1 firmware. The files are copies, not changed: do not change them by hand. They are the work of
+others, under their own licence. Not affiliated with M-VAVE or JieLi.
 
 ## Contents
 
@@ -77,7 +77,7 @@ if (waiting) {
 - The codes of the errors: `notfound`, `model`, `open`, `foreign`, `stopped`, `lost`, `noloader`,
   `noreturn`, `mismatch`, `badreq`. The comments in `fm1ota.js` tell what each one means.
 
-For M-VAVE's own firmware (the way back; FM-1 Studio does not install it), check the file first, and give
+For M-VAVE's own firmware (the way back to the stock firmware), check the file first, and give
 `install` the SHA-256 of the file as its fourth argument: M-VAVE's Open firmware asks for it.
 
 ```js
@@ -90,8 +90,7 @@ await updater.install(image, product, step, sha256);
 A package of M-VAVE's firmware has the identity `FM-1_0` and two digits. After its install, the FM-1
 can tell another identity than the package: the error `mismatch` then means that the install is done.
 
-`fm1ota.js` has more than FM-1 Studio uses: the install of M-VAVE's firmware and of m-bootloader, and
-the resources of a firmware.
+`fm1ota.js` also has the install of m-bootloader, and of the resources of a firmware.
 
 ## Make the files again
 
@@ -115,20 +114,20 @@ fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85  LICENSE
 `sha256sum -c` with this text, in this directory, checks the four files. `.gitattributes` keeps Git from
 a change of their line ends.
 
-fm1-base tests this code with a stand-in FM-1 (`tests/installer_*.mjs` in its repository). In FM-1
-Studio, the INSTALL dialog was tried in the same way: a stand-in for Web MIDI in the page that answers
-as M-VAVE's firmware, then as the update loader, then as the new firmware. That shows that the dialog
-and this code work together, and it writes to no FM-1.
+fm1-base tests this code with a stand-in FM-1 (`tests/installer_*.mjs` in its repository): a stand-in
+for Web MIDI that answers as the firmware, then as the update loader, then as the new firmware. A test of
+that kind writes to no FM-1.
 
 ## Limits
 
 - **Tested on one FM-1**: the newer flash chip (B36014), with m-bootloader 2.4-395e6cc (November 2026).
   Not tried on the first flash chip, or on an FM-1 without m-bootloader.
 - **Chrome and Edge only.** Other browsers have no Web MIDI, or it was not tried.
-- **A package without the update loader of felucca-bsp** gets the slow install of M-VAVE's protocol.
-  The packages of FM-1 Studio have that loader.
+- **A package without a Felucca update loader** (its marker `FELUCCA-LOADER-1`) gets the slow install of
+  M-VAVE's protocol. Packages built on fm1-base have felucca-bsp's loader; the firmwares made from Felucca
+  with their own loader (AURORA, CS-1, FM-106, FMINI-1) have the marker too.
 
 ## Used by
 
-The INSTALL button of [FM-1 Studio](https://github.com/TimSamshuijzen/fm1studiocom): the part "Install"
-of the page script in `src/index.html`.
+The installer of [FM-1 Studio](https://github.com/TimSamshuijzen/fm1studiocom): the part "Install" of the
+page script in `src/index.html`.

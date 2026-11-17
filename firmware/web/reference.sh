@@ -2,16 +2,17 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) 2026 Tim Samshuijzen
 #
-# reference.sh - the package that the FIRMWARE button of FM-1 Studio must make, made by fm1-base's own build.
+# reference.sh - the package that the firmware compiler of FM-1 Studio (src/fwsc) must make for an fm1.h
+# project, made by fm1-base's own build.
 #
 #   firmware/web/reference.sh PROJECT.zip
 #
 # It makes the app with firmware/make_app.py and builds it with fm1-base's tools/build.py, as
-# firmware/build.sh does, but with the compiler of the page (llvm.wasm, run by Node: opentc.py) and the
-# program at -Os. All checks of build.py run. The result is in build/fwsc-reference/NAME/, with the SHA-256
-# of the package: the page's package of the same project must have that hash.
+# firmware/build.sh does, but with the firmware compiler (src/fwsc/llvm.wasm, run by Node: opentc.py) and
+# the program at -Os. All checks of build.py run. The result is in build/fwsc-reference/NAME/, with the
+# SHA-256 of the package: the browser's package of the same project must have that hash.
 #
-# The name of the zip file gives the name of the firmware. In the page, that is the NAME field of the project.
+# The name of the zip file gives the name of the firmware: in FM-1 Studio, the NAME field of the project.
 # It runs on Linux x86-64 (on Windows: in WSL), after firmware/build.sh and firmware/web/build_compiler.sh.
 set -euo pipefail
 
@@ -28,7 +29,7 @@ esac
 [ -f "$ZIP" ] || { echo "reference: there is no file $ZIP" >&2; exit 1; }
 [ -d "$WORK/fm1-base/tools" ] || { echo "reference: run firmware/build.sh one time first" >&2; exit 1; }
 
-# the compiler of the page as a toolchain folder
+# the firmware compiler (src/fwsc, run by Node) as a toolchain folder
 [ -e "$FM1_WASM/opentc/pi32v2/bin/clang" ] || python3 "$HERE/opentc.py" --make "$FM1_WASM/opentc" > /dev/null
 
 # the same place below ~/.cache/fm1studio as in the page's file system

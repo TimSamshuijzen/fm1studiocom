@@ -331,8 +331,8 @@
     color: var(--silk-dim);
   }
   .wasm-badge svg { width: 36px; height: 36px; border-radius: 2px; filter: drop-shadow(0 1px 1px #000a); }
-  .wasm-badge path { fill: #654ff0; }
-  .wasm-badge text { fill: #fff; font: 800 42px var(--font-label); text-anchor: end; }
+  .wasm-badge path, .wasm-logo path { fill: #654ff0; }
+  .wasm-badge text, .wasm-logo text { fill: #fff; font: 800 42px var(--font-label); text-anchor: end; }
   /* One bar below the two buttons: each of them starts a build. It is as wide as the two buttons. */
   .firmware .progress { grid-column: 1 / -1; justify-self: stretch; width: auto; margin: 0 -2px; }
 
@@ -437,6 +437,12 @@
   /* The columns are those of the API panel, so that the board is below the lanes. */
   .program { display: grid; grid-template: minmax(0, 1fr) / 104px minmax(0, 1fr); gap: 10px; }
   .port { position: relative; }  /* the COMPILE button and its cable */
+  /* Below the bar of the compile, 8px from it: the WebAssembly logo. Its hint tells which compiler makes
+     the program. For its room, the buttons of the program are lower than the other big buttons: the
+     column is as high as without the logo, and RUN stays at the same place. */
+  .program .big-button { height: 32px; gap: 3px; }
+  .wasm-logo { display: block; width: 16px; height: 16px; margin-top: -6px; }
+  .wasm-logo svg { display: block; width: 100%; height: 100%; border-radius: 1px; filter: drop-shadow(0 1px 1px #000a); }
   /* The cable from the COMPILE button to connector J1 of the program board: drawBoard() draws J1
      at the height of the cable. `left` and `width` put its plugs against the button and on the
      left edge of the board. */
@@ -663,8 +669,12 @@
 
         <section class="section firmware" style="--accent: var(--stripe-3)">
           <h2 class="legend">FIRMWARE</h2>
-          <!-- The compiler of the firmware runs in the page: clang and ld.lld for the FM-1, as WebAssembly. -->
-          <div class="wasm-badge" title="The firmware is compiled in this page: clang and ld.lld for the processor of the FM-1, built as WebAssembly">
+          <!-- The compiler of the firmware runs in the page: clang and ld.lld for the FM-1, as WebAssembly (fwsc/). -->
+          <div class="wasm-badge" title="The firmware is compiled in this page, for the processor of the FM-1 (JieLi pi32v2).
+Compiler: pi32v2-llvm by Julius Vitkauskas (github.com/jvitkauskas/pi32v2-llvm, Apache-2.0 with LLVM exceptions):
+clang 23.1.5 and ld.lld, release pi32v2-23.1.5-5, built as WebAssembly with Emscripten 7.0.0.
+Loaded from fwsc/ of this site the first time (52 MB).
+It runs in a Web Worker; its output is a .fwsc package for a real FM-1.">
             <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M0 0H37A13 13 0 0 0 63 0H100V100H0Z"/><text x="96" y="94">WA</text></svg>
             <span>WebAssembly<br>compiler</span>
           </div>
@@ -732,6 +742,14 @@
             </div>
             <div class="progress" id="compile-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
               aria-label="Compile progress, an estimate" title="Compile progress (an estimate)"><i></i></div>
+            <!-- The compiler of the simulator: wasm-clang, loaded at run time (compiler-worker.js). -->
+            <div class="wasm-logo" role="img" aria-label="WebAssembly compiler" title="The program is compiled in this page, to WebAssembly.
+Compiler: wasm-clang by Ben Smith (github.com/binji/wasm-clang, Apache-2.0):
+clang 8.0.1 and wasm-ld, built as WebAssembly.
+Loaded from binji.github.io/wasm-clang the first time (about 60 MB).
+It runs in a Web Worker; the simulator runs its output, fm1.wasm.">
+              <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M0 0H37A13 13 0 0 0 63 0H100V100H0Z"/><text x="96" y="94">WA</text></svg>
+            </div>
           </div>
           <div class="board-window">
             <svg class="pcb" id="board" role="img" aria-label="Program board"></svg>
@@ -830,8 +848,8 @@ void loop(void) { }                         /* again and again: controls and scr
 
       <h3>Firmware for a real FM-1</h3>
       <p>The FIRMWARE button makes an installable <code>.fwsc</code> package of an <code>fm1.h</code> project
-        and downloads it. The first time, it loads a second compiler (52 MB): clang for the processor of
-        the FM-1, the JieLi pi32v2
+        and downloads it. The first time, it loads the firmware compiler (52 MB): clang for the processor
+        of the FM-1, the JieLi pi32v2
         <a class="ref" href="https://github.com/jvitkauskas/pi32v2-llvm" target="_blank" rel="noopener" title="pi32v2-llvm">[5]</a>.
         An adapter gives the program the functions of <code>fm1.h</code> on fm1-base
         <a class="ref" href="https://github.com/charlesvestal/fm1-base" target="_blank" rel="noopener" title="fm1-base">[3]</a>,
@@ -867,27 +885,31 @@ void loop(void) { }                         /* again and again: controls and scr
 
       <h3>How it works</h3>
       <ol>
-        <li><strong>The compiler</strong> is clang 8 and wasm-ld as WebAssembly, in a Web Worker: wasm-clang
-          <a class="ref" href="https://github.com/binji/wasm-clang" target="_blank" rel="noopener" title="wasm-clang">[2]</a>.
-          The page downloads it the first time (about 60 MB). The output is one WebAssembly module.</li>
+        <li><strong>The simulator compiler</strong> is wasm-clang by Ben Smith
+          <a class="ref" href="https://github.com/binji/wasm-clang" target="_blank" rel="noopener" title="wasm-clang">[2]</a>:
+          clang 8.0.1 and wasm-ld as WebAssembly, in a Web Worker. The page loads it from wasm-clang's demo
+          site, binji.github.io/wasm-clang (about 60 MB the first time). The output is one WebAssembly module.</li>
         <li><strong>The simulator</strong> runs that module on the audio thread of the browser (an
           AudioWorklet). For each block of 256 frames it calls <code>loop()</code> and then
           <code>audio()</code>. The page shows the screen and the LEDs, and sends the keys, the encoders
           and the MIDI messages.</li>
-        <li><strong>The firmware build</strong> is a second worker, with clang 23 and ld.lld for pi32v2
-          <a class="ref" href="https://github.com/jvitkauskas/pi32v2-llvm" target="_blank" rel="noopener" title="pi32v2-llvm">[5]</a>,
-          built with Emscripten
-          <a class="ref" href="https://emscripten.org" target="_blank" rel="noopener" title="Emscripten">[7]</a>.
-          It does the steps of fm1-base's own build. For the projects that were compared, the package is
-          the same bytes as the one from that build with the same compiler.</li>
+        <li><strong>The firmware compiler</strong> is pi32v2-llvm by Julius Vitkauskas
+          <a class="ref" href="https://github.com/jvitkauskas/pi32v2-llvm" target="_blank" rel="noopener" title="pi32v2-llvm">[5]</a>:
+          clang 23.1.5 and ld.lld for pi32v2, built from its source as WebAssembly with Emscripten
+          <a class="ref" href="https://emscripten.org" target="_blank" rel="noopener" title="Emscripten">[7]</a>
+          by FM-1 Studio, in a second Web Worker. It does the steps of fm1-base's own build, and for AURORA,
+          CS-1, FM-106 and FMINI-1 those of the firmware's own build. For the projects that were compared,
+          the package is the same bytes as the one from that build with the same compiler.</li>
       </ol>
-      <p>The application is one HTML file, the files of the second compiler, and the installer. The README
+      <p>The WebAssembly logos in the PROGRAM and FIRMWARE panels name their compiler in their hints. The
+        application is one HTML file, the files of the firmware compiler, and the installer. The README
         <a class="ref" href="https://github.com/TimSamshuijzen/fm1studiocom#how-it-works" target="_blank" rel="noopener" title="README of FM-1 Studio">[1]</a>
         tells more.</p>
 
       <h3>Limits</h3>
       <ul>
-        <li>The simulator's compiler is clang 8. A program whose main loop does not return cannot run.</li>
+        <li>The simulator compiler is clang 8.0.1. A program whose main loop does not return cannot run.
+          COMPILE needs wasm-clang's demo site.</li>
         <li>A project holds text files only: about 570 files and folders at most.</li>
         <li>The LEDs are on or off: the dim levels of some firmware are not shown.</li>
         <li>GitHub gives the list of files of a repository 60 times in an hour to one address. A firmware
@@ -933,17 +955,18 @@ void loop(void) { }                         /* again and again: controls and scr
         <li><a href="https://github.com/TimSamshuijzen/fm1studiocom" target="_blank" rel="noopener">FM-1 Studio</a>,
           Tim Samshuijzen. The source code and the documents of this application. GPL-3.0-only.</li>
         <li><a href="https://github.com/binji/wasm-clang" target="_blank" rel="noopener">wasm-clang</a>,
-          Ben Smith. clang and wasm-ld as WebAssembly: the compiler of the simulator.</li>
+          Ben Smith. clang 8.0.1 and wasm-ld as WebAssembly: the simulator compiler, loaded from its demo
+          site. Apache-2.0.</li>
         <li><a href="https://github.com/charlesvestal/fm1-base" target="_blank" rel="noopener">fm1-base</a>,
           Charles Vestal. The open platform for FM-1 firmware: screen, keys, LEDs, sound, USB MIDI, update
-          entry, safe mode, the build tool, and the installer of the INSTALL button (with work of Leo
-          Kuroshita and Chris Farrell). MPL-2.0.</li>
+          entry, safe mode, the build tool, and the installer of this page (with work of Leo Kuroshita and
+          Chris Farrell). MPL-2.0.</li>
         <li><a href="https://github.com/hugelton/felucca-bsp" target="_blank" rel="noopener">felucca-bsp</a>,
           Leo Kuroshita, Hügelton Instruments. The chip and board layer of the FM-1, the update loader, the
           package format and the install tools. MPL-2.0.</li>
         <li><a href="https://github.com/jvitkauskas/pi32v2-llvm" target="_blank" rel="noopener">pi32v2-llvm</a>,
-          Julius Vitkauskas. LLVM with a target for JieLi's pi32v2 processor: the compiler of the FIRMWARE
-          button. Apache-2.0 with LLVM exceptions.</li>
+          Julius Vitkauskas. LLVM with a target for JieLi's pi32v2 processor: the firmware compiler, release
+          pi32v2-23.1.5-5, built here as WebAssembly. Apache-2.0 with LLVM exceptions.</li>
         <li><a href="https://github.com/jvitkauskas/pi32v2-isa" target="_blank" rel="noopener">pi32v2-isa</a>,
           Julius Vitkauskas. Documents of the pi32v2 instruction set, and a runtime library.</li>
         <li><a href="https://emscripten.org" target="_blank" rel="noopener">Emscripten</a>. The tools that
@@ -1094,10 +1117,10 @@ void loop(void) { }                         /* again and again: controls and scr
  *
  * The examples for "buttons", "encoders" and "screen" are those of Felucca.
  *
- * "device" is for such a firmware too: FIRMWARE and INSTALL then make its
- * package for a real FM-1 with the steps of its own build, from the files of
- * the project (with your changes). Without it, they are off for a project with
- * "web". "device" has:
+ * "device" is for such a firmware too: the firmware compiler (FIRMWARE, INSTALL)
+ * then makes its package for a real FM-1 with the steps of its own build, from
+ * the files of the project (with your changes). Without it, FIRMWARE and INSTALL
+ * are off for a project with "web". "device" has:
  *
  *   "build":   "dinghy"                  the steps of tools/build.py of AURORA,
  *                                        CS-1 and FM-106; "felucca": of FMINI-1
@@ -6394,9 +6417,9 @@ void loop(void) {
 
 <!-- ==== Compiler worker: started from this text by the page script ==== -->
 <script type="text/plain" id="compiler-worker.js">
-// Compiles an FM-1 project (C files) to a WebAssembly module, in the browser.
-// The compiler is wasm-clang (clang 8 and wasm-ld built as WebAssembly),
-// loaded from its public demo site.
+// Compiles an FM-1 project (C files) to a WebAssembly module, in the browser: the simulator compiler.
+// The compiler is wasm-clang by Ben Smith (github.com/binji/wasm-clang, Apache-2.0): clang 8.0.1 and
+// wasm-ld built as WebAssembly, loaded from its public demo site (TOOLS).
 // The page puts the constant FILES in front of this code: the text of fm1.h and fm1_runtime.c.
 
 const TOOLS = 'https://binji.github.io/wasm-clang/';
@@ -8283,8 +8306,8 @@ function loadDemo(entry) {
 
 // The LOAD button of the card of a firmware loads its code from its repository on GitHub, as text files.
 // Two things are not in such a repository:
-//   - fm1project.json. It is here, as `manifest`. Its "device" (fm1.h tells more) lets FIRMWARE and
-//     INSTALL make the firmware's package for a real FM-1, with the steps of its own build.
+//   - fm1project.json. It is here, as `manifest`. Its "device" (fm1.h tells more) lets the firmware
+//     compiler make the firmware's package for a real FM-1, with the steps of its own build.
 //   - The files that the build of the firmware makes with its own tools: tables, fonts and pictures
 //     as C headers. They are in a script in the folder extras/ next to this page (`extras`). It is a
 //     script because a page that is opened from disk can load a script, but cannot fetch a file.
@@ -8368,7 +8391,7 @@ const GITHUB_PROJECTS = [
       flags: ['-std=gnu99', '-Wno-unused-function'],
       stack: 1048576,
       web: {},
-      // FIRMWARE and INSTALL: the steps of CS-1's tools/build.py, with its VERSION file as APP_VER
+      // The firmware build ("device"): the steps of CS-1's tools/build.py, with its VERSION file as APP_VER
       device: { build: 'dinghy', name: 'cs1', product: 'FM-1_950', sources: ['firmware/src/cs1.c'], define: ['APP_VER="0.3.4"'] },
     },
   },
@@ -8382,7 +8405,7 @@ const GITHUB_PROJECTS = [
       flags: ['-std=gnu99', '-w'],
       stack: 1048576,
       web: FELUCCA_WEB,  // its emulator numbers the buttons and encoders as Felucca's does
-      // FIRMWARE and INSTALL: the steps of FM-106's tools/build.py without Bluetooth (FELUCCA_BLE=0: its
+      // The firmware build ("device"): the steps of FM-106's tools/build.py without Bluetooth (FELUCCA_BLE=0: its
       // Bluetooth build links JieLi's closed libraries), with its flags, one core and its boot stub, and
       // APP_VER as build.py gives it for a build that is no release
       device: {
@@ -8404,7 +8427,7 @@ const GITHUB_PROJECTS = [
       flags: ['-std=gnu99', '-Wno-unused-function'],
       stack: 1048576,
       web: {},
-      // FIRMWARE and INSTALL: the steps of AURORA's tools/build.py, with its VERSION file as APP_VER
+      // The firmware build ("device"): the steps of AURORA's tools/build.py, with its VERSION file as APP_VER
       device: { build: 'dinghy', name: 'aurora', product: 'FM-1_4747', sources: ['firmware/src/aurora.c'], define: ['APP_VER="0.9.1"'] },
     },
   },
@@ -8426,7 +8449,7 @@ const GITHUB_PROJECTS = [
       flags: ['-std=gnu99', '-w'],
       stack: 1048576,
       web: FELUCCA_WEB,
-      // FIRMWARE and INSTALL: the steps of FMini-1's tools/build.py for the FM-1, as its releases are made
+      // The firmware build ("device"): the steps of FMini-1's tools/build.py for the FM-1, as its releases are made
       // (identity FM-1_900, no --release), with the files of its tools/size_fns.py (SIZE_FILES)
       device: {
         build: 'felucca', name: 'fmini-1-fm1-2.5.12', product: 'FM-1_900', sources: ['firmware/src/felucca.c'],
@@ -8941,8 +8964,8 @@ document.addEventListener('keydown', (event) => {
 
 // ---- Firmware: a .fwsc package of the project, for a real FM-1 ----
 
-// The firmware worker (the firmware-worker.js block) has its own compiler: clang for the FM-1's
-// processor. It starts at the first click on FIRMWARE, because it loads about 20 MB.
+// The firmware worker (the firmware-worker.js block) has its own compiler, the firmware compiler: clang
+// for the FM-1's processor (fwsc/). It starts at the first FIRMWARE or INSTALL, because it loads 52 MB.
 let firmware = null;      // the worker
 let firmwareName = '';    // the name of the project that it builds now, or '' when it does nothing
 let firmwareMade = null;  // the last package: { name, fwsc, image } (the bytes as ArrayBuffer)

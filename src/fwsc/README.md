@@ -21,7 +21,7 @@ hand. They are the work of others, under their own licences. Not affiliated with
 
 | File | From | Licence |
 | --- | --- | --- |
-| `llvm.wasm`, `llvm.js` | [pi32v2-llvm](https://github.com/jvitkauskas/pi32v2-llvm) by Julius Vitkauskas: LLVM with a target for pi32v2. Commit `60b0340` (release `pi32v2-23.1.5-5`), built with [Emscripten](https://emscripten.org) 7.0.0 | Apache-2.0 with LLVM exceptions; Emscripten's runtime and musl: MIT and others (`licences/`) |
+| `llvm.wasm`, `llvm.js` | [pi32v2-llvm](https://github.com/jvitkauskas/pi32v2-llvm) by Julius Vitkauskas: LLVM with a target for pi32v2. Commit `60b0340f47083cf088903030a9b55d8a65525dde` (release `pi32v2-23.1.5-5`), built with [Emscripten](https://emscripten.org) 7.0.0 by `firmware/web/build_compiler.sh` | Apache-2.0 with LLVM exceptions; Emscripten's runtime and musl: MIT and others (`licences/`) |
 | `platform.json` | See the table below | |
 
 The parts of `platform.json`:
@@ -170,7 +170,9 @@ c9113eb13497667a7241278ca29b6d6c89f32007ce47ab00b5867c53367cd9ee  llvm.js
 
 To check what the compiler makes: `firmware/web/reference.sh PROJECT.zip` builds a project with fm1-base's
 own build and this compiler (run by Node). A package that a page makes from the same project must be the
-same bytes. For four projects it is (November 2026).
+same bytes. For four `fm1.h` projects it is. `firmware/web/reference_device.sh` does the same for a
+firmware with its own build: for AURORA 0.9.1, CS-1 0.3.4, FM-106 1.0 and FMINI-1 v2.5.12 the bytes are
+the same too (November 2026).
 
 ## Limits
 
@@ -182,7 +184,8 @@ same bytes. For four projects it is (November 2026).
   register on the FM-1, and fm1-base's build gives a note when it finds them. JieLi's compiler does not
   make them, and this compiler at `-Os` does not make them. How fast `-Os` code runs on the FM-1 is not
   known.
-- **C and assembly only.** Nothing else was tried.
+- **C, assembly and LLVM IR only.** LLVM IR as FMINI-1's build gives it (its size pass). Nothing else was
+  tried.
 - **The files were built one time.** It is not known if a second build gives the same bytes.
 - **`llvm.wasm` is large.** A page must load it only when it is needed.
 
@@ -193,5 +196,5 @@ compiled code of fm1-base, felucca-bsp and the adapter, the update loader, and t
 
 ## Used by
 
-The FIRMWARE button of [FM-1 Studio](https://github.com/TimSamshuijzen/fm1studiocom): the worker
+The firmware compiler of [FM-1 Studio](https://github.com/TimSamshuijzen/fm1studiocom): the worker
 `firmware-worker.js` in `src/index.html`.

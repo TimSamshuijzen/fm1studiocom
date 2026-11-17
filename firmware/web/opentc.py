@@ -8,8 +8,8 @@
 
     JIELI_TOOLCHAIN=DIR python3 fm1-base/tools/build.py APP_DIR
 
-Then build.py builds a package with the compiler that FM-1 Studio has in the browser (llvm.wasm, run by Node
-here). That package is the reference for the package that the page makes: they must be the same bytes.
+Then build.py builds a package with the firmware compiler of FM-1 Studio (src/fwsc/llvm.wasm, run by Node
+here). That package is the reference for the browser's package: they must be the same bytes.
 make_platform.py uses the functions of this file too, for the update loader.
 
     clang     the driver cannot start a process in WebAssembly. So "clang -###" gives its jobs, and each job
@@ -20,7 +20,7 @@ make_platform.py uses the functions of this file too, for the update loader.
     objdump   JieLi's own (for the checks of build.py: it reads the same ELF files)
 
 FM1_PROGRAM_LEVEL=-Os compiles the files of the program (APP_DIR/project) at that level in place of -O2:
-the level that the page uses (src/fwsc/README.md tells why).
+the level of the browser build (src/fwsc/README.md tells why).
 Folders: FM1_WASM (default ~/.cache/fm1studio/wasm), FM1_JIELI (default ~/.cache/fm1studio/jieli/toolchain).
 """
 import os

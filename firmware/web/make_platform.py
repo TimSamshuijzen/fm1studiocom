@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) 2026 Tim Samshuijzen
-"""Makes src/fwsc/platform.json: all that the page needs, besides the compiler, to build a .fwsc package.
+"""Makes src/fwsc/platform.json: all that a browser needs, besides the compiler, to build a .fwsc package
+of an fm1.h program.
 
     python3 firmware/web/make_platform.py
 
@@ -25,7 +26,7 @@ platform.json has:
     about     the versions of the parts
 
 The update loader and the two generated headers are the same for each program, so they are made here
-one time. The page compiles all C and assembly files itself.
+one time. The browser build compiles all C and assembly files itself.
 """
 import base64
 import hashlib
