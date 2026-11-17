@@ -105,8 +105,8 @@ project gives the name on the FM-1's start screen. An adapter makes the function
 and no `double`; the LOG panel tells when a program does not fit the FM-1.
 
 **FM-1 Studio was tested on a real FM-1, with all its features**: FIRMWARE and INSTALL, for `fm1.h`
-programs and for the firmwares of the gallery that the table in "The gallery's firmware on a real FM-1"
-marks as tested. That FM-1 has the newer flash chip and m-bootloader 2.4-395e6cc, installed with M-Flasher
+programs and for each firmware of the gallery in the table of "The gallery's firmware on a real FM-1".
+That FM-1 has the newer flash chip and m-bootloader 2.4-395e6cc, installed with M-Flasher
 (see "Which FM-1"). Read this section to its end before you install a package.
 [firmware/README.md](firmware/README.md) tells what a program must keep to on the FM-1.
 
@@ -203,11 +203,11 @@ files go into the package. The package has the firmware's own update loader and 
 | FM-106 1.0 | `"dinghy"`, without Bluetooth, with its boot stub | `fm106.fwsc` | `FM-1_907` | Yes | Tested |
 | AURORA 0.9.1 | `"dinghy"` | `aurora.fwsc` | `FM-1_4747` | Yes | Tested |
 | FMINI-1 v2.5.12 | `"felucca"` | `fmini-1-fm1-2.5.12.fwsc` | `FM-1_900`, as its releases | Yes | Tested |
-| GR!MM v2.0.2 | `"dinghy"`, as its release build (`--release 2.0.2`), with a change for the newer flash chip | `grimm-2.0.2.fwsc` | `FM-1_966`, as its releases | Yes | Not tried |
-| FELUCCA v1.8.2 | `"felucca"`, as its release build (`--release 1.8.2`) | `felucca-1.8.2.fwsc` | `FM-1_918`, as its release | Yes | Not tried |
+| GR!MM v2.0.2 | `"dinghy"`, as its release build (`--release 2.0.2`), with a change for the newer flash chip | `grimm-2.0.2.fwsc` | `FM-1_966`, as its releases | Yes | Tested |
+| FELUCCA v1.8.2 | `"felucca"`, as its release build (`--release 1.8.2`) | `felucca-1.8.2.fwsc` | `FM-1_918`, as its release | Yes | Tested |
 | SLOOP v2.8.5 | `"felucca"`, without the size pass | `sloop-2.8.5.fwsc` | `FM-1_900`, as its releases | Yes | Tested |
 | SKIFF v2.5.1 | `"felucca"`, as its release build (`--release 2.5.1`), with a change for the firmware compiler | `skiff-2.5.1.fwsc` | `FM-1_725`, as its release | Yes | Tested |
-| JIANT v0.9.18 | `"felucca"`, with its hot RAM code and layout, with changes for the firmware compiler and the newer flash chip | `jiant-0.9.18.fwsc` | `FM-1_900`, as its releases | Yes | Not tried |
+| JIANT v0.9.18 | `"felucca"`, with its hot RAM code and layout, with changes for the firmware compiler and the newer flash chip | `jiant-0.9.18.fwsc` | `FM-1_900`, as its releases | Yes | Tested |
 
 These are not the released packages: the authors build with JieLi's compiler, FM-1 Studio with the
 firmware compiler. "Same bytes": unchanged and with a change, the page's package is the same bytes as the
@@ -535,7 +535,6 @@ of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/ma
   nothing that it does. The gallery's JIANT is the firmware of its main branch, v0.9.18 (not its release
   V10.7.23), with a `memmove` for the firmware compiler and a change for the newer flash chip.
 - The page's FM-106 has no Bluetooth, and its boot stub is not the one of FM-106's `stub.lock`.
-- The page's GR!MM, FELUCCA and JIANT packages were not tried on a real FM-1.
 - The page's SLOOP build does not build again with the boot logo as text when the flash is full, as
   SLOOP's `build.py` does (see "The gallery's firmware on a real FM-1").
 - For a changed firmware of the gallery, the firmware worker does not do the checks of its build that
