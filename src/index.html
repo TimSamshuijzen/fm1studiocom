@@ -237,11 +237,9 @@
   .project-controls { display: grid; align-content: space-between; }
   .buttons { display: flex; gap: 7px; }
   .buttons .file-buttons { margin-left: auto; }
-  /* The DEMO buttons, smaller than the others: the row has room for three (DEMO-1, DEMO-2, and DEMO-3 later). */
-  .demos { display: flex; gap: 3px; }
-  .demos .push { padding: 0 4px; font-size: 9px; }
-  /* A tray with a card for each firmware on GitHub. The tray scrolls sideways: a part of the next
-     card shows at the right edge. The lamp of a card shows the firmware that the project came from. */
+  /* The gallery: a tray with a card for each demo project of this page, then for each firmware on GitHub.
+     The tray scrolls sideways: a part of the next card shows at the right edge. The lamp of a card shows
+     the card that the project came from. */
   .gallery {
     display: flex; gap: 7px; padding: 6px; overflow-x: auto; overflow-y: hidden; overscroll-behavior: contain;
     border-radius: 6px; background: var(--panel-low); box-shadow: inset 0 1px 3px #000c, 0 1px 0 #ffffff14;
@@ -256,8 +254,8 @@
     font-family: var(--font-panel); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; line-height: 12px;
     color: var(--silk); white-space: nowrap;
   }
-  .card-license {  /* below the name, in line with its text */
-    grid-area: 2 / 1; padding-left: 13px;
+  .card-license {  /* below the name, in line with its text. A demo project has none: the line stays, so the LOAD buttons line up. */
+    grid-area: 2 / 1; min-height: 9px; padding-left: 13px;
     font-family: var(--font-panel); font-size: 8px; letter-spacing: 0.06em; line-height: 9px;
     color: var(--silk-dim); white-space: nowrap;
   }
@@ -627,16 +625,11 @@
               <button class="push" id="project-new" title="Start again with the startup demo project">NEW</button>
               <button class="push" id="project-load" title="Load a project from a zip file (or drop the zip file on the page)">LOAD</button>
               <button class="push" id="project-save" title="Download the project as a zip file">SAVE</button>
-              <!-- A DEMO button loads the project in the text blocks with its name, as "demo-1/main.c". -->
-              <span class="demos" role="group" aria-label="Demo projects">
-                <button class="push" data-demo="demo-1" title="Load DEMO-1: a progressive rock band in an FM-1, by Hans Dam">DEMO-1</button>
-                <button class="push" data-demo="demo-2" title="Load DEMO-2: space funk, with laser shots, a flying saucer and sonar pings">DEMO-2</button>
-              </span>
               <button class="push file-buttons" id="file-new" title="Add a file to the project">+ FILE</button>
               <button class="push" id="file-delete" title="Delete the file in the editor from the project">DELETE</button>
             </div>
-            <!-- The page script adds a card for each firmware of GITHUB_PROJECTS. -->
-            <div class="gallery" id="github" role="group" aria-label="Firmware on GitHub"></div>
+            <!-- The page script adds a card for each project of DEMO_PROJECTS and GITHUB_PROJECTS. -->
+            <div class="gallery" id="gallery" role="group" aria-label="Gallery"></div>
           </div>
           <div class="oled tree" id="tree" aria-label="Files of the project"></div>
           <input type="file" id="project-file" accept=".zip" hidden>
@@ -742,7 +735,7 @@
 
   <!-- ABOUT: the dialog that the ABOUT button opens. Its text is a short README of the application.
        A number in brackets is a link to the item with that number in REFERENCES. The page script
-       fills the table of the firmware gallery from GITHUB_PROJECTS. -->
+       fills the table of the firmware of the gallery from GITHUB_PROJECTS. -->
   <dialog class="dialog" id="about" aria-labelledby="about-title">
     <header class="dialog-head">
       <h2 class="logo" id="about-title">FM-1 STUDIO</h2>
@@ -794,9 +787,10 @@ void loop(void) { }                         /* again and again: controls and scr
       <ul>
         <li>COMPILE, or <kbd>Ctrl</kbd> + <kbd>Enter</kbd>, compiles the project and runs the program.</li>
         <li>The demo project <code>main.c</code> uses all of the API: a small FM synthesizer with an
-          arpeggiator, an echo and its own screen. DEMO-1 loads another demo: a progressive rock band in an
-          FM-1, by Hans Dam. DEMO-2 loads space funk: a synth bass, a drum machine, and laser shots, a
-          flying saucer and sonar pings on the buttons.</li>
+          arpeggiator, an echo and its own screen. PROG-1, the first card of the gallery, loads another
+          demo: a progressive rock band in an FM-1, by Hans Dam. SPACE-1, the second card, loads space
+          funk: a synth bass, a drum machine, and laser shots, a flying saucer and sonar pings on the
+          buttons.</li>
         <li>A project can have more than one file. The optional file <code>fm1project.json</code> says how
           the project is built: <code>sources</code>, <code>include</code>, <code>define</code> and
           <code>flags</code>.</li>
@@ -807,9 +801,9 @@ void loop(void) { }                         /* again and again: controls and scr
         <a class="ref" href="https://github.com/hugelton/felucca-bsp" target="_blank" rel="noopener" title="felucca-bsp">[4]</a>.</p>
 
       <h3>Firmware gallery</h3>
-      <p>The cards in the PROJECT panel load the source code of open-source FM-1 firmware from GitHub, at a
-        fixed version, and compile it in this page. Each firmware is the work of its authors and has its
-        own licence.</p>
+      <p>The first two cards in the PROJECT panel, PROG-1 and SPACE-1, load the demo projects above. The
+        other cards load the source code of open-source FM-1 firmware from GitHub, at a fixed version, and
+        compile it in this page. Each firmware is the work of its authors and has its own licence.</p>
       <table>
         <thead><tr><th>Firmware</th><th>Version</th><th>What</th><th>Repository</th><th>Licence</th></tr></thead>
         <tbody id="about-gallery"></tbody>
@@ -1887,8 +1881,8 @@ void loop(void) {
 }
 </script>
 
-<!-- ==== DEMO-1: the project that the DEMO-1 button loads, fm1project.json and main.c. By Hans Dam. ==== -->
-<script type="text/plain" id="demo-1/fm1project.json">
+<!-- ==== PROG-1: the demo project of the PROG-1 card, fm1project.json and main.c. By Hans Dam. ==== -->
+<script type="text/plain" id="prog-1/fm1project.json">
 {
   "sources": ["main.c"],
   "include": [],
@@ -1898,8 +1892,8 @@ void loop(void) {
 }
 </script>
 
-<script type="text/plain" id="demo-1/main.c">
-/* main.c - DEMO-1: a progressive rock band in an FM-1.
+<script type="text/plain" id="prog-1/main.c">
+/* main.c - PROG-1: a progressive rock band in an FM-1.
  * By Hans Dam.
  *
  * An original piece in the spirit of early-70s progressive rock, played by a
@@ -2770,7 +2764,7 @@ static const uint16_t font[] = {
 
 static void draw_title(void) {
     char text[4];
-    draw_text(4, TITLE_Y, "DEMO-1", 6, ORANGE);
+    draw_text(4, TITLE_Y, "PROG-1", 6, ORANGE);
     draw_text(68, TITLE_Y, registrations[registration].name, 6, WHITE);
     put_number(text, tempo);
     draw_text(180, TITLE_Y, text, 3, WHITE);
@@ -2990,8 +2984,8 @@ void loop(void) {
 }
 </script>
 
-<!-- ==== DEMO-2: the project that the DEMO-2 button loads, fm1project.json and main.c ==== -->
-<script type="text/plain" id="demo-2/fm1project.json">
+<!-- ==== SPACE-1: the demo project of the SPACE-1 card, fm1project.json and main.c ==== -->
+<script type="text/plain" id="space-1/fm1project.json">
 {
   "sources": ["main.c"],
   "include": [],
@@ -3001,8 +2995,8 @@ void loop(void) {
 }
 </script>
 
-<script type="text/plain" id="demo-2/main.c">
-/* main.c - DEMO-2: SPACE FUNK, an original piece for the FM-1.
+<script type="text/plain" id="space-1/main.c">
+/* main.c - SPACE-1: SPACE FUNK, an original piece for the FM-1.
  *
  * A funk band in orbit: a synth bass that pops and slides, a drum machine with
  * a swing, a phased space pad, a lead synth with a ping-pong echo, and the
@@ -3893,7 +3887,7 @@ void audio(int32_t *out, int frames) {
     samples_per_step = RATE * 60.0f / (tempo * 4.0f);
     echo_delay = (int)(samples_per_step * 3.0f); /* a dotted 8th */
     if (echo_delay > ECHO_MAX - 1) echo_delay = ECHO_MAX - 1;
-    /* MASTER: the square of its position, as an audio pot and as DEMO-1 */
+    /* MASTER: the square of its position, as an audio pot and as PROG-1 */
     float position = (float)fm1_master() * (1.0f / FM1_MASTER_MAX), target = position * position;
     float feedback = 0.25f + 0.45f * echo_amount, echo_out = 0.12f + 0.5f * echo_amount;
     float sp = space, dr = drums_level;
@@ -3949,7 +3943,7 @@ void audio(int32_t *out, int frames) {
         float right = b * 0.6f + drr * dr + pr * 0.9f + cv * 0.38f + ld * 0.3f + er * echo_out * 0.45f + (fr + rr * 2.0f) * sp;
 
         gain += (target - gain) * 0.0005f;
-        /* 0.72 after the limiter (which keeps its sound): about 3 dB below DEMO-1 at each MASTER position */
+        /* 0.72 after the limiter (which keeps its sound): about 3 dB below PROG-1 at each MASTER position */
         out[2 * i] = (int32_t)(soft(left * 0.44f) * 0.72f * gain * FM1_AUDIO_MAX);
         out[2 * i + 1] = (int32_t)(soft(right * 0.44f) * 0.72f * gain * FM1_AUDIO_MAX);
     }
@@ -4365,10 +4359,10 @@ static int octave = 1;
 
 static void draw_title(void) {
     char text[12];
-    draw_text2(4, TITLE_Y, "DEMO-2", 6, 2, MAGENTA, RGB(255, 160, 50), BLACK);
-    draw_text(84, TITLE_Y, "SPACE FUNK", 10, 1, DIM, BLACK);
-    draw_text(84, TITLE_Y + 8, "BASS", 4, 1, DIM, BLACK);
-    draw_text(114, TITLE_Y + 8, bass_sounds[bass_sound].name, 7, 1, CYAN, BLACK);
+    draw_text2(4, TITLE_Y, "SPACE-1", 7, 2, MAGENTA, RGB(255, 160, 50), BLACK);
+    draw_text(96, TITLE_Y, "SPACE FUNK", 10, 1, DIM, BLACK);
+    draw_text(96, TITLE_Y + 8, "BASS", 4, 1, DIM, BLACK);
+    draw_text(126, TITLE_Y + 8, bass_sounds[bass_sound].name, 7, 1, CYAN, BLACK);
     char *end = put_number(text, tempo);
     strcpy(end, " BPM");
     draw_text(190, TITLE_Y + 4, text, 8, 1, WHITE, BLACK);
@@ -6024,8 +6018,8 @@ about.onpointerdown = (event) => { if (event.target === about) about.close(); };
 
 const MANIFEST = 'fm1project.json';  // the optional file that says how the project is built (fm1.h tells more)
 const SOURCE_FILE = /\.(c|cc|cpp|cxx)$/i;  // without fm1project.json, the compiler gets each of these files
-// files: path -> text. github: the id of the firmware in GITHUB_PROJECTS that the project came from, or ''.
-const project = { name: '', files: new Map(), github: '' };
+// files: path -> text. gallery: the id of the card of the gallery that the project came from, or ''.
+const project = { name: '', files: new Map(), gallery: '' };
 let current = null;   // path of the file in the editor. null: the editor shows fm1.h, which is no project file
 let changed = false;  // the project has changes that are not saved
 const closed = new Set();  // the folders that are closed in the file list
@@ -6138,14 +6132,14 @@ function firstFile() {
 }
 
 // Makes `files` the project.
-// `github` is the id of the firmware in GITHUB_PROJECTS, for the lamps of the GITHUB cards.
-function setProject(name, files, github = '') {
+// `gallery` is the id of the card of the gallery that loaded it, for the lamps of the cards.
+function setProject(name, files, gallery = '') {
   project.name = name;
   project.files = files;
-  project.github = github;
+  project.gallery = gallery;
   changed = false;
   $('project-name').value = name;
-  for (const card of $('github').children) card.classList.toggle('lit', card.dataset.github === github);
+  for (const card of $('gallery').children) card.classList.toggle('lit', card.dataset.id === gallery);
   // A large project starts with its folders closed. openFile() opens those of the first file.
   closed.clear();
   if (files.size > 20) for (const path of files.keys()) for (const folder of foldersOf(path)) closed.add(folder);
@@ -6169,17 +6163,6 @@ $('project-new').onclick = () => {
   newProject();
   compileNew();
 };
-
-// A DEMO button loads its project: the text blocks of this page whose id is its name, a slash and a file path.
-for (const button of document.querySelectorAll('.demos button')) {
-  button.onclick = () => {
-    if (!canReplace()) return;
-    const prefix = button.dataset.demo + '/';
-    const blocks = document.querySelectorAll(`script[type="text/plain"][id^="${prefix}"]`);
-    setProject(button.dataset.demo, new Map([...blocks].map((block) => [block.id.slice(prefix.length), text(block.id)])));
-    compileNew();
-  };
-}
 
 $('file-new').onclick = () => {
   let path = 'untitled.c';
@@ -6352,9 +6335,24 @@ window.addEventListener('drop', (event) => {
   else if (canReplace()) loadZip(file);
 });
 
-// ---- Projects from GitHub ----
-// The LOAD button of a GITHUB card loads the code of a firmware from its repository on GitHub, as
-// text files.
+// ---- The gallery: demo projects of this page, and firmware from GitHub ----
+
+// The demo projects, the first cards of the gallery. The files of a demo project are the text blocks of
+// this page whose id is its `id`, a slash and a file path, as "prog-1/main.c".
+const DEMO_PROJECTS = [
+  { id: 'prog-1', label: 'PROG-1', about: 'a progressive rock band in an FM-1, by Hans Dam' },
+  { id: 'space-1', label: 'SPACE-1', about: 'space funk, with laser shots, a flying saucer and sonar pings' },
+];
+
+function loadDemo(entry) {
+  if (githubBusy || !canReplace()) return;
+  const prefix = entry.id + '/';
+  const blocks = document.querySelectorAll(`script[type="text/plain"][id^="${prefix}"]`);
+  setProject(entry.id, new Map([...blocks].map((block) => [block.id.slice(prefix.length), text(block.id)])), entry.id);
+  compileNew();
+}
+
+// The LOAD button of the card of a firmware loads its code from its repository on GitHub, as text files.
 // Two things are not in such a repository:
 //   - fm1project.json. It is here, as `manifest`. Its "device" (fm1.h tells more) lets FIRMWARE and
 //     INSTALL make the firmware's package for a real FM-1, with the steps of its own build.
@@ -6712,27 +6710,36 @@ async function loadGitHub(entry, card) {
   githubBusy = false;
 }
 
-// The gallery: a card for each firmware, with its name, its licence, a link to its repository and a LOAD button.
+// The cards: each has a name and a LOAD button. The card of a firmware also has its licence and a link to
+// its repository.
 const GITHUB_LOGO = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>';
-for (const entry of GITHUB_PROJECTS) {
-  const { repo, ref } = entry.sources[0];
+for (const entry of [...DEMO_PROJECTS, ...GITHUB_PROJECTS]) {
   const card = document.createElement('div');
   card.className = 'card';
-  card.dataset.github = entry.id;
-  card.title = `${entry.label} ${entry.version}: ${entry.about}. Licence: ${entry.license}`;
-  card.innerHTML = `<span class="card-name"><i></i>${entry.label}</span>
-    <span class="card-license">${entry.license}</span>
-    <a class="push" href="https://github.com/${repo}/tree/${ref}" target="_blank" rel="noopener"
-      title="Open github.com/${repo} in a new tab" aria-label="${entry.label} on GitHub">${GITHUB_LOGO}</a>
-    <button class="push" title="Load ${entry.label} ${entry.version} from github.com/${repo}">LOAD</button>`;
-  card.querySelector('button').onclick = () => loadGitHub(entry, card);
-  $('github').append(card);
+  card.dataset.id = entry.id;
+  if (entry.sources) {  // a firmware from GitHub
+    const { repo, ref } = entry.sources[0];
+    card.title = `${entry.label} ${entry.version}: ${entry.about}. Licence: ${entry.license}`;
+    card.innerHTML = `<span class="card-name"><i></i>${entry.label}</span>
+      <span class="card-license">${entry.license}</span>
+      <a class="push" href="https://github.com/${repo}/tree/${ref}" target="_blank" rel="noopener"
+        title="Open github.com/${repo} in a new tab" aria-label="${entry.label} on GitHub">${GITHUB_LOGO}</a>
+      <button class="push" title="Load ${entry.label} ${entry.version} from github.com/${repo}">LOAD</button>`;
+    card.querySelector('button').onclick = () => loadGitHub(entry, card);
+  } else {  // a demo project of this page
+    card.title = `${entry.label}: ${entry.about}`;
+    card.innerHTML = `<span class="card-name"><i></i>${entry.label}</span>
+      <span class="card-license"></span>
+      <button class="push" title="Load ${entry.label}, a demo project of this page">LOAD</button>`;
+    card.querySelector('button').onclick = () => loadDemo(entry);
+  }
+  $('gallery').append(card);
 }
 // The wheel of a mouse moves the gallery sideways.
-$('github').addEventListener('wheel', (event) => {
+$('gallery').addEventListener('wheel', (event) => {
   if (event.deltaX || !event.deltaY) return;
   event.preventDefault();
-  $('github').scrollLeft += event.deltaMode ? event.deltaY * 30 : event.deltaY;
+  $('gallery').scrollLeft += event.deltaMode ? event.deltaY * 30 : event.deltaY;
 }, { passive: false });
 
 // ---- Code editor ----
@@ -6916,7 +6923,7 @@ let compileEstimate = 1;  // the estimate of its full time, in seconds
 // each million characters).
 function estimateCompile() {
   const known = compileSeconds.get(compilingName) ??
-    GITHUB_PROJECTS.find((entry) => entry.id === project.github)?.seconds;
+    GITHUB_PROJECTS.find((entry) => entry.id === project.gallery)?.seconds;
   if (known) return known;
   let size = 0;
   for (const [path, text] of project.files) if (/\.(c|cc|cpp|cxx)$/i.test(path)) size += text.length;
@@ -7024,7 +7031,7 @@ function firmwareBlock() {
     // There is no fm1project.json, or it is not correct. The firmware worker gives the message for that.
   }
   if (manifest?.web == null || manifest.device != null) return '';
-  const entry = GITHUB_PROJECTS.find(({ id }) => id === project.github);
+  const entry = GITHUB_PROJECTS.find(({ id }) => id === project.gallery);
   const label = entry?.label ?? (project.name || 'This project');
   return `${label} is a firmware with its own FM-1 inside (${MANIFEST} has "web"), not an fm1.h program, ` +
     'and its build for a real FM-1 is not known here ("device"). ' + (entry
@@ -7197,10 +7204,10 @@ function showInstallStep(step) {
 // install/fm1ota.js, which that file does not export.)
 const stockVersion = (product) => (product === 'FM-1_099' ? null : /^FM-1_0(\d\d)$/.exec(product)?.[1] ?? null);
 
-// The firmware of the gallery that the project is, or null for a project of the user: by the card
-// that loaded it, or else by the identity of its own build ("device" of fm1project.json).
+// The firmware of the gallery that the project is, or null for a demo project or a project of the user:
+// by the card that loaded it, or else by the identity of its own build ("device" of fm1project.json).
 function galleryEntry() {
-  const loaded = GITHUB_PROJECTS.find(({ id }) => id === project.github);
+  const loaded = GITHUB_PROJECTS.find(({ id }) => id === project.gallery);
   if (loaded) return loaded;
   let product = null;
   try {

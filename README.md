@@ -14,8 +14,8 @@ Code that works in this simulator does not guarantee it will work on a real FM-1
   the MASTER pot and the LEDs, in the six colours of the device.
 - **Sound** on the audio thread of the browser (an AudioWorklet), with a scope and a level meter.
 - **MIDI input** from the keyboards and controllers of the computer (Web MIDI).
-- **Firmware gallery**: loads the source code of open-source FM-1 firmware from GitHub, compiles it and
-  runs it.
+- **Firmware gallery**: loads a demo project, or the source code of open-source FM-1 firmware from
+  GitHub, compiles it and runs it.
 - **Firmware for a real FM-1**: a second compiler in the page, clang for the FM-1's processor, makes a
   `.fwsc` package of a project. The page can install it on an FM-1 over USB MIDI (Chrome or Edge).
 
@@ -34,9 +34,10 @@ and runs it. Browsers block sound until a click or a key press, so click the pag
 | MIDI | The MIDI IN button asks the browser for permission |
 
 A project is a name and a set of text files. SAVE downloads it as a zip file and LOAD reads one back.
-DEMO-1 loads a demo project in place of the project: a progressive rock band in an FM-1, by Hans Dam.
-DEMO-2 loads space funk: an original piece in the spirit of the space sounds and the synth bass of
-"Macho City" (Steve Miller Band, 1981), with laser shots, a flying saucer and sonar pings on the buttons.
+PROG-1, the first card of the gallery, loads a demo project in place of the project: a progressive rock
+band in an FM-1, by Hans Dam. SPACE-1, the second card, loads space funk: an original piece in the spirit
+of the space sounds and the synth bass of "Macho City" (Steve Miller Band, 1981), with laser shots, a
+flying saucer and sonar pings on the buttons.
 The page keeps nothing between visits: save a project before you close the page.
 
 ## Write a program
@@ -218,8 +219,9 @@ BUILD.
 
 ## Firmware gallery
 
-Each card loads one firmware from its own repository on GitHub, at a fixed tag or commit, and compiles
-it in the page.
+The first two cards, PROG-1 and SPACE-1, load the demo projects of the page (see "Use"). Each other card
+loads one firmware from its own repository on GitHub, at a fixed tag or commit, and compiles it in the
+page.
 
 | Firmware | Version | What | Repository |
 |---|---|---|---|
@@ -261,8 +263,8 @@ files of the INSTALL button in `src/install`. The page has the styles, the page 
 | `fm1.h` | The API |
 | `fm1_runtime.c` | The simulator side of the API, linked into each program |
 | `fm1project.json`, `main.c` | The demo project |
-| `demo-1/fm1project.json`, `demo-1/main.c` | The project of the DEMO-1 button, by Hans Dam |
-| `demo-2/fm1project.json`, `demo-2/main.c` | The project of the DEMO-2 button |
+| `prog-1/fm1project.json`, `prog-1/main.c` | The demo project of the PROG-1 card, by Hans Dam |
+| `space-1/fm1project.json`, `space-1/main.c` | The demo project of the SPACE-1 card |
 | `compiler-worker.js` | The compiler worker |
 | `fm1-worklet.js` | The audio worklet that runs the program |
 | `firmware-worker.js` | The worker of the FIRMWARE button |
@@ -369,6 +371,10 @@ The firmware must have a C source that gives the `web_` interface: `web_boot`, `
 `web_lit_keys`). A repository that has its generated headers needs only the entry. One that makes them
 in its build also needs an extras file: a script that calls `fm1Extras({ path: text, ... })`.
 
+A demo project is an entry in `DEMO_PROJECTS` (`id`, `label` and `about`), and its files as text blocks
+of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/main.c`. Its card has no
+licence and no link.
+
 ## Limits
 
 - The compiler is clang 8. C++ files are compiled as C++14. It has no Asyncify, so a program whose main
@@ -406,8 +412,8 @@ other licences: see the `LICENSE`, `LICENSING.md` and `LICENSES/` files that loa
 page takes their code from their repositories when you press LOAD. The files in `src/extras` are made
 from that code, and their licences apply to them.
 
-The progressive rock band of the DEMO-1 button (`demo-1/main.c` in `src/index.html`, and
-`src/examples/prog-1`) by Hans Dam.
+The progressive rock band of the PROG-1 card (`prog-1/main.c` in `src/index.html`, and
+`src/examples/prog-1`) is by Hans Dam.
 
 The compiler is [wasm-clang](https://github.com/binji/wasm-clang) by Ben Smith, loaded from its demo
 site.
