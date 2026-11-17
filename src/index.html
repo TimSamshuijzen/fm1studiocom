@@ -9621,18 +9621,21 @@ function drawBoard() {
     svg(traces, 'path', { class: 'trace bus', d: `M${romX + reach} ${y}H${cx - size / 2 - 4}` });
     svg(traces, 'path', { class: 'trace bus', d: `M${cx + size / 2 + 4} ${y}H${ramX - reach}` });
   }
-  // J1 is at the height of the cable from the COMPILE button (see .cable in the styles).
-  // A lower contact has its vertical part more to the right, so that the traces do not cross.
+  // J1 is at the height of the cable from the COMPILE button (see .cable in the styles). Contact i
+  // goes to pin i + 3 of the ROM, with its vertical part in one of three columns. So that the traces do
+  // not cross: of the traces that go up, a lower contact has its vertical part more to the right, and of
+  // those that go down, more to the left. A trace that goes up and one that goes down cannot meet.
   const cable = document.querySelector('.cable').getBoundingClientRect();
   const j1 = (cable.top + cable.height / 2 - box.top) / deviceScale;
-  for (let i = 0; i < 3; i++) {
-    const y = j1 + (i - 1) * 6;
+  const contacts = [0, 1, 2].map((i) => ({ y: j1 + (i - 1) * 6, to: cy + pin(i + 3) }));
+  const columns = [...contacts.filter(({ y, to }) => to <= y), ...contacts.filter(({ y, to }) => to > y).reverse()];
+  columns.forEach(({ y, to }, column) => {
     svg(board, 'rect', { class: 'pad', x: 0, y: y - 2, width: 11, height: 4 });
     svg(traces, 'path', {
       class: 'trace', 'data-lane': 'load',
-      d: `M11 ${y}H${romX - reach - 16 + i * 5}V${cy + pin(i + 3)}H${romX - reach}`,
+      d: `M11 ${y}H${romX - reach - 16 + column * 5}V${to}H${romX - reach}`,
     });
-  }
+  });
   svg(board, 'text', { class: 'silk-small', x: 3, y: j1 - 13 }, 'J1');
   // The state of the program, below the RAM chip.
   const ledY = cy + pitch * 2.25 + 13;
