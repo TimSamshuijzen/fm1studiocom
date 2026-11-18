@@ -1,1231 +1,1309 @@
-/* STAR CAVE - an original arcade game for the M-VAVE FM-1 (FM-1 Studio).
+/* NOTEFALL - an 8-lane rhythm game for the M-VAVE FM-1, made for FM-1 Studio.
  *
- * A small ship flies through a cave that scrolls from right to left.
- * Collect stars: each star plays the next note of a scale, and 8 stars in a
- * row complete the scale for a bonus. Shoot the mines, keep off the walls.
+ * Notes fall in 8 lanes to the line at the bottom. Hit them with the white
+ * note keys C4..C5 (computer: A S D F G H J K). Each hit plays that note of
+ * the melody with a bell sound; drums, bass, chords and pads play by themselves.
  *
- * Controls (note keys; in FM-1 Studio the computer keys W, S and J):
- *   note key 8  (W)  up
- *   note key 9  (S)  down
- *   note key 18 (J)  fire (hold for auto fire)
- *   PLAY             start / pause / resume
- *   HOME             back to the title (in the pause and after game over)
- *   MASTER           volume
- *
- * The game's clock is the audio: audio() counts its blocks and loop() runs
- * one game tick for every 3 blocks (about 57 ticks per second).
+ * Title:   OCT- / OCT+ (Z / X) choose the song, a lane key starts it.
+ * Game:    lane keys hit, hold the long notes, PLAY pauses, HOME quits.
+ * Results: a lane key goes back to the title.
  */
 #include "fm1.h"
 #include <math.h>
 
-/* ------------------------------------------------------------------ */
-/* Layout and constants                                                */
-/* ------------------------------------------------------------------ */
+#define RGB(r, g, b) ((uint16_t)((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | (((b) & 0xFF) >> 3)))
+#define BIT(n) (1u << (n))
+#define WHITE RGB(255, 255, 255)
+#define GREY  RGB(150, 150, 165)
+#define BLACK 0
+#define PANEL RGB(16, 16, 40)
 
-#define SCR_W       240
-#define SCR_H       240
-#define PLAY_Y      20      /* the HUD is rows 0..19 */
-#define PLAY_H      220     /* the cave is rows 20..239 */
-#define SEG_SHIFT   3       /* the cave is made of 8 px wide segments */
-#define RING        64      /* segments kept in memory (512 px) */
-#define EDGE        3       /* light edge of the cave walls, in px */
-#define SHIP_X      22
-#define SHIP_W      14
-#define SHIP_H      9
-#define NOBJ        32      /* stars, mines, bullets, effects */
-#define MAX_BULLETS 3
-#define MAX_LIVES   5
-#define BUF_N       1024    /* pixels in the drawing buffer */
-#define TICK_BLOCKS 3       /* audio blocks per game tick */
-#define STEP_BLOCKS 20      /* audio blocks per 16th note (about 129 BPM) */
+/* Screen layout */
+#define PF_Y    20    /* playfield: y 20..191, 172 rows */
+#define PF_H    172
+#define LINE_Y  192   /* hit line: y 192..195 */
+#define PAD_Y   196   /* lane pads: y 196..211 */
+#define PAD_H   16
+#define STRIP_Y 212   /* judgment and combo: y 212..239 */
+#define LANE_W  30
+#define GEM_H   10
+#define MS_R0   26    /* playfield rows of the combo panel */
+#define MS_R1   86
+#define PS_R0   62    /* playfield rows of the pause panel */
+#define PS_R1   106
 
-#define NK_UP    8u         /* note keys used as game controls */
-#define NK_DOWN  9u
-#define NK_FIRE  18u
+/* Times in samples (44100 a second) */
+#define W_PERFECT 2425   /* +-55 ms */
+#define W_GOOD    5513   /* +-125 ms */
+#define T_FLASH   6615   /* 150 ms */
+#define T_MINGATE 4410   /* 100 ms */
+#define T_MS      44100  /* the combo panel stays 1 s */
 
-#define RGB(r, g, b) ((uint16_t)((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3)))
+#define HZ2INC  97391.548f    /* phase steps per Hz: 2^32 / 44100 */
+#define RAD2PH  683565275.6f  /* phase steps per radian: 2^32 / (2 pi) */
+#define SN_INC  18017437u     /* 185 Hz, the tone of the snare */
+#define MAXN    1024
+#define MAXBARS 64
+#define MAXP    40
+#define DLEN    6400          /* echo buffer, one per side */
+#define NPIX    11040         /* pixel buffer for blits */
 
-#define C_W      RGB(255, 255, 255)
-#define C_LY     RGB(255, 250, 170)
-#define C_Y      RGB(255, 220, 40)
-#define C_O      RGB(255, 140, 20)
-#define C_R      RGB(230, 40, 50)
-#define C_K      RGB(130, 130, 150)
-#define C_B      RGB(50, 100, 240)
-#define C_C      RGB(140, 220, 255)
-#define C_ROCK1  RGB(72, 44, 80)
-#define C_ROCK2  RGB(60, 36, 68)
-#define C_EDGE   RGB(160, 100, 170)
-#define C_HUDBG  RGB(12, 10, 30)
-#define C_HUDLN  RGB(110, 80, 180)
-#define C_TXT    RGB(220, 220, 250)
-#define C_DIM    RGB(150, 150, 190)
-#define C_PANEL  RGB(20, 16, 48)
+/* Kinds of playfield rows; a row code is kind * 16 + background level */
+enum { K_BG, K_BEAT, K_BAR, K_GT, K_GH, K_GI, K_BN, K_BH, K_BD, K_CN, K_CH, K_CD };
+enum { ST_WAIT, ST_HOLD, ST_DONE, ST_DEAD };
+enum { J_NONE, J_PERFECT, J_GOOD, J_MISS };
+enum { M_NONE, M_TITLE, M_GAME, M_RESULT };
 
-/* ------------------------------------------------------------------ */
-/* Shared between loop() and audio()                                   */
-/* ------------------------------------------------------------------ */
-
-static volatile uint32_t g_blocks;      /* audio blocks so far: the clock */
-static volatile int      g_step;        /* music step now sounding */
-static volatile int      g_music;       /* 1 while the music plays */
-static volatile float    g_vol_target;  /* from the MASTER pot */
-
-enum { EV_MUSIC_START, EV_MUSIC_CONT, EV_MUSIC_STOP, EV_STAR, EV_SHOOT,
-       EV_BOOM, EV_DEATH, EV_BONUS };
-
-#define EVQ 16
-static volatile uint8_t  evq_type[EVQ], evq_arg[EVQ];
-static volatile uint32_t evq_head, evq_tail;
-
-static void ev_push(int type, int arg)
-{
-  uint32_t h = evq_head;
-  if (h - evq_tail >= EVQ) return;          /* queue full: drop it */
-  evq_type[h & (EVQ - 1)] = (uint8_t)type;
-  evq_arg[h & (EVQ - 1)] = (uint8_t)arg;
-  evq_head = h + 1;
-}
-
-/* ------------------------------------------------------------------ */
-/* Font: 5x7, ASCII 32..90, one byte per column, bit 0 at the top      */
-/* ------------------------------------------------------------------ */
-
-static const uint8_t FONT[59][5] = {
-  {0x00,0x00,0x00,0x00,0x00},{0x00,0x00,0x5F,0x00,0x00},{0x00,0x07,0x00,0x07,0x00},
-  {0x14,0x7F,0x14,0x7F,0x14},{0x24,0x2A,0x7F,0x2A,0x12},{0x23,0x13,0x08,0x64,0x62},
-  {0x36,0x49,0x55,0x22,0x50},{0x00,0x05,0x03,0x00,0x00},{0x00,0x1C,0x22,0x41,0x00},
-  {0x00,0x41,0x22,0x1C,0x00},{0x08,0x2A,0x1C,0x2A,0x08},{0x08,0x08,0x3E,0x08,0x08},
-  {0x00,0x50,0x30,0x00,0x00},{0x08,0x08,0x08,0x08,0x08},{0x00,0x60,0x60,0x00,0x00},
-  {0x20,0x10,0x08,0x04,0x02},
-  {0x3E,0x51,0x49,0x45,0x3E},{0x00,0x42,0x7F,0x40,0x00},{0x42,0x61,0x51,0x49,0x46},
-  {0x21,0x41,0x45,0x4B,0x31},{0x18,0x14,0x12,0x7F,0x10},{0x27,0x45,0x45,0x45,0x39},
-  {0x3C,0x4A,0x49,0x49,0x30},{0x01,0x71,0x09,0x05,0x03},{0x36,0x49,0x49,0x49,0x36},
-  {0x06,0x49,0x49,0x29,0x1E},
-  {0x00,0x36,0x36,0x00,0x00},{0x00,0x56,0x36,0x00,0x00},{0x00,0x08,0x14,0x22,0x41},
-  {0x14,0x14,0x14,0x14,0x14},{0x41,0x22,0x14,0x08,0x00},{0x02,0x01,0x51,0x09,0x06},
-  {0x32,0x49,0x79,0x41,0x3E},
-  {0x7E,0x11,0x11,0x11,0x7E},{0x7F,0x49,0x49,0x49,0x36},{0x3E,0x41,0x41,0x41,0x22},
-  {0x7F,0x41,0x41,0x22,0x1C},{0x7F,0x49,0x49,0x49,0x41},{0x7F,0x09,0x09,0x01,0x01},
-  {0x3E,0x41,0x41,0x51,0x32},{0x7F,0x08,0x08,0x08,0x7F},{0x00,0x41,0x7F,0x41,0x00},
-  {0x20,0x40,0x41,0x3F,0x01},{0x7F,0x08,0x14,0x22,0x41},{0x7F,0x40,0x40,0x40,0x40},
-  {0x7F,0x02,0x04,0x02,0x7F},{0x7F,0x04,0x08,0x10,0x7F},{0x3E,0x41,0x41,0x41,0x3E},
-  {0x7F,0x09,0x09,0x09,0x06},{0x3E,0x41,0x51,0x21,0x5E},{0x7F,0x09,0x19,0x29,0x46},
-  {0x46,0x49,0x49,0x49,0x31},{0x01,0x01,0x7F,0x01,0x01},{0x3F,0x40,0x40,0x40,0x3F},
-  {0x1F,0x20,0x40,0x20,0x1F},{0x7F,0x20,0x18,0x20,0x7F},{0x63,0x14,0x08,0x14,0x63},
-  {0x03,0x04,0x78,0x04,0x03},{0x61,0x51,0x49,0x45,0x43}
+/* 5x7 font, ASCII 32..90, 5 columns per character, bit 0 is the top row */
+static const uint8_t font[59 * 5] = {
+  0x00,0x00,0x00,0x00,0x00, 0x00,0x00,0x5F,0x00,0x00, 0x00,0x07,0x00,0x07,0x00, 0x14,0x7F,0x14,0x7F,0x14,
+  0x24,0x2A,0x7F,0x2A,0x12, 0x23,0x13,0x08,0x64,0x62, 0x36,0x49,0x55,0x22,0x50, 0x00,0x05,0x03,0x00,0x00,
+  0x00,0x1C,0x22,0x41,0x00, 0x00,0x41,0x22,0x1C,0x00, 0x14,0x08,0x3E,0x08,0x14, 0x08,0x08,0x3E,0x08,0x08,
+  0x00,0x50,0x30,0x00,0x00, 0x08,0x08,0x08,0x08,0x08, 0x00,0x60,0x60,0x00,0x00, 0x20,0x10,0x08,0x04,0x02,
+  0x3E,0x51,0x49,0x45,0x3E, 0x00,0x42,0x7F,0x40,0x00, 0x42,0x61,0x51,0x49,0x46, 0x21,0x41,0x45,0x4B,0x31,
+  0x18,0x14,0x12,0x7F,0x10, 0x27,0x45,0x45,0x45,0x39, 0x3C,0x4A,0x49,0x49,0x30, 0x01,0x71,0x09,0x05,0x03,
+  0x36,0x49,0x49,0x49,0x36, 0x06,0x49,0x49,0x29,0x1E, 0x00,0x36,0x36,0x00,0x00, 0x00,0x56,0x36,0x00,0x00,
+  0x08,0x14,0x22,0x41,0x00, 0x14,0x14,0x14,0x14,0x14, 0x00,0x41,0x22,0x14,0x08, 0x02,0x01,0x51,0x09,0x06,
+  0x32,0x49,0x79,0x41,0x3E, 0x7E,0x11,0x11,0x11,0x7E, 0x7F,0x49,0x49,0x49,0x36, 0x3E,0x41,0x41,0x41,0x22,
+  0x7F,0x41,0x41,0x22,0x1C, 0x7F,0x49,0x49,0x49,0x41, 0x7F,0x09,0x09,0x09,0x01, 0x3E,0x41,0x49,0x49,0x7A,
+  0x7F,0x08,0x08,0x08,0x7F, 0x00,0x41,0x7F,0x41,0x00, 0x20,0x40,0x41,0x3F,0x01, 0x7F,0x08,0x14,0x22,0x41,
+  0x7F,0x40,0x40,0x40,0x40, 0x7F,0x02,0x0C,0x02,0x7F, 0x7F,0x04,0x08,0x10,0x7F, 0x3E,0x41,0x41,0x41,0x3E,
+  0x7F,0x09,0x09,0x09,0x06, 0x3E,0x41,0x51,0x21,0x5E, 0x7F,0x09,0x19,0x29,0x46, 0x46,0x49,0x49,0x49,0x31,
+  0x01,0x01,0x7F,0x01,0x01, 0x3F,0x40,0x40,0x40,0x3F, 0x1F,0x20,0x40,0x20,0x1F, 0x3F,0x40,0x38,0x40,0x3F,
+  0x63,0x14,0x08,0x14,0x63, 0x07,0x08,0x70,0x08,0x07, 0x61,0x51,0x49,0x45,0x43
 };
 
-/* ------------------------------------------------------------------ */
-/* Sprites                                                             */
-/* ------------------------------------------------------------------ */
-
-enum { O_NONE, O_STAR, O_MINE, O_BULLET, O_BOOM, O_SPARK, O_SHIP };
-static const uint8_t TW[7] = { 0, 9, 9, 6, 11, 11, SHIP_W };
-static const uint8_t TH[7] = { 0, 8, 9, 2, 11, 11, SHIP_H };
-
-static const char *const SHIP_BMP[2][SHIP_H] = {
-  { "..bb..........",
-    "..cbbb........",
-    "...ccbbbb.....",
-    "ro.cccccwwb...",
-    "oyccccccwwccbb",
-    "ro.ccccccccb..",
-    "...ccbbbb.....",
-    "..cbbb........",
-    "..bb.........." },
-  { "..bb..........",
-    "..cbbb........",
-    "...ccbbbb.....",
-    ".r.cccccwwb...",
-    "roccccccwwccbb",
-    ".r.ccccccccb..",
-    "...ccbbbb.....",
-    "..cbbb........",
-    "..bb.........." }
+/* ---- Lanes: the white keys C4..C5 ---- */
+static const uint8_t lane_key[8]  = { 7, 9, 11, 12, 14, 16, 18, 19 };  /* note key numbers */
+static const uint8_t lane_midi[8] = { 60, 62, 64, 65, 67, 69, 71, 72 };
+static const char lane_chr[] = "cdefgabC";                               /* in the charts */
+static const char *const lane_label[8] = { "A", "S", "D", "F", "G", "H", "J", "K" };
+static const uint8_t lane_rgb[8][3] = {
+  { 255, 70, 70 }, { 255, 150, 40 }, { 250, 230, 50 }, { 80, 230, 90 },
+  { 50, 220, 230 }, { 70, 120, 255 }, { 170, 90, 255 }, { 255, 90, 200 }
 };
+#define LANE_KEYS (BIT(7) | BIT(9) | BIT(11) | BIT(12) | BIT(14) | BIT(16) | BIT(18) | BIT(19))
 
-static const char *const STAR_BMP[8] = {
-  "....y....",
-  "...yly...",
-  "yyyylyyyy",
-  ".yylwlyy.",
-  "..ylwly..",
-  "..yllly..",
-  ".yly.yly.",
-  ".yy...yy."
-};
-
-static const char *const MINE_BMP[9] = {
-  "....k....",
-  ".k.rrr.k.",
-  "..rrrrr..",
-  ".rrryrrr.",
-  "krryoyrrk",
-  ".rrryrrr.",
-  "..rrrrr..",
-  ".k.rrr.k.",
-  "....k...."
-};
-
-static const char *const BULLET_BMP[2] = { "bcwwww", "bcwwww" };
-
-static uint16_t pal(char ch)
-{
-  switch (ch) {
-  case 'w': return C_W;
-  case 'l': return C_LY;
-  case 'y': return C_Y;
-  case 'o': return C_O;
-  case 'r': return C_R;
-  case 'k': return C_K;
-  case 'b': return C_B;
-  default:  return C_C;
-  }
-}
-
-static int boom_px(int f, int dx, int dy, uint16_t *c)
-{
-  int d2 = dx * dx + dy * dy;
-  int h = (dx * 7 + dy * 13 + f * 5) & 3;
-  switch (f) {
-  case 0:
-    if (d2 <= 5)  { *c = C_W; return 1; }
-    if (d2 <= 13) { *c = C_Y; return 1; }
-    return 0;
-  case 1:
-    if (d2 <= 8)  { *c = C_Y; return 1; }
-    if (d2 <= 20) { *c = C_O; return 1; }
-    return 0;
-  case 2:
-    if (d2 >= 10 && d2 <= 26) { *c = h ? C_O : C_R; return 1; }
-    if (d2 < 10 && h == 0)    { *c = C_R; return 1; }
-    return 0;
-  default:
-    if (d2 >= 16 && d2 <= 30 && h == 0) { *c = C_R; return 1; }
-    return 0;
-  }
-}
-
-static int spark_px(int f, int dx, int dy, uint16_t *c)
-{
-  int ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy;
-  int d = ax > ay ? ax : ay;
-  if (!(dx == 0 || dy == 0 || ax == ay)) return 0;
-  if (ax == ay && ax > 3) return 0;
-  if (d == f + 1 || (f == 0 && d == 0)) { *c = C_W; return 1; }
-  if (d == f + 2) { *c = C_Y; return 1; }
-  return 0;
-}
-
-static int spr_px(int type, int look, int lx, int ly, uint16_t *c)
-{
-  char ch;
-  switch (type) {
-  case O_SHIP:   ch = SHIP_BMP[look & 1][ly][lx]; break;
-  case O_STAR:
-    ch = STAR_BMP[ly][lx];
-    if (look) { if (ch == 'l') ch = 'w'; else if (ch == 'w') ch = 'l'; }
-    break;
-  case O_MINE:
-    ch = MINE_BMP[ly][lx];
-    if (look) { if (ch == 'o') ch = 'w'; else if (ch == 'y') ch = 'o'; }
-    break;
-  case O_BULLET: ch = BULLET_BMP[ly][lx]; break;
-  case O_BOOM:   return boom_px(look, lx - 5, ly - 5, c);
-  case O_SPARK:  return spark_px(look, lx - 5, ly - 5, c);
-  default:       return 0;
-  }
-  if (ch == '.') return 0;
-  *c = pal(ch);
-  return 1;
-}
-
-/* ------------------------------------------------------------------ */
-/* Game state                                                          */
-/* ------------------------------------------------------------------ */
-
-enum { M_TITLE, M_PLAY, M_PAUSE, M_OVER };
-
+/* ---- Songs ----
+ * A song is a form: a list of sections (intro, verse, chorus, break, ...).
+ * chart: a note is its lane (c d e f g a b C) and its length in 16ths;
+ *   "=" after it makes it a long note (hold it), "-" is a rest, "+" puts the
+ *   next note at the same time as the one before.
+ * chords: two per bar (one per half bar). Upper case is major (C and F with
+ *   a major 7th, G with a 7th), lower case is minor 7th.
+ * groove: one character per 16th. kick/snare: x = hit, g = ghost snare;
+ *   hat: x, X = louder, o = open; bass: x = root, o = octave, f = fifth;
+ *   comp: x = chord stab. pad: 0 none, 1 soft, 2 full. */
+typedef struct { const char *kick, *snare, *hat, *bass, *comp; uint8_t pad; } groove_t;
+typedef struct { char key; uint8_t bars, groove; const char *chords, *chart; } section_t;
 typedef struct {
-  uint8_t  type;
-  uint16_t t;          /* ticks since it appeared */
-  int32_t  x;          /* world x (screen x for bullets) */
-  float    y;          /* row in the cave, 0 = top of the cave */
-  float    base, amp, ph;
-} Obj;
+  const char *name, *diff, *style;
+  uint16_t bpm, fall_ms;
+  uint8_t dmg, inst, r, g, b, nsec;
+  const char *form;
+  const section_t *secs;
+  const groove_t *grooves;
+} song_t;
 
-typedef struct { int16_t x, y, w, h; uint8_t look; } Shown;
+/* EASY: light, happy pop */
+static const groove_t pop_grooves[4] = {
+  { "x.......x.......", "................", "..x...x...x...x.", "x.......x.......", "x.......x.......", 1 },
+  { "x.....x.x.......", "....x.......x...", "x.x.x.x.x.x.x.x.", "x.....x.x...o...", "..x...x...x...x.", 1 },
+  { "x.....x.x.....x.", "....x.......x...", "x.x.x.xox.x.x.xo", "x..x..x.x..x..o.", "x.x.x.x.x.x.x.x.", 2 },
+  { "................", "................", "....x.......x...", "x...............", "x.......x.......", 2 }
+};
+static const section_t pop_secs[5] = {
+  { 'I', 4, 0, "CC GG aa FG", "e16= | d16= | c8= e8 | f8 g8=" },
+  { 'V', 8, 1, "CC GG aa FF CC GG FF GG",
+    "e4 e4 g4 e4 | d4 d4 g8= | c4 c4 e4 a4 | a8= g8 |"
+    "e4 e4 g4 C4 | b4 a4 g8= | f4 a4 g4 f4 | e4 d4 g8=" },
+  { 'C', 8, 2, "FF GG ee aa FF GG CC CG",
+    "a2 g2 a2 C2 C4 a4 | b2 a2 g2 a2 b4 g4 | g2 e2 g2 b2 b4 a4 | a2 g2 e2 c2 e4= -4 |"
+    "a2 g2 a2 C2 C4 a4 | b2 C2 b2 a2 g4 d4 | e2 g2 C2 e2 g2 C2 e4 | C8= -4 g4" },
+  { 'B', 4, 3, "aa FF CC GG", "a8= e8 | f8= a8 | g16= | g8 a4 b4" },
+  { 'L', 8, 2, "FF GG ee aa FF GG CC CC",
+    "a2 g2 a2 C2 C2 b2 a2 g2 | b2 a2 g2 a2 b2 C2 b2 g2 | g2 e2 g2 b2 C2 b2 a2 g2 | a2 g2 e2 c2 e2 g2 a4 |"
+    "a2 g2 a2 C2 C4 a4 | b2 C2 b2 a2 g2 a2 b2 d2 | e2 g2 C2 e2 g2 C2 e2 g2 | C16=" }
+};
 
-static int      g_mode, g_need_full;
-static int32_t  g_scroll, g_drawn_scroll;
-static float    g_sacc;
-static uint8_t  g_top[RING], g_bot[RING];
-static int32_t  g_gen_seg;
-static float    g_cc, g_drift, g_run_off;
-static int      g_drift_t, g_run, g_run_gap, g_spawn_cd;
+/* NORMAL: a funky groove in D dorian, with syncopation */
+static const groove_t funk_grooves[4] = {
+  { "x.........x.....", "....x.......x...", "x.x.x.x.x.x.x.x.", "x..x..o...x..x..", "...x..x....x..x.", 0 },
+  { "x..x......x..x..", "....x..g.g..x..g", "XxxxXxxxXxxxXxxx", "x..xo..x.x.ox.f.", "..x..x.x..x..x..", 0 },
+  { "x..x..x...x..x..", "....x..g.g..x..g", "XxxoXxxxXxxoXxxx", "x.ox.ox.x..xo.x.", ".x.x..x..x.x..x.", 1 },
+  { "x...............", "............x...", "x.x.x.x.x.x.x.x.", "x..x..o.........", "................", 2 }
+};
+static const section_t funk_secs[5] = {
+  { 'I', 4, 0, "dd dG dd dG",
+    "-4 d2 f2 -2 a4= -2 | -4 a2 g2 -2 f2 d4 | -4 d2 f2 -2 a4= -2 | -2 C2 a2 g2 -4 f2 g2" },
+  { 'V', 8, 1, "dd dG dd dG dd dG FF GG",
+    "d3 d3 f2 -2 a2 g2 f2 | g3 f3 d2 -4 C2 a2 | d3 d3 f2 -2 a2 C2 a2 | b3 a3 g2 -4 f2 g2 |"
+    "d3 d3 f2 -2 a2 g2 f2 | g3 f3 d2 -2 d2 f2 g2 | a3 a3 C2 -2 C2 a2 f2 | g6= -2 d2 e2 f2 g2" },
+  { 'C', 8, 2, "FF GG ee aa FF GG aa dG",
+    "a2 C2 -1 C1 a2 g2 a1 C3 a2 | b2 d2 -1 d1 g2 b2 a1 g3 d2 | e2 g2 -1 g1 b2 a2 g1 e3 g2 | a3 a3 C2 e4= -2 g2 |"
+    "a2 C2 -1 C1 a2 g2 a1 C3 a2 | b2 d2 -1 d1 g2 b2 C1 b3 g2 | a1 g1 e2 g1 a1 C2 e2 g2 a4 | d4= -2 f2 g2 a2 b2 g2" },
+  { 'B', 4, 3, "dd dd GG GG", "d8= -4 f2 g2 | a8= -4 g2 f2 | g8= -4 a2 b2 | g12= -4" },
+  { 'L', 8, 2, "FF GG ee aa FF GG aa dd",
+    "a1 a1 C2 -1 C1 a2 g1 a1 C2 a1 g1 f2 | b1 b1 d2 -1 d1 g2 b1 C1 b2 a1 g1 d2 |"
+    "e1 e1 g2 -1 g1 b2 a1 g1 e2 g1 a1 b2 | a3 a3 C2 e4= g2 a2 |"
+    "a1 a1 C2 -1 C1 a2 g1 a1 C2 a1 g1 f2 | b1 b1 d2 -1 d1 g2 b1 C1 b2 a1 g1 a2 |"
+    "a1 g1 e2 g1 a1 C2 e2 g2 a1 b1 C2 | d16=" }
+};
 
-static float    g_sy, g_vy;
-static int      g_alive, g_dead_t, g_invuln, g_fire_cd, g_fire_edge;
-static uint32_t g_score, g_hi, g_next_extra, g_ticks, g_tick_block;
-static int      g_lives, g_streak, g_streak_t;
+/* HARD: fast electronic music in A minor, with runs over the lanes */
+static const groove_t edm_grooves[5] = {
+  { "x...x...x...x...", "................", "..x...x...x...x.", "..x...x...x...x.", "................", 2 },
+  { "x...x...x...x...", "....x.......x...", "xxXxxxXxxxXxxxXx", "..xx..xx..xx..xx", "x..x..x...x..x..", 1 },
+  { "x...x...x...x...", "....x.......x...", "xxoxxxoxxxoxxxox", "x.xox.xox.xox.xo", "x..x..x...x..x..", 2 },
+  { "................", "................", "x.......x.......", "x...............", "x...............", 2 },
+  { "x...x...x...x...", "x.x.x.x.xxxxxxxx", "..x...x...x...x.", "..x...x...x...x.", "................", 1 }
+};
+static const section_t edm_secs[6] = {
+  { 'I', 4, 0, "aa FF CC GG",
+    "a2 -2 C2 -2 e4= -4 | f2 -2 a2 -2 C4= -4 | e2 -2 g2 -2 C4= -4 | d2 -2 g2 -2 b4= -4" },
+  { 'V', 8, 1, "aa FF CC GG aa FF GG GG",
+    "a2 C2 e2 a2 C2 e2 a1 b1 C2 | a2 C2 f2 a2 C2 f2 g1 a1 g2 | g2 C2 e2 g2 C2 e2 d1 e1 g2 | g2 b2 d2 g2 b4= -4 |"
+    "a2 C2 e2 a2 C2 e2 a1 b1 C2 | C2 a2 f2 a2 C2 f2 a1 C1 a2 | b2 g2 d2 g2 b2 d2 g1 a1 b2 | C1 b1 a1 g1 f1 e1 d1 c1 d4 g4" },
+  { 'C', 8, 2, "FF GG ee aa FF GG aa aa",
+    "c1 d1 e1 f1 a2 C2 a1 g1 f1 e1 f2 a2 | d1 e1 f1 g1 b2 d2 g1 a1 b1 C1 b2 g2 |"
+    "e1 f1 g1 a1 b2 e2 g1 a1 b1 g1 e2 b2 | a1 b1 C1 b1 a1 g1 e2 a4= -4 |"
+    "C1 a1 f1 a1 C1 a1 f1 a1 C2 a2 f2 a2 | b1 g1 d1 g1 b1 g1 d1 g1 b2 g2 d2 g2 |"
+    "a1 b1 C1 a1 b1 C1 e1 g1 a1 b1 C1 b1 a2 e2 | a4+e4 -4 a1 b1 C1 b1 a2 g2" },
+  { 'B', 4, 3, "FF FF GG GG", "f8= a8= | C16= | g8= b8= | d16=" },
+  { 'U', 4, 4, "aa aa GG GG",
+    "a4 a4 a4 a4 | a2 a2 a2 a2 C2 C2 C2 C2 | b2 b2 b2 b2 g2 g2 g2 g2 |"
+    "d1 e1 f1 g1 a1 b1 C1 b1 a1 g1 f1 e1 d1 e1 f1 g1" },
+  { 'L', 8, 2, "FF GG ee aa FF GG aa aa",
+    "c1 d1 e1 f1 a2+f2 C2 a1 g1 f1 e1 f2+a2 C2 | d1 e1 f1 g1 b2+g2 d2 g1 a1 b1 C1 b2+g2 d2 |"
+    "e1 f1 g1 a1 b2+e2 g2 g1 a1 b1 g1 e2+b2 g2 | a1 b1 C1 b1 a1 g1 e2 a4+C4= -4 |"
+    "C1 a1 f1 a1 C1 a1 f1 a1 C1 a1 f1 a1 C2 f2 | b1 g1 d1 g1 b1 g1 d1 g1 b1 g1 d1 g1 b2 d2 |"
+    "C1 b1 a1 g1 f1 e1 d1 c1 d1 e1 f1 g1 a1 b1 C2 | a8=+C8= -8" }
+};
 
-static Obj      g_obj[NOBJ];
-static Shown    g_shown[NOBJ + 1];      /* last one is the ship */
-static int32_t  g_drawn_score;
-static int      g_drawn_lives;
+static const song_t songs[3] = {
+  { "MORNING KITE", "EASY", "LIGHT HAPPY POP", 104, 1700, 5, 0, 90, 230, 110, 5,
+    "IVCVCBL", pop_secs, pop_grooves },
+  { "SUNSET FUNK", "NORMAL", "FUNKY GROOVE", 108, 1450, 7, 1, 250, 200, 60, 5,
+    "IVCVCBL", funk_secs, funk_grooves },
+  { "NEON SPRINT", "HARD", "FAST ELECTRO", 150, 1150, 7, 2, 255, 80, 90, 6,
+    "IVCVCBUCL", edm_secs, edm_grooves }
+};
 
-static uint16_t g_buf[BUF_N];
-static uint16_t g_bgcol[PLAY_H];
-static int8_t   g_led[FM1_NKEY];
+/* ---- Shared between loop() and audio() ---- */
+static const song_t *volatile song = &songs[0];
+static volatile uint32_t sps = 6360;            /* samples per 16th */
+static volatile uint32_t song_pos, seq_ctr, seq_stp, nbars;
+static volatile uint8_t g_playing, g_paused, g_crash;
+static volatile float g_vol;
+static volatile uint32_t g_blocks;
+static volatile uint8_t m_trig[8], m_gate[8];    /* melody voice of each lane */
+static volatile uint8_t bar_sec[MAXBARS], bar_off[MAXBARS];
+static volatile char chord_at[MAXBARS * 2];
 
-static uint32_t g_rng = 0x2545F491u;
+/* ---- Game state ---- */
+typedef struct { uint16_t step; uint8_t lane, len, lng, st; } note_t;
+static note_t notes[MAXN];
+static int nn, first, mode = M_NONE, sel, paused, life, combo, maxcombo;
+static uint32_t score, cnt[3], best[3], fall, end_t, res_t0;
+static uint32_t flash_until[8], gate_off[8];
+static uint8_t holding[8];
+static int jdg, jdg_seq, sh_jseq, sh_jstage;   /* judgment pop-up */
+static uint32_t jdg_t;
+static int ms_on, ms_val, ms_stage;             /* combo panel */
+static uint32_t ms_t;
+static uint32_t demo_k, demo_q;                 /* notes on the title screen */
 
-static uint32_t rnd32(void)
-{
-  uint32_t x = g_rng;
-  x ^= x << 13; x ^= x >> 17; x ^= x << 5;
-  return g_rng = x;
+/* ---- Drawing state ---- */
+static uint8_t want[8][PF_H], shown[8][PF_H];   /* row codes: wanted and on the screen */
+static uint8_t lockm[PF_H];                     /* lanes covered by a panel, per row */
+static uint16_t bgc[8][16], gedge[8], ghi[8], gin[8], bedge[8][3], binner[8][3];
+static uint16_t beatc[8], barc[8], padc[8][3];
+static uint16_t pix[NPIX];
+static int pw, ph;
+static uint32_t sh_score;
+static int sh_life, sh_combo, sh_pulse, sh_prog, pad_sh[8];
+static int8_t led_on[FM1_NKEY];
+static uint32_t rng = 12345u;
+
+static const uint16_t sepc[5]  = { RGB(34, 34, 52), RGB(60, 60, 90), RGB(95, 95, 140), RGB(150, 150, 210), RGB(255, 235, 150) };
+static const uint16_t linec[5] = { RGB(160, 160, 180), RGB(195, 195, 215), RGB(230, 230, 245), WHITE, RGB(255, 225, 110) };
+
+/* ---- Small helpers ---- */
+static int slen(const char *s) { int n = 0; while (s[n]) n++; return n; }
+
+static char *put_str(char *d, const char *s) { while (*s) *d++ = *s++; *d = 0; return d; }
+
+/* Writes v in decimal, with zeros in front up to `digits` characters. */
+static char *put_num(char *d, uint32_t v, int digits) {
+  char t[12];
+  int n = 0;
+  do { t[n++] = (char)('0' + v % 10u); v /= 10u; } while (v && n < 10);
+  while (n < digits && n < 10) t[n++] = '0';
+  while (n) *d++ = t[--n];
+  *d = 0;
+  return d;
 }
-static int rnd(int n) { return (int)(rnd32() % (uint32_t)n); }
-static float frand(float a, float b)
-{
-  return a + (b - a) * (float)(rnd32() & 0xFFFFFFu) * (1.0f / 16777216.0f);
+
+/* A colour: c times k, plus w of white. */
+static uint16_t colr(const uint8_t *c, float k, int w) {
+  int v[3], i;
+  for (i = 0; i < 3; i++) { v[i] = (int)((float)c[i] * k) + w; if (v[i] > 255) v[i] = 255; }
+  return RGB(v[0], v[1], v[2]);
 }
 
-static int imin(int a, int b) { return a < b ? a : b; }
-static int imax(int a, int b) { return a > b ? a : b; }
+static uint32_t rnd(void) { rng ^= rng << 13; rng ^= rng >> 17; rng ^= rng << 5; return rng; }
 
-static int top_at(int32_t wc) { return g_top[(wc >> SEG_SHIFT) & (RING - 1)]; }
-static int bot_at(int32_t wc) { return PLAY_H - g_bot[(wc >> SEG_SHIFT) & (RING - 1)]; }
-
-/* ------------------------------------------------------------------ */
-/* Drawing                                                             */
-/* ------------------------------------------------------------------ */
-
-static uint16_t rock(int yr) { return (((yr >> 3) + (yr >> 5)) & 1) ? C_ROCK1 : C_ROCK2; }
-
-static int obj_sx(const Obj *o) { return o->type == O_BULLET ? (int)o->x : (int)(o->x - g_scroll); }
-
-static int obj_look(const Obj *o)
-{
-  switch (o->type) {
-  case O_STAR: return (o->t >> 3) & 1;
-  case O_MINE: return (o->t >> 4) & 1;
-  case O_BOOM: case O_SPARK: return imin(o->t >> 2, 3);
-  default: return 0;
-  }
+/* ---- Pixel box: build an image in pix[], then blit it in one go ---- */
+static void box(int w, int h, uint16_t bg) {
+  int i;
+  if (w * h > NPIX) h = NPIX / w;
+  pw = w; ph = h;
+  for (i = 0; i < w * h; i++) pix[i] = bg;
 }
 
-static int ship_visible(void)
-{
-  return g_alive && !(g_invuln > 0 && ((g_invuln >> 2) & 1));
+static void box_rect(int x, int y, int w, int h, uint16_t c) {
+  int i, j;
+  for (j = y; j < y + h; j++)
+    for (i = x; i < x + w; i++)
+      if (i >= 0 && i < pw && j >= 0 && j < ph) pix[j * pw + i] = c;
 }
 
-/* Paints one sprite into the buffer that holds the region (x0, y0, w, h). */
-static void stamp(int type, int look, int sx, int sy, int x0, int y0, int w, int h)
-{
-  int ax = imax(sx, x0), bx = imin(sx + TW[type], x0 + w);
-  int ay = imax(sy, y0), by = imin(sy + TH[type], y0 + h);
-  int x, y;
-  uint16_t c;
-  for (y = ay; y < by; y++)
-    for (x = ax; x < bx; x++)
-      if (spr_px(type, look, x - sx, y - sy, &c)) g_buf[(y - y0) * w + (x - x0)] = c;
-}
+static int text_w(const char *s, int sc) { return slen(s) * 6 * sc - sc; }
 
-/* Builds the picture of a region of the cave (with all sprites) in g_buf. */
-static void compose(int x0, int y0, int w, int h)
-{
-  int c, r, i;
-  for (c = 0; c < w; c++) {
-    int32_t wc = g_scroll + x0 + c;
-    int t = top_at(wc), b = bot_at(wc);
-    for (r = 0; r < h; r++) {
-      int yr = y0 + r - PLAY_Y;
-      uint16_t col;
-      if (yr < t)       col = (yr >= t - EDGE) ? C_EDGE : rock(yr);
-      else if (yr >= b) col = (yr < b + EDGE) ? C_EDGE : rock(yr);
-      else              col = g_bgcol[yr];
-      g_buf[r * w + c] = col;
-    }
-  }
-  for (i = 0; i < NOBJ; i++) {
-    const Obj *o = &g_obj[i];
-    if (o->type)
-      stamp(o->type, obj_look(o), obj_sx(o), PLAY_Y + (int)o->y, x0, y0, w, h);
-  }
-  if (ship_visible())
-    stamp(O_SHIP, (g_ticks >> 2) & 1, SHIP_X, PLAY_Y + (int)g_sy, x0, y0, w, h);
-}
-
-/* Draws a region of the cave, clipped to the cave, in pieces that fit g_buf. */
-static void render_region(int x, int y, int w, int h)
-{
-  int x1 = imin(x + w, SCR_W), y1 = imin(y + h, SCR_H), rows;
-  x = imax(x, 0);
-  y = imax(y, PLAY_Y);
-  if (x >= x1 || y >= y1) return;
-  w = x1 - x;
-  rows = BUF_N / w;
-  while (y < y1) {
-    int hh = imin(rows, y1 - y);
-    compose(x, y, w, hh);
-    fm1_lcd_blit((uint32_t)x, (uint32_t)y, (uint32_t)w, (uint32_t)hh, g_buf, (uint32_t)(w * hh));
-    y += hh;
-  }
-}
-
-static void draw_text(int x, int y, const char *s, int sc, uint16_t fg, uint16_t bg)
-{
-  int cw = 6 * sc, ch = 7 * sc;
-  for (; *s; s++, x += cw) {
-    int c = (unsigned char)*s, px, py;
-    const uint8_t *g;
+/* Text in the box, without background (only the pixels of the letters). */
+static void box_text(int x, int y, const char *s, int sc, uint16_t fg) {
+  int ci, fx, fy;
+  for (ci = 0; s[ci]; ci++) {
+    int c = (unsigned char)s[ci];
     if (c >= 'a' && c <= 'z') c -= 32;
     if (c < 32 || c > 90) c = 32;
-    g = FONT[c - 32];
-    for (py = 0; py < ch; py++)
-      for (px = 0; px < cw; px++) {
-        int gx = px / sc, gy = py / sc;
-        g_buf[py * cw + px] = (gx < 5 && ((g[gx] >> gy) & 1)) ? fg : bg;
-      }
-    if (x >= 0 && x + cw <= SCR_W && y >= 0 && y + ch <= SCR_H)
-      fm1_lcd_blit((uint32_t)x, (uint32_t)y, (uint32_t)cw, (uint32_t)ch, g_buf, (uint32_t)(cw * ch));
+    for (fx = 0; fx < 5; fx++) {
+      uint8_t bits = font[(c - 32) * 5 + fx];
+      for (fy = 0; fy < 7; fy++)
+        if ((bits >> fy) & 1u) box_rect(x + (ci * 6 + fx) * sc, y + fy * sc, sc, sc, fg);
+    }
   }
 }
 
-static int text_w(const char *s, int sc)
-{
+static void box_text_c(int y, const char *s, int sc, uint16_t fg) {
+  box_text((pw - text_w(s, sc)) / 2, y, s, sc, fg);
+}
+
+static void box_show(int x, int y) {
+  if (pw > 0 && ph > 0 && x >= 0 && y >= 0 && x + pw <= 240 && y + ph <= 240)
+    fm1_lcd_blit((uint32_t)x, (uint32_t)y, (uint32_t)pw, (uint32_t)ph, pix, (uint32_t)(pw * ph));
+}
+
+static void text(int x, int y, const char *s, int sc, uint16_t fg, uint16_t bg) {
+  box(text_w(s, sc) + sc, 7 * sc, bg);
+  box_text(0, 0, s, sc, fg);
+  box_show(x, y);
+}
+
+static void text_c(int y, const char *s, int sc, uint16_t fg, uint16_t bg) {
+  text((240 - text_w(s, sc)) / 2, y, s, sc, fg, bg);
+}
+
+/* ---- LEDs ---- */
+static void set_led(uint32_t id, int on) {
+  on = on ? 1 : 0;
+  if (led_on[id] != on) { led_on[id] = (int8_t)on; fm1_led_key(id, on); }
+}
+
+/* The LEDs of the 14 buttons and of the 8 lane keys (bit l = lane l). */
+static void set_leds(uint32_t buttons, uint32_t lanes) {
+  uint32_t i;
+  for (i = 0; i < 14u; i++) set_led(i, (int)((buttons >> i) & 1u));
+  for (i = 0; i < 8u; i++) set_led(FM1_KEY_NOTE0 + lane_key[i], (int)((lanes >> i) & 1u));
+}
+
+/* ---- Songs to notes ---- */
+/* Reads a chart from step t on, after the first n notes; returns the new number of notes. */
+static int parse_chart(const char *s, uint32_t t, int n) {
+  uint32_t last = t;
+  while (*s) {
+    char c = *s++;
+    int lane = -1, len = 0, lng = 0, l;
+    if (c == '+') { t = last; continue; }
+    if (c != '-') {
+      for (l = 0; l < 8; l++) if (lane_chr[l] == c) lane = l;
+      if (lane < 0) continue;   /* spaces and bar lines */
+    }
+    while (*s >= '0' && *s <= '9') len = len * 10 + (*s++ - '0');
+    if (*s == '=') { lng = 1; s++; }
+    if (len < 1) len = 1;
+    if (lane >= 0 && n < MAXN) {
+      notes[n].step = (uint16_t)t;
+      notes[n].lane = (uint8_t)lane;
+      notes[n].len = (uint8_t)len;
+      notes[n].lng = (uint8_t)lng;
+      notes[n].st = ST_WAIT;
+      n++;
+    }
+    last = t;
+    t += (uint32_t)len;
+  }
+  return n;
+}
+
+/* Lays out the form of a song: the bars, their chords and all notes. */
+static int build_song(const song_t *sg) {
+  const char *f;
   int n = 0;
-  while (s[n]) n++;
-  return n * 6 * sc - sc;
-}
-
-static void draw_text_c(int y, const char *s, int sc, uint16_t fg, uint16_t bg)
-{
-  draw_text((SCR_W - text_w(s, sc)) / 2, y, s, sc, fg, bg);
-}
-
-/* A sprite on a plain background (HUD and title). */
-static void draw_icon(int x, int y, int type, int look, uint16_t bg)
-{
-  int w = TW[type], h = TH[type], lx, ly;
-  uint16_t c;
-  for (ly = 0; ly < h; ly++)
-    for (lx = 0; lx < w; lx++)
-      g_buf[ly * w + lx] = spr_px(type, look, lx, ly, &c) ? c : bg;
-  fm1_lcd_blit((uint32_t)x, (uint32_t)y, (uint32_t)w, (uint32_t)h, g_buf, (uint32_t)(w * h));
-}
-
-static void fmt6(char *d, uint32_t v)
-{
-  int i;
-  if (v > 999999u) v = 999999u;
-  for (i = 5; i >= 0; i--) { d[i] = (char)('0' + v % 10u); v /= 10u; }
-  d[6] = 0;
-}
-
-static void panel(int x, int y, int w, int h)
-{
-  fm1_lcd_fill_rect((uint32_t)x, (uint32_t)y, (uint32_t)w, (uint32_t)h, C_HUDLN);
-  fm1_lcd_fill_rect((uint32_t)(x + 2), (uint32_t)(y + 2), (uint32_t)(w - 4), (uint32_t)(h - 4), C_PANEL);
-}
-
-/* HUD: score at the left, lives as small ships at the right. */
-static void hud_update(void)
-{
-  if ((int32_t)g_score != g_drawn_score) {
-    char d[7];
-    fmt6(d, g_score);
-    draw_text(76, 3, d, 2, C_Y, C_HUDBG);
-    g_drawn_score = (int32_t)g_score;
-  }
-  if (g_lives != g_drawn_lives) {
-    int i;
-    for (i = 0; i < MAX_LIVES; i++) {
-      int x = SCR_W - 3 - (i + 1) * 16;
-      if (i < g_lives) draw_icon(x, 5, O_SHIP, 0, C_HUDBG);
-      else fm1_lcd_fill_rect((uint32_t)x, 5, SHIP_W, SHIP_H, C_HUDBG);
+  uint32_t nb = 0;
+  for (f = sg->form; *f; f++) {
+    const section_t *sc = 0;
+    const char *c;
+    int k, i;
+    for (k = 0; k < sg->nsec; k++) if (sg->secs[k].key == *f) { sc = &sg->secs[k]; break; }
+    if (!sc || nb + sc->bars > MAXBARS) continue;
+    n = parse_chart(sc->chart, 16u * (nb + 1u), n);   /* bar 0 is the count-in */
+    c = sc->chords;
+    for (i = 0; i < sc->bars * 2; i++) {
+      while (*c == ' ') c++;
+      chord_at[nb * 2u + (uint32_t)i] = *c ? *c++ : 'C';
     }
-    g_drawn_lives = g_lives;
-  }
-}
-
-static void hud_full(void)
-{
-  fm1_lcd_fill_rect(0, 0, SCR_W, PLAY_Y - 1, C_HUDBG);
-  fm1_lcd_fill_rect(0, PLAY_Y - 1, SCR_W, 1, C_HUDLN);
-  draw_text(4, 3, "SCORE", 2, C_DIM, C_HUDBG);
-  g_drawn_score = -1;
-  g_drawn_lives = -1;
-  hud_update();
-}
-
-static void cur_rect(int i, Shown *r)
-{
-  int type, sx, sy, look, x1, y1;
-  r->w = 0; r->h = 0; r->x = 0; r->y = 0; r->look = 0;
-  if (i == NOBJ) {
-    if (!ship_visible()) return;
-    type = O_SHIP; sx = SHIP_X; sy = PLAY_Y + (int)g_sy; look = (g_ticks >> 2) & 1;
-  } else {
-    const Obj *o = &g_obj[i];
-    if (!o->type) return;
-    type = o->type; sx = obj_sx(o); sy = PLAY_Y + (int)o->y; look = obj_look(o);
-  }
-  x1 = imin(sx + TW[type], SCR_W); y1 = imin(sy + TH[type], SCR_H);
-  sx = imax(sx, 0); sy = imax(sy, PLAY_Y);
-  if (sx >= x1 || sy >= y1) return;
-  r->x = (int16_t)sx; r->y = (int16_t)sy;
-  r->w = (int16_t)(x1 - sx); r->h = (int16_t)(y1 - sy);
-  r->look = (uint8_t)look;
-}
-
-static void sync_shown(void)
-{
-  int i;
-  for (i = 0; i <= NOBJ; i++) cur_rect(i, &g_shown[i]);
-  g_drawn_scroll = g_scroll;
-}
-
-/* Redraws the columns where a wall moved since the last frame. */
-static void cave_diff(int32_t os, int32_t ns)
-{
-  int x, x1;
-  if (os == ns) return;
-  for (x = 0; x < SCR_W; x = x1) {          /* the ceiling */
-    int ot = top_at(os + x), nt = top_at(ns + x);
-    x1 = x + 1;
-    if (ot == nt) continue;
-    while (x1 < SCR_W && top_at(os + x1) == ot && top_at(ns + x1) == nt) x1++;
-    {
-      int lo = imax(imin(ot, nt) - EDGE, 0), hi = imax(ot, nt);
-      render_region(x, PLAY_Y + lo, x1 - x, hi - lo);
+    for (i = 0; i < sc->bars; i++) {
+      bar_sec[nb + (uint32_t)i] = (uint8_t)k;
+      bar_off[nb + (uint32_t)i] = (uint8_t)i;
     }
+    nb += sc->bars;
   }
-  for (x = 0; x < SCR_W; x = x1) {          /* the floor */
-    int ob = bot_at(os + x), nb = bot_at(ns + x);
-    x1 = x + 1;
-    if (ob == nb) continue;
-    while (x1 < SCR_W && bot_at(os + x1) == ob && bot_at(ns + x1) == nb) x1++;
-    {
-      int lo = imin(ob, nb), hi = imin(imax(ob, nb) + EDGE, PLAY_H);
-      render_region(x, PLAY_Y + lo, x1 - x, hi - lo);
-    }
+  nbars = nb;
+  return n;
+}
+
+/* ---- Audio ---- */
+static float sintab[256];
+static uint32_t inc_tab[128];                 /* phase step of each MIDI note */
+static float mixL[FM1_AUDIO_BLOCK], mixR[FM1_AUDIO_BLOCK], ein[FM1_AUDIO_BLOCK];
+static float pan_l[8], pan_r[8];
+static int16_t dl_l[DLEN], dl_r[DLEN];        /* ping-pong echo of the melody */
+static uint32_t dl_i;
+
+/* Melody: a bright FM bell-pluck for each lane */
+typedef struct { uint32_t ph, inc; float a, idx, tine; uint8_t att, seen; } voice_t;
+static voice_t mv[8];
+
+/* The sound of each style: bass, chord stabs, pad, kick, snare, pumping */
+typedef struct {
+  float bass_idx, bass_idec, bass_dec;
+  float cp_idx, cp_idec, cp_dec;
+  float pad_fm, kick_f0, kick_f1, kick_dec, sn_dec, duck;
+  uint32_t cp_ratio;
+} inst_t;
+static const inst_t insts[3] = {
+  /* pop: round bass, electric piano, soft pad */
+  { 1.0f, 0.9997f,  0.99994f, 1.2f, 0.9996f,  0.99990f, 0.3f, 130.0f, 50.0f, 0.99975f, 0.9992f,  0.15f, 1 },
+  /* funk: slap bass, clav stabs */
+  { 3.0f, 0.9990f,  0.99989f, 1.6f, 0.9990f,  0.99965f, 0.2f, 140.0f, 55.0f, 0.99970f, 0.9990f,  0.20f, 3 },
+  /* electro: saw bass, saw stabs, bright pumping pad, long kick */
+  { 2.0f, 0.99995f, 0.99977f, 2.2f, 0.99995f, 0.99985f, 1.2f, 170.0f, 42.0f, 0.99987f, 0.99935f, 0.65f, 1 }
+};
+
+static uint32_t bass_ph, bass_inc, kick_ph, sn_ph, nz = 22222u;
+static uint32_t cp_ph[4], cp_inc[4], pd_ph[8], pd_inc[8];
+static float bass_a, bass_idx, kick_a, kick_f, sn_a, sn_t, hat_a, hat_dec = 0.997f, hat_prev, crash_a;
+static float cp_a, cp_idx, pad_a, pad_tgt;
+static char cur_chord;
+static uint8_t crash_seen;
+static const float cp_pl[4] = { 0.95f, 0.30f, 0.75f, 0.50f };
+static const float cp_pr[4] = { 0.30f, 0.95f, 0.50f, 0.75f };
+static const float pad_lv[3] = { 0.0f, 0.022f, 0.04f };
+
+static int semi(char c) {
+  switch (c) {
+    case 'C': return 0;  case 'D': return 2; case 'E': return 4; case 'F': return 5;
+    case 'G': return 7;  case 'A': return 9; default:  return 11;
   }
 }
 
-/* Draws only what changed since the last frame. */
-static void render_play(void)
-{
-  int i;
-  cave_diff(g_drawn_scroll, g_scroll);
-  g_drawn_scroll = g_scroll;
-  for (i = 0; i <= NOBJ; i++) {
-    Shown n, *s = &g_shown[i];
-    int same;
-    cur_rect(i, &n);
-    same = n.x == s->x && n.y == s->y && n.w == s->w && n.h == s->h;
-    if (same && n.look == s->look) continue;
-    if (s->w && !same) render_region(s->x, s->y, s->w, s->h);
-    if (n.w) render_region(n.x, n.y, n.w, n.h);
-    *s = n;
+/* The four notes of a chord, for the pad (E3..G4) and the stabs (A3..C5). */
+static void set_chord(char c) {
+  int minor = (c >= 'a' && c <= 'z');
+  char up = minor ? (char)(c - 32) : c;
+  int r = semi(up), k, iv[4];
+  iv[0] = 0; iv[1] = minor ? 3 : 4; iv[2] = 7; iv[3] = (minor || up == 'G') ? 10 : 11;
+  cur_chord = c;
+  for (k = 0; k < 4; k++) {
+    int n = 48 + r + iv[k], m = n;
+    while (n > 67) n -= 12;
+    while (n < 52) n += 12;
+    while (m > 72) m -= 12;
+    while (m < 57) m += 12;
+    pd_inc[k] = inc_tab[n];
+    pd_inc[k + 4] = (uint32_t)((float)inc_tab[n] * 1.004f);   /* right side a bit higher: width */
+    cp_inc[k] = inc_tab[m];
   }
-  hud_update();
 }
 
-static void draw_play_full(void)
-{
-  hud_full();
-  render_region(0, PLAY_Y, SCR_W, PLAY_H);
-  sync_shown();
+static void kick_hit(const inst_t *in) { kick_a = 0.45f; kick_f = in->kick_f0; kick_ph = 0; }
+
+static void bass_hit(const inst_t *in, char ch, int add) {
+  int n = 36 + semi((ch >= 'a' && ch <= 'z') ? (char)(ch - 32) : ch);
+  if (n < 40) n += 12;
+  bass_inc = inc_tab[n + add];
+  bass_a = 0.28f;
+  bass_idx = in->bass_idx;
 }
 
-static void draw_title(void)
-{
-  char line[12] = "HI ";
-  fm1_lcd_fill_rect(0, 0, SCR_W, SCR_H, C_HUDBG);
-  fm1_lcd_fill_rect(0, 0, SCR_W, 12, C_ROCK1);
-  fm1_lcd_fill_rect(0, 12, SCR_W, EDGE, C_EDGE);
-  fm1_lcd_fill_rect(0, 225, SCR_W, EDGE, C_EDGE);
-  fm1_lcd_fill_rect(0, 228, SCR_W, 12, C_ROCK1);
-  draw_text(74, 28, "STAR", 4, C_Y, C_HUDBG);
-  draw_text(74, 62, "CAVE", 4, C_C, C_HUDBG);
-  draw_icon(40, 34, O_STAR, 0, C_HUDBG);
-  draw_icon(194, 74, O_STAR, 1, C_HUDBG);
-  draw_icon(192, 32, O_MINE, 0, C_HUDBG);
-  draw_icon(36, 72, O_SHIP, 0, C_HUDBG);
-  draw_text(60, 110, "W/S  MOVE", 2, C_TXT, C_HUDBG);
-  draw_text(60, 132, "J    FIRE", 2, C_TXT, C_HUDBG);
-  draw_text(60, 154, "PLAY START", 2, C_Y, C_HUDBG);
-  fmt6(line + 3, g_hi);
-  draw_text_c(192, line, 2, C_DIM, C_HUDBG);
-}
-
-#define PAUSE_X 36
-#define PAUSE_Y 80
-#define PAUSE_W 168
-#define PAUSE_H 84
-
-static void draw_pause(void)
-{
-  panel(PAUSE_X, PAUSE_Y, PAUSE_W, PAUSE_H);
-  draw_text_c(PAUSE_Y + 10, "PAUSED", 3, C_Y, C_PANEL);
-  draw_text_c(PAUSE_Y + 42, "PLAY RESUME", 2, C_TXT, C_PANEL);
-  draw_text_c(PAUSE_Y + 62, "HOME QUIT", 2, C_TXT, C_PANEL);
-}
-
-static void draw_over(int newhi)
-{
-  char line[16] = "SCORE ";
-  panel(24, 56, 192, 128);
-  draw_text_c(68, "GAME OVER", 3, C_R, C_PANEL);
-  fmt6(line + 6, g_score);
-  draw_text_c(100, line, 2, C_TXT, C_PANEL);
-  if (newhi) {
-    draw_text_c(120, "NEW HI SCORE", 2, C_Y, C_PANEL);
-  } else {
-    line[0] = 'H'; line[1] = 'I'; line[2] = ' ';
-    fmt6(line + 3, g_hi);
-    draw_text_c(120, line, 2, C_DIM, C_PANEL);
-  }
-  draw_text_c(144, "PLAY AGAIN", 2, C_TXT, C_PANEL);
-  draw_text_c(164, "HOME TITLE", 2, C_TXT, C_PANEL);
-}
-
-/* ------------------------------------------------------------------ */
-/* The cave and its objects                                            */
-/* ------------------------------------------------------------------ */
-
-static int difficulty(void)
-{
-  int d = (int)(g_scroll / 1600);
-  return d > 10 ? 10 : d;
-}
-
-static Obj *obj_new(int type)
-{
-  int i;
-  for (i = 0; i < NOBJ; i++)
-    if (!g_obj[i].type) {
-      Obj *o = &g_obj[i];
-      o->type = (uint8_t)type; o->t = 0; o->x = 0; o->y = 0;
-      o->base = 0; o->amp = 0; o->ph = 0;
-      return o;
-    }
-  return 0;
-}
-
-static void gen_segment(void)
-{
-  int32_t s = g_gen_seg++;
-  int d = difficulty();
-  float gap = 150.0f - 6.5f * (float)d;
-  float lo = gap * 0.5f + 6.0f, hi = (float)PLAY_H - gap * 0.5f - 6.0f;
-  int t, b, gy0, gy1;
-
-  if (s > 30) {
-    if (--g_drift_t <= 0) {
-      float m = 2.5f + 0.1f * (float)d;
-      g_drift = frand(-m, m);
-      g_drift_t = 3 + rnd(7);
-    }
-    g_cc += g_drift + frand(-1.2f, 1.2f);
-  }
-  if (g_cc < lo) { g_cc = lo; if (g_drift < 0) g_drift = -g_drift; }
-  if (g_cc > hi) { g_cc = hi; if (g_drift > 0) g_drift = -g_drift; }
-  t = (int)(g_cc - gap * 0.5f);
-  b = PLAY_H - (int)(g_cc + gap * 0.5f);
-  g_top[s & (RING - 1)] = (uint8_t)t;
-  g_bot[s & (RING - 1)] = (uint8_t)b;
-
-  if (s < 36) return;                     /* nothing in the first screen */
-  gy0 = t + 4;                            /* free rows of this segment */
-  gy1 = PLAY_H - b - 4;
-
-  if (g_run > 0) {                        /* a line of stars */
-    Obj *o;
-    int y;
-    if (g_run_gap > 0) { g_run_gap--; return; }
-    y = (int)(g_cc - 4.0f + g_run_off + 9.0f * sinf((float)g_run * 0.8f));
-    y = imax(gy0, imin(y, gy1 - 8));
-    o = obj_new(O_STAR);
-    if (o) { o->x = s << SEG_SHIFT; o->y = (float)y; }
-    g_run--;
-    g_run_gap = 1;
-    if (g_run == 0) g_spawn_cd = 3;
+/* The band: called at the start of each 16th of the song. */
+static void seq_step(uint32_t s) {
+  const song_t *sg = song;
+  const inst_t *in = &insts[sg->inst];
+  uint32_t bar = s >> 4, p = s & 15u, nb = nbars;
+  if (bar == 0) {                                   /* count-in: four clicks */
+    if (p == 0) pad_tgt = 0.0f;
+    if ((p & 3u) == 0) { hat_a = p ? 0.05f : 0.09f; hat_dec = 0.9975f; }
     return;
   }
-  if (g_spawn_cd > 0) { g_spawn_cd--; return; }
-  {
-    int r = rnd(1000), pm = 40 + 10 * d;
-    if (r < 50) {
-      g_run = 4 + rnd(4);
-      g_run_gap = 0;
-      g_run_off = frand(-gap * 0.2f, gap * 0.2f);
-    } else if (r < 50 + pm) {
-      int amp = 3 + rnd(8), ylo = gy0 + amp, yhi = gy1 - 9 - amp;
-      if (yhi > ylo) {
-        Obj *o = obj_new(O_MINE);
-        if (o) {
-          o->x = s << SEG_SHIFT;
-          o->base = (float)(ylo + rnd(yhi - ylo + 1));
-          o->amp = (float)amp;
-          o->ph = frand(0.0f, 6.28f);
-          o->y = o->base + o->amp * sinf(o->ph);
-        }
-      }
-      g_spawn_cd = 2;
-    } else if (r < 80 + pm) {
-      if (gy1 - 8 > gy0) {
-        Obj *o = obj_new(O_STAR);
-        if (o) { o->x = s << SEG_SHIFT; o->y = (float)(gy0 + rnd(gy1 - 8 - gy0)); }
-      }
-      g_spawn_cd = 2;
+  if (bar <= nb) {
+    uint32_t b = bar - 1;
+    const section_t *sc = &sg->secs[bar_sec[b]];
+    const groove_t *gv = &sg->grooves[sc->groove];
+    char ch = chord_at[b * 2u + (p >= 8u ? 1u : 0u)];
+    char k = gv->kick[p], sn = gv->snare[p], h = gv->hat[p], bs = gv->bass[p];
+    if ((p == 0 || p == 8) && ch != cur_chord) set_chord(ch);
+    if (p == 0) {
+      pad_tgt = pad_lv[gv->pad];
+      if (bar_off[b] == 0 && sc->groove == 2) crash_a = 0.11f;   /* a chorus starts */
     }
-  }
-}
-
-static void gen_ahead(void)
-{
-  while (g_gen_seg <= ((g_scroll + SCR_W + 16) >> SEG_SHIFT)) gen_segment();
-}
-
-/* ------------------------------------------------------------------ */
-/* Game logic                                                          */
-/* ------------------------------------------------------------------ */
-
-static int overlap(int ax, int ay, int aw, int ah, int bx, int by, int bw, int bh)
-{
-  return ax < bx + bw && bx < ax + aw && ay < by + bh && by < ay + ah;
-}
-
-static void add_score(uint32_t n)
-{
-  g_score += n;
-  if (g_score >= g_next_extra) {
-    g_next_extra += 1000;
-    if (g_lives < MAX_LIVES) { g_lives++; ev_push(EV_BONUS, 0); }
-  }
-}
-
-/* The ship touches a wall: pixel test with the ship's shape (not its flame). */
-static int ship_hits_wall(void)
-{
-  int sy = (int)g_sy, lx, ly;
-  for (lx = 0; lx < SHIP_W; lx++) {
-    int32_t wc = g_scroll + SHIP_X + lx;
-    int t = top_at(wc), b = bot_at(wc);
-    for (ly = 0; ly < SHIP_H; ly++) {
-      char ch = SHIP_BMP[0][ly][lx];
-      if (ch == '.' || ch == 'r' || ch == 'o' || ch == 'y') continue;
-      if (sy + ly < t || sy + ly >= b) return 1;
+    if (k == 'x') kick_hit(in);
+    if (sn == 'x') { sn_a = 0.20f; sn_t = 0.22f; }
+    else if (sn == 'g') { sn_a = 0.05f; sn_t = 0.04f; }
+    if (h == 'x') { hat_a = 0.035f; hat_dec = 0.9970f; }
+    else if (h == 'X') { hat_a = 0.06f; hat_dec = 0.9970f; }
+    else if (h == 'o') { hat_a = 0.05f; hat_dec = 0.99965f; }
+    if (bs == 'x' || bs == 'o' || bs == 'f') bass_hit(in, ch, bs == 'o' ? 12 : bs == 'f' ? 7 : 0);
+    if (gv->comp[p] == 'x') { cp_a = 1.0f; cp_idx = in->cp_idx; }
+  } else if (bar == nb + 1u) {                      /* the last chord rings out */
+    if (p == 0) {
+      char ch = chord_at[nb * 2u - 1u];
+      if (ch != cur_chord) set_chord(ch);
+      kick_hit(in);
+      crash_a = 0.12f;
+      bass_hit(in, ch, 0);
+      cp_a = 1.0f; cp_idx = in->cp_idx;
     }
-  }
-  return 0;
-}
-
-static void ship_die(void)
-{
-  Obj *o = obj_new(O_BOOM);
-  if (o) { o->x = g_scroll + SHIP_X + 2; o->y = g_sy - 1.0f; }
-  g_alive = 0;
-  g_dead_t = 75;
-  g_lives--;
-  g_streak = 0;
-  ev_push(EV_DEATH, 0);
-}
-
-static void respawn(void)
-{
-  int32_t wc = g_scroll + SHIP_X + SHIP_W / 2;
-  g_sy = (float)((top_at(wc) + bot_at(wc)) / 2 - SHIP_H / 2);
-  g_vy = 0;
-  g_alive = 1;
-  g_invuln = 120;
-}
-
-static void game_over(void);
-
-static void game_tick(void)
-{
-  int i, d = difficulty();
-  int sy;
-
-  g_ticks++;
-  g_sacc += 1.2f + 0.1f * (float)d;
-  while (g_sacc >= 1.0f) { g_sacc -= 1.0f; g_scroll++; }
-  gen_ahead();
-
-  /* the ship */
-  if (g_alive) {
-    uint32_t n = fm1_in.notes;
-    int up = (int)((n >> NK_UP) & 1u), dn = (int)((n >> NK_DOWN) & 1u);
-    float tv = (float)(dn - up) * 2.3f;
-    g_vy += (tv - g_vy) * 0.35f;
-    g_sy += g_vy;
-    if (g_sy < 0) { g_sy = 0; g_vy = 0; }
-    if (g_sy > (float)(PLAY_H - SHIP_H)) { g_sy = (float)(PLAY_H - SHIP_H); g_vy = 0; }
-    if (g_invuln > 0) {                   /* after a respawn: kept inside the cave */
-      int lx, mt = 0, mb = PLAY_H;
-      for (lx = 0; lx < SHIP_W; lx++) {
-        mt = imax(mt, top_at(g_scroll + SHIP_X + lx));
-        mb = imin(mb, bot_at(g_scroll + SHIP_X + lx));
-      }
-      if (mb - SHIP_H - 1 >= mt + 1) {
-        if (g_sy < (float)(mt + 1)) g_sy = (float)(mt + 1);
-        if (g_sy > (float)(mb - SHIP_H - 1)) g_sy = (float)(mb - SHIP_H - 1);
-      }
-      g_invuln--;
-    }
-    if (g_fire_cd > 0) g_fire_cd--;
-    if ((g_fire_edge || ((n >> NK_FIRE) & 1u)) && g_fire_cd == 0) {
-      int nb = 0;
-      for (i = 0; i < NOBJ; i++) if (g_obj[i].type == O_BULLET) nb++;
-      if (nb < MAX_BULLETS) {
-        Obj *o = obj_new(O_BULLET);
-        if (o) {
-          o->x = SHIP_X + SHIP_W - 2;
-          o->y = (float)((int)g_sy + 4);
-          g_fire_cd = 9;
-          ev_push(EV_SHOOT, 0);
-        }
-      }
-    }
-  } else if (g_dead_t > 0 && --g_dead_t == 0) {
-    if (g_lives <= 0) { game_over(); return; }
-    respawn();
-  }
-  g_fire_edge = 0;
-  if (g_streak_t > 0 && --g_streak_t == 0) g_streak = 0;
-
-  /* stars, mines, bullets, effects */
-  for (i = 0; i < NOBJ; i++) {
-    Obj *o = &g_obj[i];
-    int sx;
-    if (!o->type) continue;
-    o->t++;
-    sx = obj_sx(o);
-    switch (o->type) {
-    case O_STAR:
-      if (sx + TW[O_STAR] < 0) o->type = O_NONE;
-      break;
-    case O_MINE:
-      o->ph += 0.07f;
-      if (o->ph > 6.2831853f) o->ph -= 6.2831853f;
-      o->y = o->base + o->amp * sinf(o->ph);
-      if (sx + TW[O_MINE] < 0) o->type = O_NONE;
-      break;
-    case O_BULLET: {
-      int j, by = (int)o->y, tip;
-      o->x += 5;
-      if (o->x >= SCR_W) { o->type = O_NONE; break; }
-      tip = (int)o->x + 5;
-      if (tip < SCR_W && (by < top_at(g_scroll + tip) || by + 2 > bot_at(g_scroll + tip))) {
-        o->type = O_NONE;
-        break;
-      }
-      for (j = 0; j < NOBJ; j++) {
-        Obj *m = &g_obj[j];
-        if (m->type == O_MINE && overlap((int)o->x, by, 6, 2, obj_sx(m), (int)m->y, 9, 9)) {
-          m->type = O_BOOM; m->t = 0; m->x -= 1; m->y -= 1.0f;
-          o->type = O_NONE;
-          add_score(25);
-          ev_push(EV_BOOM, 0);
-          break;
-        }
-      }
-      break;
-    }
-    case O_BOOM:
-    case O_SPARK:
-      if (o->t >= 16) o->type = O_NONE;
-      break;
-    }
-  }
-
-  /* the ship against stars, mines and walls */
-  if (!g_alive) return;
-  sy = (int)g_sy;
-  for (i = 0; i < NOBJ; i++) {
-    Obj *o = &g_obj[i];
-    int sx = obj_sx(o), oy = (int)o->y;
-    if (o->type == O_STAR && overlap(SHIP_X, sy, SHIP_W, SHIP_H, sx + 1, oy + 1, 7, 6)) {
-      o->type = O_SPARK; o->t = 0; o->x -= 1; o->y -= 2.0f;
-      ev_push(EV_STAR, g_streak);
-      add_score(10);
-      g_streak++;
-      g_streak_t = 150;
-      if (g_streak >= 8) {                /* the whole scale: bonus */
-        g_streak = 0;
-        add_score(50);
-        ev_push(EV_BONUS, 0);
-      }
-    } else if (o->type == O_MINE && g_invuln == 0 &&
-               overlap(SHIP_X + 3, sy + 1, 10, 7, sx + 2, oy + 2, 5, 5)) {
-      o->type = O_BOOM; o->t = 0; o->x -= 1; o->y -= 1.0f;
-      ship_die();
-      return;
-    }
-  }
-  if (g_invuln == 0 && ship_hits_wall()) ship_die();
-}
-
-/* ------------------------------------------------------------------ */
-/* Modes                                                               */
-/* ------------------------------------------------------------------ */
-
-static void start_game(void)
-{
-  int i;
-  g_rng ^= g_blocks * 2654435761u;
-  if (!g_rng) g_rng = 1;
-  for (i = 0; i < NOBJ; i++) g_obj[i].type = O_NONE;
-  g_scroll = 0; g_sacc = 0;
-  g_gen_seg = 0; g_cc = PLAY_H * 0.5f; g_drift = 0; g_drift_t = 0;
-  g_run = 0; g_run_gap = 0; g_spawn_cd = 0;
-  gen_ahead();
-  g_score = 0; g_next_extra = 1000; g_lives = 3;
-  g_streak = 0; g_streak_t = 0;
-  g_sy = (float)(PLAY_H / 2 - SHIP_H / 2); g_vy = 0;
-  g_alive = 1; g_dead_t = 0; g_invuln = 0; g_fire_cd = 0; g_fire_edge = 0;
-  g_ticks = 0;
-  g_mode = M_PLAY;
-  draw_play_full();
-  ev_push(EV_MUSIC_START, 0);
-  g_tick_block = g_blocks;
-}
-
-static void game_over(void)
-{
-  int newhi = g_score > g_hi;
-  render_play();
-  if (newhi) g_hi = g_score;
-  g_mode = M_OVER;
-  ev_push(EV_MUSIC_STOP, 0);
-  draw_over(newhi);
-}
-
-static void go_title(void)
-{
-  g_mode = M_TITLE;
-  g_need_full = 1;
-  ev_push(EV_MUSIC_STOP, 0);
-}
-
-/* LEDs: on = this does something now. PLAY blinks with the beat while the
- * music plays. fm1_led_key() is called only for an LED that changes. */
-static void led(uint32_t id, int on)
-{
-  if (g_led[id] != on) {
-    g_led[id] = (int8_t)on;
-    fm1_led_key(id, on);
+    if (p == 8) pad_tgt = 0.0f;
   }
 }
 
-static void update_leds(void)
-{
-  uint32_t id;
-  int beat = g_music && ((g_step & 3) < 2);
-  for (id = 0; id < FM1_NKEY; id++) {
-    int on = 0;
-    if (id == FM1_BTN_PLAY)
-      on = (g_mode == M_PLAY) ? beat : 1;
-    else if (id == FM1_BTN_HOME)
-      on = (g_mode == M_PAUSE || g_mode == M_OVER);
-    else if (id == FM1_KEY_NOTE0 + NK_UP || id == FM1_KEY_NOTE0 + NK_DOWN ||
-             id == FM1_KEY_NOTE0 + NK_FIRE)
-      on = (g_mode == M_PLAY);
-    led(id, on);
-  }
+static int16_t to16(float x) {
+  x *= 32767.0f;
+  if (x > 32767.0f) x = 32767.0f;
+  if (x < -32767.0f) x = -32767.0f;
+  return (int16_t)x;
 }
 
-/* ------------------------------------------------------------------ */
-/* Audio                                                               */
-/* ------------------------------------------------------------------ */
-
-#define SINE_N   1024
-#define PH_PER_HZ (4294967296.0f / 44100.0f)
-
-static float    sintab[SINE_N];
-static uint32_t note_inc[128];
-
-typedef struct {
-  uint32_t pc, pm, ic, im;
-  float env, tgt, adec, dep, dmin, ddec;
-  int on;
-} FmV;
-
-#define NCHIME 3
-static FmV v_bass, v_lead, v_chime[NCHIME];
-static int a_chime_rr;
-
-static float k_bass_a, k_bass_d, k_lead_a, k_lead_d, k_chime_a, k_chime_d;
-static float k_kick_a, k_kick_f, k_hat_a, k_hat2_a;
-static float k_shoot_a, k_shoot_sw, k_boom_a, k_boom_c, k_death_a, k_death_sw, k_death_na;
-
-static uint32_t kick_ph;  static float kick_env, kick_f;
-static float hat_env, hat_dec, hat_prev;
-static uint32_t tone_ph;  static float tone_inc, tone_sw, tone_env, tone_dec;
-static float nz_lp, nz_c, nz_cdec, nz_env, nz_dec;
-static uint32_t a_rng = 0x9E3779B9u;
-static int a_music, a_step, a_blk;
-static float a_vol;
-
-/* the tune: A minor, 4 bars of 16 steps (Am F C G) */
-static const uint8_t BASS[64] = {
-  45,0,45,57, 0,45,57,0, 45,0,45,57, 0,45,55,57,
-  41,0,41,53, 0,41,53,0, 41,0,41,53, 0,41,52,53,
-  48,0,48,60, 0,48,60,0, 48,0,48,60, 0,48,55,60,
-  43,0,43,55, 0,43,55,0, 43,0,43,55, 0,47,50,55
-};
-static const uint8_t LEAD[64] = {
-  76,0,0,74, 0,0,72,0, 69,0,72,0, 74,0,0,0,
-  72,0,0,69, 0,0,77,0, 76,0,74,0, 72,0,0,0,
-  79,0,0,76, 0,0,72,0, 74,0,76,0, 79,0,81,0,
-  79,0,0,74, 0,0,71,0, 74,0,0,0,  0,0,0,0
-};
-/* the stars' scale: A minor pentatonic, E5 to A6 */
-static const uint8_t STAR_NOTES[8] = { 76, 79, 81, 84, 86, 88, 91, 93 };
-
-static float t60(float sec) { return powf(0.001f, 1.0f / (sec * 44100.0f)); }
-
-static void fm_trig(FmV *v, int note, float ratio, float peak, float adec,
-                    float dep0, float dmin, float ddec)
-{
-  v->ic = note_inc[note & 127];
-  v->im = (uint32_t)((float)v->ic * ratio);
-  v->tgt = peak; v->adec = adec;
-  v->dep = dep0; v->dmin = dmin; v->ddec = ddec;
-  v->on = 1;
-}
-
-static inline float fm_run(FmV *v)
-{
-  float m = sintab[v->pm >> 22];
-  int32_t idx = (int32_t)(v->pc >> 22) + (int32_t)(m * v->dep);
-  float s = sintab[(uint32_t)idx & (SINE_N - 1)];
-  v->pc += v->ic;
-  v->pm += v->im;
-  v->env += (v->tgt - v->env) * 0.03f;
-  v->tgt *= v->adec;
-  v->dep = v->dmin + (v->dep - v->dmin) * v->ddec;
-  return s * v->env;
-}
-
-static void fm_check(FmV *v)
-{
-  if (v->on && v->tgt < 1e-5f && v->env < 1e-5f && v->env > -1e-5f) {
-    v->on = 0; v->tgt = 0; v->env = 0;
-  }
-}
-
-static void chime(int note)
-{
-  FmV *v = &v_chime[a_chime_rr];
-  a_chime_rr = (a_chime_rr + 1) % NCHIME;
-  fm_trig(v, note, 3.5f, 1.0f, k_chime_a, 420.0f, 20.0f, k_chime_d);
-}
-
-static void seq_step(int st)
-{
-  int pos = st & 15;
-  if (BASS[st]) fm_trig(&v_bass, BASS[st], 1.0f, 1.0f, k_bass_a, 330.0f, 90.0f, k_bass_d);
-  if (LEAD[st]) fm_trig(&v_lead, LEAD[st], 2.0f, 1.0f, k_lead_a, 230.0f, 110.0f, k_lead_d);
-  if ((pos & 3) == 0) { kick_ph = 0; kick_env = 1.0f; kick_f = 110.0f; }
-  if ((pos & 3) == 2)  { hat_env = 1.0f; hat_dec = k_hat2_a; }
-  else if (pos & 1)    { hat_env = 0.45f; hat_dec = k_hat_a; }
-}
-
-static void do_event(int type, int arg)
-{
-  switch (type) {
-  case EV_MUSIC_START: a_step = 0; a_blk = 0; a_music = 1; break;
-  case EV_MUSIC_CONT:  a_music = 1; break;
-  case EV_MUSIC_STOP:  a_music = 0; break;
-  case EV_STAR:        chime(STAR_NOTES[arg & 7]); break;
-  case EV_BONUS:       chime(81); chime(88); break;
-  case EV_SHOOT:
-    tone_ph = 0; tone_inc = 1500.0f * PH_PER_HZ; tone_sw = k_shoot_sw;
-    tone_env = 1.0f; tone_dec = k_shoot_a;
-    break;
-  case EV_BOOM:
-    nz_c = 0.6f; nz_cdec = k_boom_c; nz_env = 1.0f; nz_dec = k_boom_a;
-    break;
-  case EV_DEATH:
-    tone_ph = 0; tone_inc = 700.0f * PH_PER_HZ; tone_sw = k_death_sw;
-    tone_env = 1.0f; tone_dec = k_death_a;
-    nz_c = 0.35f; nz_cdec = k_boom_c; nz_env = 1.0f; nz_dec = k_death_na;
-    break;
-  }
-}
-
-void audio(int32_t *out, int frames)
-{
-  int i, k;
-  float v0 = a_vol, v1 = g_vol_target, dv;
-  const float scale = 0.89f * (float)FM1_AUDIO_MAX;
-
+void audio(int32_t *out, int frames) {
+  const inst_t *in = &insts[song->inst];
+  int i, l, k, run = g_playing && !g_paused;
+  uint32_t pos = song_pos, ctr = seq_ctr, stp = seq_stp, len = sps, dT = sps;
+  float vol = g_vol, ptgt;
+  if (frames > (int)FM1_AUDIO_BLOCK) frames = (int)FM1_AUDIO_BLOCK;
+  if (dT >= DLEN) dT = DLEN - 1;
   g_blocks++;
-  while (evq_tail != evq_head) {
-    uint32_t t = evq_tail;
-    do_event(evq_type[t & (EVQ - 1)], evq_arg[t & (EVQ - 1)]);
-    evq_tail = t + 1;
-  }
-  if (a_music) {
-    if (a_blk == 0) { seq_step(a_step); g_step = a_step; }
-    if (++a_blk >= STEP_BLOCKS) { a_blk = 0; a_step = (a_step + 1) & 63; }
-  }
-  g_music = a_music;
+  if (!g_playing) pad_tgt = 0.0f;
+  if (g_crash != crash_seen) { crash_seen = g_crash; crash_a = 0.13f; }
+  for (i = 0; i < frames; i++) { mixL[i] = 0.0f; mixR[i] = 0.0f; ein[i] = 0.0f; }
 
-  dv = (v1 - v0) / (float)frames;
+  /* Melody: FM with the modulator at 2x, plus a fast tine at 4x */
+  for (l = 0; l < 8; l++) {
+    voice_t *v = &mv[l];
+    int gate = m_gate[l];
+    float pl = pan_l[l], pr = pan_r[l];
+    if (m_trig[l] != v->seen) { v->seen = m_trig[l]; v->att = 1; v->idx = 2.6f; v->tine = 0.5f; }
+    if (!gate && !v->att && v->a < 0.0003f) { v->a = 0.0f; continue; }
+    for (i = 0; i < frames; i++) {
+      float m, x;
+      if (v->att) { v->a += 0.05f; if (v->a >= 1.0f) { v->a = 1.0f; v->att = 0; } }
+      else if (gate) v->a = 0.35f + (v->a - 0.35f) * 0.99991f;
+      else v->a *= 0.99962f;
+      m = sintab[(v->ph << 1) >> 24] * v->idx;
+      v->idx = 0.45f + (v->idx - 0.45f) * 0.9993f;
+      x = (sintab[(v->ph + (uint32_t)(int32_t)(m * RAD2PH)) >> 24] + sintab[(v->ph << 2) >> 24] * v->tine) * v->a * 0.3f;
+      v->tine *= 0.9985f;
+      v->ph += v->inc;
+      ein[i] += x;
+      mixL[i] += x * pl;
+      mixR[i] += x * pr;
+    }
+  }
+
+  /* The band, sample by sample so that the steps are exact */
+  ptgt = run ? pad_tgt : 0.0f;
   for (i = 0; i < frames; i++) {
-    float l = 0.0f, r = 0.0f, s, n;
-    a_rng ^= a_rng << 13; a_rng ^= a_rng >> 17; a_rng ^= a_rng << 5;
-    n = (float)(int32_t)a_rng * (1.0f / 2147483648.0f);
-
-    if (v_bass.on) { s = fm_run(&v_bass) * 0.30f; l += s; r += s; }
-    if (v_lead.on) { s = fm_run(&v_lead) * 0.13f; l += s * 1.2f; r += s * 0.8f; }
-    for (k = 0; k < NCHIME; k++)
-      if (v_chime[k].on) {
-        s = fm_run(&v_chime[k]) * 0.24f;
-        l += s * (k == 1 ? 0.8f : 1.1f);
-        r += s * (k == 1 ? 1.1f : 0.8f);
-      }
-    if (kick_env > 1e-4f) {
-      s = sintab[kick_ph >> 22] * kick_env * 0.38f;
-      kick_ph += (uint32_t)((45.0f + kick_f) * PH_PER_HZ);
-      kick_f *= k_kick_f;
-      kick_env *= k_kick_a;
-      l += s; r += s;
+    float s = 0.0f, L = 0.0f, R = 0.0f, n, duck, h, dl, dr;
+    if (run) {
+      if (ctr == 0) seq_step(stp);
+      if (++ctr >= len) { ctr = 0; stp++; }
+      pos++;
+      ptgt = pad_tgt;
     }
-    if (hat_env > 1e-4f) {
-      s = (n - hat_prev) * hat_env * 0.035f;
-      hat_env *= hat_dec;
-      l += s * 0.7f; r += s * 1.3f;
+    duck = 1.0f - in->duck * kick_a * 2.0f;           /* the pad and stabs make room for the kick */
+    if (duck < 0.0f) duck = 0.0f;
+    if (bass_a > 0.0002f) {
+      float m = sintab[bass_ph >> 24] * bass_idx;
+      s += sintab[(bass_ph + (uint32_t)(int32_t)(m * RAD2PH)) >> 24] * bass_a;
+      bass_ph += bass_inc;
+      bass_a *= in->bass_dec;
+      bass_idx *= in->bass_idec;
     }
+    if (kick_a > 0.0002f) {
+      s += sintab[kick_ph >> 24] * kick_a;
+      kick_ph += (uint32_t)(kick_f * HZ2INC);
+      kick_f = in->kick_f1 + (kick_f - in->kick_f1) * 0.9984f;
+      kick_a *= in->kick_dec;
+    }
+    nz ^= nz << 13; nz ^= nz >> 17; nz ^= nz << 5;
+    n = (float)(int32_t)nz * 4.656613e-10f;
+    if (sn_a > 0.0002f || sn_t > 0.0002f) {
+      s += n * sn_a + sintab[sn_ph >> 24] * sn_t;
+      sn_ph += SN_INC;
+      sn_a *= in->sn_dec;
+      sn_t *= 0.9982f;
+    }
+    h = (n - hat_prev) * (hat_a + crash_a);           /* hats and crash: a bit to the right */
+    hat_a *= hat_dec;
+    crash_a *= 0.99993f;
     hat_prev = n;
-    if (tone_env > 1e-4f) {
-      s = ((tone_ph & 0x80000000u) ? 0.09f : -0.09f) * tone_env;
-      tone_ph += (uint32_t)tone_inc;
-      tone_inc *= tone_sw;
-      tone_env *= tone_dec;
-      l += s; r += s;
+    L += h * 0.6f;
+    R += h;
+    if (cp_a > 0.0005f) {                             /* chord stabs, spread wide */
+      float g = cp_a * 0.07f * duck;
+      for (k = 0; k < 4; k++) {
+        float m = sintab[(cp_ph[k] * in->cp_ratio) >> 24] * cp_idx;
+        float x = sintab[(cp_ph[k] + (uint32_t)(int32_t)(m * RAD2PH)) >> 24] * g;
+        L += x * cp_pl[k];
+        R += x * cp_pr[k];
+        cp_ph[k] += cp_inc[k];
+      }
+      cp_a *= in->cp_dec;
+      cp_idx *= in->cp_idec;
     }
-    if (nz_env > 1e-4f) {
-      nz_lp += nz_c * (n - nz_lp);
-      if (nz_c > 0.02f) nz_c *= nz_cdec;
-      s = nz_lp * nz_env * 0.7f;
-      nz_env *= nz_dec;
-      l += s; r += s;
+    pad_a += (ptgt - pad_a) * 0.0002f;
+    if (pad_a > 0.0003f) {                            /* pad: left and right a bit detuned */
+      float g = pad_a * duck, fm = in->pad_fm * RAD2PH;
+      for (k = 0; k < 4; k++) {
+        uint32_t a = pd_ph[k], b = pd_ph[k + 4];
+        L += sintab[(a + (uint32_t)(int32_t)(sintab[a >> 24] * fm)) >> 24] * g;
+        R += sintab[(b + (uint32_t)(int32_t)(sintab[b >> 24] * fm)) >> 24] * g;
+        pd_ph[k] = a + pd_inc[k];
+        pd_ph[k + 4] = b + pd_inc[k + 4];
+      }
     }
-
-    /* soft limit, then the MASTER volume: never above 0.89 of full scale */
-    l *= 1.3f; r *= 1.3f;
-    if (l > 3.0f) l = 3.0f; else if (l < -3.0f) l = -3.0f;
-    if (r > 3.0f) r = 3.0f; else if (r < -3.0f) r = -3.0f;
-    l = l * (27.0f + l * l) / (27.0f + 9.0f * l * l);
-    r = r * (27.0f + r * r) / (27.0f + 9.0f * r * r);
-    out[2 * i]     = (int32_t)(l * v0 * scale);
-    out[2 * i + 1] = (int32_t)(r * v0 * scale);
-    v0 += dv;
+    /* ping-pong echo: left line gets the melody and the right line, right gets the left */
+    dl = (float)dl_l[dl_i] * (1.0f / 32768.0f);
+    dr = (float)dl_r[dl_i] * (1.0f / 32768.0f);
+    dl_l[dl_i] = to16(ein[i] + dr * 0.42f);
+    dl_r[dl_i] = to16(dl * 0.42f);
+    if (++dl_i >= dT) dl_i = 0;
+    L += dl * 0.35f;
+    R += dr * 0.35f;
+    mixL[i] += L + s;
+    mixR[i] += R + s;
   }
-  a_vol = v1;
+  if (run) { song_pos = pos; seq_ctr = ctr; seq_stp = stp; }
 
-  fm_check(&v_bass);
-  fm_check(&v_lead);
-  for (k = 0; k < NCHIME; k++) fm_check(&v_chime[k]);
-  if (kick_env <= 1e-4f) kick_env = 0;
-  if (hat_env <= 1e-4f) hat_env = 0;
-  if (tone_env <= 1e-4f) tone_env = 0;
-  if (nz_env <= 1e-4f) { nz_env = 0; nz_lp = 0; }
-}
-
-/* ------------------------------------------------------------------ */
-/* setup() and loop()                                                  */
-/* ------------------------------------------------------------------ */
-
-static float master_vol(void)
-{
-  float m = (float)fm1_master() * (1.0f / (float)FM1_MASTER_MAX);
-  return m * m;
-}
-
-void setup(void)
-{
-  int i;
-  for (i = 0; i < SINE_N; i++) sintab[i] = sinf(6.2831853f * (float)i / (float)SINE_N);
-  for (i = 0; i < 128; i++)
-    note_inc[i] = (uint32_t)(440.0f * powf(2.0f, (float)(i - 69) / 12.0f) * PH_PER_HZ);
-  for (i = 0; i < PLAY_H; i++) {
-    int d = i < PLAY_H / 2 ? i : PLAY_H - 1 - i;      /* 0 at the walls, 109 in the middle */
-    g_bgcol[i] = RGB(8, 8, 16 + d * 40 / 110);
+  for (i = 0; i < frames; i++) {
+    float a = mixL[i] * vol, b = mixR[i] * vol;
+    if (a > 0.95f) a = 0.95f; else if (a < -0.95f) a = -0.95f;
+    if (b > 0.95f) b = 0.95f; else if (b < -0.95f) b = -0.95f;
+    out[2 * i]     = (int32_t)(a * (float)FM1_AUDIO_MAX);
+    out[2 * i + 1] = (int32_t)(b * (float)FM1_AUDIO_MAX);
   }
-  k_bass_a = t60(0.45f);  k_bass_d = t60(0.15f);
-  k_lead_a = t60(0.55f);  k_lead_d = t60(0.30f);
-  k_chime_a = t60(1.2f);  k_chime_d = t60(0.40f);
-  k_kick_a = t60(0.30f);  k_kick_f = t60(0.08f);
-  k_hat_a = t60(0.04f);   k_hat2_a = t60(0.08f);
-  k_shoot_a = t60(0.12f); k_shoot_sw = powf(0.3f, 1.0f / (0.1f * 44100.0f));
-  k_boom_a = t60(0.60f);  k_boom_c = t60(0.50f);
-  k_death_a = t60(1.0f);  k_death_sw = powf(0.12f, 1.0f / (0.9f * 44100.0f));
-  k_death_na = t60(0.9f);
-
-  for (i = 0; i < (int)FM1_NKEY; i++) g_led[i] = 0;    /* all LEDs start off */
-  g_vol_target = master_vol();
-  a_vol = g_vol_target;
-  g_mode = M_TITLE;
-  g_need_full = 1;
 }
 
-void loop(void)
-{
-  uint32_t pressed, notes_pressed, now;
+/* ---- Playfield drawing ----
+ * Each lane is 28 pixels wide; each of its 172 rows has a code (kind and
+ * background level). Each frame builds the wanted codes, then blits only the
+ * rows whose code changed. Panels lock rows so that the lanes leave them alone. */
 
-  g_vol_target = master_vol();
-  pressed = fm1_input_edges(0);
-  notes_pressed = fm1_input_note_edges();
-  now = g_blocks;
-
-  switch (g_mode) {
-  case M_TITLE:
-    if (g_need_full) { draw_title(); g_need_full = 0; }
-    if (pressed & (1u << FM1_BTN_PLAY)) start_game();
-    break;
-
-  case M_PLAY:
-    if (pressed & (1u << FM1_BTN_PLAY)) {
-      g_mode = M_PAUSE;
-      ev_push(EV_MUSIC_STOP, 0);
-      draw_pause();
+static void make_row(uint16_t *d, int l, uint8_t code) {
+  int k = code >> 4, i;
+  uint16_t b = bgc[l][code & 15];
+  for (i = 0; i < 28; i++) d[i] = b;
+  switch (k) {
+    case K_BEAT: for (i = 0; i < 28; i++) d[i] = beatc[l]; break;
+    case K_BAR:  for (i = 0; i < 28; i++) d[i] = barc[l]; break;
+    case K_GT:   for (i = 1; i < 27; i++) d[i] = gedge[l]; break;          /* gem: top and bottom edge */
+    case K_GH:   d[1] = d[26] = gedge[l]; for (i = 2; i < 26; i++) d[i] = ghi[l]; break;   /* shine */
+    case K_GI:   d[1] = d[2] = d[25] = d[26] = gedge[l]; for (i = 3; i < 25; i++) d[i] = gin[l]; break;
+    case K_BN: case K_BH: case K_BD: {                                     /* long-note body */
+      int v = k - K_BN;
+      d[8] = d[9] = d[18] = d[19] = bedge[l][v];
+      for (i = 10; i < 18; i++) d[i] = binner[l][v];
       break;
     }
-    if (notes_pressed & (1u << NK_FIRE)) g_fire_edge = 1;
-    {
-      uint32_t n = (now - g_tick_block) / TICK_BLOCKS, i;
-      if (n > 4) { n = 4; g_tick_block = now; }
-      else g_tick_block += n * TICK_BLOCKS;
-      for (i = 0; i < n && g_mode == M_PLAY; i++) game_tick();
-      if (n > 0 && g_mode == M_PLAY) render_play();
+    case K_CN: case K_CH: case K_CD: {                                     /* top of a body */
+      int v = k - K_CN;
+      for (i = 9; i < 19; i++) d[i] = bedge[l][v];
+      break;
     }
-    break;
-
-  case M_PAUSE:
-    if (pressed & (1u << FM1_BTN_PLAY)) {
-      g_mode = M_PLAY;
-      render_region(PAUSE_X, PAUSE_Y, PAUSE_W, PAUSE_H);
-      ev_push(EV_MUSIC_CONT, 0);
-      g_tick_block = now;
-    } else if (pressed & (1u << FM1_BTN_HOME)) {
-      go_title();
-    }
-    break;
-
-  case M_OVER:
-    if (pressed & (1u << FM1_BTN_PLAY)) start_game();
-    else if (pressed & (1u << FM1_BTN_HOME)) go_title();
-    break;
+    default: break;
   }
-  update_leds();
+}
+
+static void flush(void) {
+  int l, r;
+  for (l = 0; l < 8; l++) {
+    uint8_t m = (uint8_t)BIT(l);
+    r = 0;
+    while (r < PF_H) {
+      int s0;
+      if ((lockm[r] & m) || want[l][r] == shown[l][r]) { r++; continue; }
+      s0 = r;
+      while (r < PF_H && !(lockm[r] & m) && want[l][r] != shown[l][r]) {
+        make_row(pix + (r - s0) * 28, l, want[l][r]);
+        shown[l][r] = want[l][r];
+        r++;
+      }
+      fm1_lcd_blit((uint32_t)(l * LANE_W + 1), (uint32_t)(PF_Y + s0), 28, (uint32_t)(r - s0),
+                   pix, (uint32_t)((r - s0) * 28));
+    }
+  }
+}
+
+/* Row of the playfield where time t is now (PF_H = the line). */
+static int ypos(uint32_t t, uint32_t now) {
+  return PF_H - (int)((int32_t)(t - now) * PF_H / (int32_t)fall);
+}
+
+/* Background: dark lanes, lit from the line upward while a key is down,
+ * and a bright flash at the line after a hit. */
+static void lanes_bg(uint32_t t, uint32_t kmask) {
+  int l, r;
+  for (l = 0; l < 8; l++) {
+    int kd = (int)((kmask >> l) & 1u), fl = 0;
+    int32_t rem = (int32_t)(flash_until[l] - t);
+    if (rem > 0) fl = rem > T_FLASH * 2 / 3 ? 15 : rem > T_FLASH / 3 ? 10 : 5;
+    for (r = 0; r < PF_H; r++) {
+      int d = PF_H - 1 - r, lv = 0;
+      if (kd && d < 64) lv = 1 + (63 - d) * 6 / 63;
+      if (fl && d < 48) { int f = fl * (48 - d) / 48; if (f > lv) lv = f; }
+      want[l][r] = (uint8_t)lv;
+    }
+  }
+}
+
+static void put_row(int l, int r, int kind) {
+  if (r >= 0 && r < PF_H) want[l][r] = (uint8_t)((kind << 4) | (want[l][r] & 15));
+}
+
+/* Beat and bar lines that fall with the music (maxbeat 0: no end). */
+static void grid(uint32_t t, uint32_t beat, uint32_t maxbeat) {
+  uint32_t k;
+  int l;
+  for (k = t / beat; ; k++) {
+    uint32_t tk = k * beat;
+    int r;
+    if (tk < t) continue;
+    if (tk - t > fall || (maxbeat && k > maxbeat)) break;
+    r = ypos(tk, t);
+    if (r >= 0 && r < PF_H)
+      for (l = 0; l < 8; l++)
+        if ((want[l][r] >> 4) == K_BG) put_row(l, r, (k & 3u) ? K_BEAT : K_BAR);
+  }
+}
+
+/* A gem whose bottom is at row yb: bright edge, shine, darker inside. */
+static void paint_gem(int l, int yb) {
+  int i;
+  for (i = 0; i < GEM_H; i++)
+    put_row(l, yb - GEM_H + i, (i == 0 || i == GEM_H - 1) ? K_GT : (i == 1) ? K_GH : K_GI);
+}
+
+/* The body of a long note from row y0 to y1; v: 0 waiting, 1 held, 2 missed. */
+static void paint_body(int l, int y0, int y1, int v) {
+  int r;
+  for (r = y0 < 0 ? 0 : y0; r < y1 && r < PF_H; r++) put_row(l, r, r == y0 ? K_CN + v : K_BN + v);
+}
+
+/* ---- Sparks ---- */
+typedef struct { uint32_t t0; int16_t x0, y0, vx, vy, dx, dy; uint8_t lane, alive, drawn, ds; uint16_t col; } part_t;
+static part_t parts[MAXP];
+
+static void sparks(int l, uint32_t t, int n) {
+  int i;
+  for (i = 0; i < MAXP && n > 0; i++) {
+    part_t *p = &parts[i];
+    if (p->alive) continue;
+    p->alive = 1;
+    p->t0 = t;
+    p->lane = (uint8_t)l;
+    p->x0 = (int16_t)(l * LANE_W + 13);
+    p->y0 = (int16_t)(PF_Y + PF_H - 4);
+    p->vx = (int16_t)((int)(rnd() % 141u) - 70);
+    p->vy = (int16_t)(110 + (int)(rnd() % 170u));
+    p->col = (n & 1) ? WHITE : ghi[l];
+    n--;
+  }
+}
+
+/* Before the flush: the rows under the sparks of the last frame get redrawn. */
+static void parts_pre(void) {
+  int i, r;
+  for (i = 0; i < MAXP; i++) {
+    part_t *p = &parts[i];
+    if (!p->drawn) continue;
+    for (r = p->dy - PF_Y; r < p->dy - PF_Y + p->ds; r++)
+      if (r >= 0 && r < PF_H) shown[p->lane][r] = 0xFF;
+    p->drawn = 0;
+  }
+}
+
+/* After the flush: draw the sparks where they are now. */
+static void parts_post(uint32_t t) {
+  int i, r;
+  for (i = 0; i < MAXP; i++) {
+    part_t *p = &parts[i];
+    float s;
+    int x, y, sz, lx0, lx1, ok = 1;
+    if (!p->alive) continue;
+    s = (float)(int32_t)(t - p->t0) * (1.0f / 44100.0f);
+    if (s < 0.0f || s > 0.45f) { p->alive = 0; continue; }
+    sz = s < 0.2f ? 3 : 2;
+    x = p->x0 + (int)((float)p->vx * s);
+    y = p->y0 - (int)((float)p->vy * s - 420.0f * s * s);
+    lx0 = p->lane * LANE_W + 1;
+    lx1 = p->lane * LANE_W + 29 - sz;
+    if (x < lx0) x = lx0;
+    if (x > lx1) x = lx1;
+    r = y - PF_Y;
+    if (r < 0 || r + sz > PF_H) continue;
+    for (; r < y - PF_Y + sz; r++) if (lockm[r] & BIT(p->lane)) ok = 0;
+    if (!ok) continue;
+    fm1_lcd_fill_rect((uint32_t)x, (uint32_t)y, (uint32_t)sz, (uint32_t)sz, p->col);
+    p->dx = (int16_t)x; p->dy = (int16_t)y; p->ds = (uint8_t)sz; p->drawn = 1;
+  }
+}
+
+/* ---- Lane borders and the line: they pulse with the beat ---- */
+static void draw_seps(uint16_t c) {
+  int b;
+  for (b = 0; b <= 8; b++) {
+    int x = (b == 0) ? 0 : b * LANE_W - 1, w = (b == 0 || b == 8) ? 1 : 2, r = 0;
+    uint8_t m = (b == 0) ? 1u : (b == 8) ? 0x80u : (uint8_t)(3u << (b - 1));
+    while (r < PF_H) {
+      int s0;
+      while (r < PF_H && (lockm[r] & m) == m) r++;
+      s0 = r;
+      while (r < PF_H && (lockm[r] & m) != m) r++;
+      if (r > s0) fm1_lcd_fill_rect((uint32_t)x, (uint32_t)(PF_Y + s0), (uint32_t)w, (uint32_t)(r - s0), c);
+    }
+  }
+}
+
+static void pulse(int lv) {
+  if (lv == sh_pulse) return;
+  sh_pulse = lv;
+  draw_seps(sepc[lv]);
+  fm1_lcd_fill_rect(0, LINE_Y, 240, 4, linec[lv]);
+}
+
+static int beat_level(uint32_t t, uint32_t beat) {
+  uint32_t ph = t % beat;
+  return ph < beat / 8u ? 3 : ph < beat / 4u ? 2 : ph < beat / 2u ? 1 : 0;
+}
+
+/* Pads under the line: dark, lit while the key is down, bright on a hit. */
+static void draw_pads(uint32_t t, uint32_t kmask) {
+  int l;
+  for (l = 0; l < 8; l++) {
+    int st = ((int32_t)(flash_until[l] - t) > 0) ? 2 : (int)((kmask >> l) & 1u);
+    if (st != pad_sh[l]) {
+      pad_sh[l] = st;
+      box(28, PAD_H, padc[l][st]);
+      box_text(9, 1, lane_label[l], 2, st == 2 ? BLACK : WHITE);
+      box_show(l * LANE_W + 1, PAD_Y);
+    }
+  }
+}
+
+static void lock_rows(int r0, int r1, uint8_t m) { for (; r0 < r1; r0++) lockm[r0] |= m; }
+
+static void unlock_rows(int r0, int r1) {
+  int r, l;
+  for (r = r0; r < r1; r++) {
+    lockm[r] = 0;
+    for (l = 0; l < 8; l++) shown[l][r] = 0xFF;
+  }
+  sh_pulse = -1;
+}
+
+/* After a full clear: everything must be drawn again. */
+static void reset_screen(void) {
+  int l, r, i;
+  fm1_lcd_fill_rect(0, 0, 240, 240, BLACK);
+  for (r = 0; r < PF_H; r++) {
+    lockm[r] = 0;
+    for (l = 0; l < 8; l++) shown[l][r] = 0xFF;
+  }
+  for (l = 0; l < 8; l++) { pad_sh[l] = -1; flash_until[l] = 0; }
+  for (i = 0; i < MAXP; i++) { parts[i].alive = 0; parts[i].drawn = 0; }
+  sh_pulse = -1;
+}
+
+/* ---- Title screen ---- */
+static uint32_t title_time(void) { return g_blocks * FM1_AUDIO_BLOCK; }
+
+/* A demo note on each 8th or not, and its lane: -1 is none. */
+static int demo_lane(uint32_t k) {
+  uint32_t h = k * 2654435761u;
+  h ^= h >> 15;
+  return ((h >> 9) & 1u) ? -1 : (int)((h >> 4) & 7u);
+}
+
+static void title_song(void) {
+  const song_t *s = &songs[sel];
+  char b[48], *e;
+  uint32_t total, secs;
+  uint16_t c = RGB(s->r, s->g, s->b);
+  int n = build_song(s);
+  sps = 661500u / s->bpm;
+  fall = (uint32_t)s->fall_ms * 441u / 10u;
+  demo_q = 2u * sps;
+  demo_k = title_time() / demo_q + 1u;
+  total = (nbars + 2u) * 16u * sps;
+  secs = total / 44100u;
+
+  box(240, 38, PANEL);
+  box_rect(0, 0, 240, 1, c);
+  box_text(8, 6, "<", 3, GREY);
+  box_text(215, 6, ">", 3, GREY);
+  box_text_c(6, s->diff, 3, c);
+  box_text_c(29, s->style, 1, GREY);
+  box_show(0, PF_Y + 74);
+
+  box(240, 38, PANEL);
+  box_rect(0, 37, 240, 1, c);
+  box_text_c(2, s->name, 2, WHITE);
+  e = put_num(b, s->bpm, 0);
+  e = put_str(e, " BPM   ");
+  e = put_num(e, secs / 60u, 0);
+  e = put_str(e, ":");
+  e = put_num(e, secs % 60u, 2);
+  e = put_str(e, "   ");
+  e = put_num(e, (uint32_t)n, 0);
+  put_str(e, " NOTES");
+  box_text_c(19, b, 1, GREY);
+  e = put_str(b, "BEST ");
+  put_num(e, best[sel], 7);
+  box_text_c(29, b, 1, RGB(120, 230, 255));
+  box_show(0, PF_Y + 112);
+}
+
+static void title_enter(void) {
+  mode = M_TITLE;
+  reset_screen();
+  lock_rows(4, 42, 0xFF);
+  lock_rows(74, 150, 0xFF);
+  text_c(6, "8-LANE RHYTHM GAME", 1, GREY, BLACK);
+  box(240, 38, PANEL);
+  box_rect(0, 0, 240, 1, RGB(120, 230, 255));
+  box_rect(0, 37, 240, 1, RGB(120, 230, 255));
+  box_text_c(6, "NOTEFALL", 4, RGB(150, 240, 255));
+  box_show(0, PF_Y + 4);
+  title_song();
+  text_c(216, "OCT- / OCT+ (Z / X): SONG", 1, GREY, BLACK);
+  text_c(229, "LANE KEY (A - K): START", 1, GREY, BLACK);
+  set_leds(BIT(FM1_BTN_OCT_DOWN) | BIT(FM1_BTN_OCT_UP), 0xFFu);
+}
+
+/* Demo notes fall behind the panels, at the tempo of the chosen song. */
+static void title_frame(void) {
+  uint32_t t = title_time(), k, beat = 4u * sps;
+  lanes_bg(t, 0);
+  grid(t, beat, 0);
+  for (k = t / demo_q + 1u; k * demo_q <= t + fall; k++) {
+    int l = demo_lane(k);
+    if (l >= 0) paint_gem(l, ypos(k * demo_q, t));
+  }
+  while (demo_k * demo_q <= t) {                 /* a demo note reaches the line */
+    int l = demo_lane(demo_k);
+    if (l >= 0) { flash_until[l] = t + T_FLASH; sparks(l, t, 5); }
+    demo_k++;
+  }
+  parts_pre();
+  flush();
+  parts_post(t);
+  pulse(beat_level(t, beat));
+  draw_pads(t, 0);
+}
+
+/* ---- Results screen ---- */
+static void game_stop(void) {
+  int l;
+  g_playing = 0;
+  g_paused = 0;
+  for (l = 0; l < 8; l++) { m_gate[l] = 0; holding[l] = 0; }
+}
+
+static void result_enter(int clear) {
+  const song_t *s = song;
+  char b[40], *e;
+  int nb = score > best[sel];
+  uint32_t total = cnt[0] + cnt[1] + cnt[2];
+  uint32_t acc = total ? (cnt[0] * 100u + cnt[1] * 50u) / total : 0u;
+  game_stop();
+  if (nb) best[sel] = score;
+  mode = M_RESULT;
+  res_t0 = g_blocks;
+  reset_screen();
+  text_c(10, clear ? "CLEAR!" : "FAILED", 4, clear ? RGB(90, 240, 120) : RGB(255, 80, 80), BLACK);
+  text_c(46, s->name, 2, RGB(s->r, s->g, s->b), BLACK);
+  e = put_str(b, "SCORE "); put_num(e, score, 7);
+  text_c(68, b, 2, WHITE, BLACK);
+  if (clear) {
+    const char *rk = acc >= 95u ? "S" : acc >= 85u ? "A" : acc >= 70u ? "B" : "C";
+    e = put_str(b, "RANK ");
+    e = put_str(e, rk);
+    e = put_str(e, "  ");
+    e = put_num(e, acc, 0);
+    put_str(e, "%");
+    text_c(92, b, 3, RGB(255, 215, 90), BLACK);
+  }
+  e = put_str(b, "PERFECT ");   put_num(e, cnt[0], 0);             text_c(124, b, 2, RGB(255, 220, 80), BLACK);
+  e = put_str(b, "GOOD ");      put_num(e, cnt[1], 0);             text_c(142, b, 2, RGB(110, 230, 140), BLACK);
+  e = put_str(b, "MISS ");      put_num(e, cnt[2], 0);             text_c(160, b, 2, RGB(255, 100, 100), BLACK);
+  e = put_str(b, "MAX COMBO "); put_num(e, (uint32_t)maxcombo, 0); text_c(178, b, 2, WHITE, BLACK);
+  if (nb) text_c(201, "NEW BEST!", 1, RGB(120, 230, 255), BLACK);
+  text_c(224, "LANE KEY: BACK TO TITLE", 1, GREY, BLACK);
+  set_leds(0, 0);
+}
+
+/* ---- Game ---- */
+static void ms_start(uint32_t now) {
+  int l;
+  ms_on = 1; ms_t = now; ms_val = combo; ms_stage = -1;
+  lock_rows(MS_R0, MS_R1, 0x7E);               /* lanes 1..6 */
+  g_crash++;
+  for (l = 0; l < 8; l++) { flash_until[l] = now + T_FLASH; sparks(l, now, 3); }
+}
+
+/* The combo panel: a white flash, then the big number; gone after 1 s. */
+static void ms_update(uint32_t now) {
+  int32_t el;
+  int st;
+  if (!ms_on) return;
+  el = (int32_t)(now - ms_t);
+  st = el < 4410 ? 0 : el < T_MS ? 1 : 2;
+  if (st == 2) { ms_on = 0; unlock_rows(MS_R0, MS_R1); return; }
+  if (st != ms_stage) {
+    char b[12];
+    uint16_t gold = RGB(255, 210, 80);
+    ms_stage = st;
+    put_num(b, (uint32_t)ms_val, 0);
+    box(178, MS_R1 - MS_R0, st == 0 ? RGB(255, 245, 200) : PANEL);
+    box_rect(0, 0, 178, 2, gold); box_rect(0, 58, 178, 2, gold);
+    box_rect(0, 0, 2, 60, gold);  box_rect(176, 0, 2, 60, gold);
+    box_text_c(5, b, 5, st == 0 ? RGB(120, 60, 0) : gold);
+    box_text_c(43, "COMBO!", 2, st == 0 ? RGB(120, 60, 0) : WHITE);
+    box_show(31, PF_Y + MS_R0);
+  }
+}
+
+static void judge_add(int j, uint32_t now) {
+  if (j == J_MISS) {
+    combo = 0;
+    life -= song->dmg;
+    if (life < 0) life = 0;
+  } else {
+    combo++;
+    if (combo > maxcombo) maxcombo = combo;
+    score += (j == J_PERFECT ? 100u : 50u) + (uint32_t)(combo < 100 ? combo : 100);
+    life += (j == J_PERFECT) ? 2 : 1;
+    if (life > 100) life = 100;
+    if (combo == 25 || combo == 50 || combo % 100 == 0) ms_start(now);
+  }
+  cnt[j - 1]++;
+  jdg = j; jdg_t = now; jdg_seq++;
+}
+
+/* A lane key was pressed: hit the first waiting note of that lane near the line. */
+static void try_hit(int l, uint32_t now) {
+  int i;
+  for (i = first; i < nn; i++) {
+    note_t *p = &notes[i];
+    uint32_t ts = p->step * sps;
+    int32_t dt = (int32_t)(now - ts);
+    int j;
+    if (dt < -W_GOOD) break;
+    if (p->lane != l || p->st != ST_WAIT || dt > W_GOOD) continue;
+    j = (((dt < 0) ? -dt : dt) <= W_PERFECT) ? J_PERFECT : J_GOOD;
+    judge_add(j, now);
+    m_gate[l] = 1;
+    m_trig[l]++;
+    flash_until[l] = now + T_FLASH;
+    sparks(l, now, j == J_PERFECT ? 7 : 4);
+    if (p->lng) {
+      p->st = ST_HOLD;
+      holding[l] = 1;
+    } else {
+      p->st = ST_DONE;
+      gate_off[l] = ts + (uint32_t)p->len * sps;
+      if ((int32_t)(gate_off[l] - now) < T_MINGATE) gate_off[l] = now + T_MINGATE;
+    }
+    return;
+  }
+}
+
+/* Misses, long notes, the end of short notes, the end of the game. */
+static void game_update(uint32_t now) {
+  uint32_t held = fm1_in.notes;
+  int i, l;
+  for (i = first; i < nn; i++) {
+    note_t *p = &notes[i];
+    uint32_t ts = p->step * sps;
+    if ((int32_t)(ts - now) > W_GOOD) break;
+    if (p->st == ST_WAIT && (int32_t)(now - ts) > W_GOOD) {
+      p->st = ST_DEAD;
+      judge_add(J_MISS, now);
+    } else if (p->st == ST_HOLD) {
+      int32_t left = (int32_t)((uint32_t)(p->step + p->len) * sps - now);
+      l = p->lane;
+      if (left <= 0 || !((held >> lane_key[l]) & 1u)) {
+        int j = (left <= W_PERFECT) ? J_PERFECT : (left <= W_GOOD) ? J_GOOD : J_MISS;
+        judge_add(j, now);
+        p->st = (j == J_MISS) ? ST_DEAD : ST_DONE;
+        holding[l] = 0;
+        m_gate[l] = 0;
+        if (j != J_MISS) { flash_until[l] = now + T_FLASH; sparks(l, now, 5); }
+      }
+    }
+  }
+  for (l = 0; l < 8; l++)
+    if (!holding[l] && m_gate[l] && (int32_t)(now - gate_off[l]) >= 0) m_gate[l] = 0;
+  while (first < nn) {
+    note_t *p = &notes[first];
+    uint32_t te = (uint32_t)(p->step + (p->lng ? p->len : 0)) * sps;
+    if (p->st < ST_DONE || (int32_t)(now - te) < 0) break;
+    first++;
+  }
+  if (life <= 0) result_enter(0);
+  else if ((int32_t)(now - end_t) >= 0) result_enter(1);
+}
+
+static void game_frame(uint32_t now, uint32_t kmask) {
+  int i;
+  lanes_bg(now, kmask);
+  grid(now, 4u * sps, (nbars + 1u) * 4u);
+  for (i = first; i < nn; i++) {
+    note_t *p = &notes[i];
+    uint32_t ts = p->step * sps, te = (uint32_t)(p->step + p->len) * sps;
+    int l = p->lane, yh, yt;
+    if ((int32_t)(ts - now) > (int32_t)fall) break;
+    if (p->st == ST_DONE) continue;
+    yh = ypos(ts, now);
+    yt = ypos(te, now);
+    if (p->st == ST_WAIT) {
+      if (p->lng) paint_body(l, yt, yh - GEM_H, 0);
+      paint_gem(l, yh);
+    } else if (p->st == ST_HOLD) {
+      paint_body(l, yt, PF_H - GEM_H, 1);
+      paint_gem(l, PF_H);
+    } else if (p->lng) {
+      paint_body(l, yt, yh, 2);                  /* a long note that was missed */
+    }
+  }
+  parts_pre();
+  flush();
+  parts_post(now);
+  pulse((ms_on && (int32_t)(now - ms_t) < 11025) ? 4 : beat_level(now, 4u * sps));
+  draw_pads(now, kmask);
+}
+
+/* Score, life bar, progress, judgment pop-up and combo: drawn when they change. */
+static void hud_draw(uint32_t now) {
+  static const char *const jtext[4] = { "", "PERFECT", "GOOD", "MISS" };
+  static const uint16_t jcol[4][3] = {
+    { 0, 0, 0 },
+    { RGB(255, 220, 80), RGB(150, 130, 48), RGB(75, 65, 24) },
+    { RGB(110, 230, 140), RGB(66, 138, 84), RGB(33, 69, 42) },
+    { RGB(255, 90, 90), RGB(150, 54, 54), RGB(75, 27, 27) }
+  };
+  char b[24];
+  int st;
+  int32_t el;
+  if (score != sh_score) {
+    sh_score = score;
+    put_num(b, score, 7);
+    text(4, 2, b, 2, WHITE, BLACK);
+  }
+  if (life != sh_life) {
+    int w = life * 108 / 100;
+    uint16_t c = life > 50 ? RGB(80, 230, 100) : life > 25 ? RGB(250, 210, 60) : RGB(255, 70, 70);
+    sh_life = life;
+    if (w > 0) fm1_lcd_fill_rect(127, 4, (uint32_t)w, 9, c);
+    if (w < 108) fm1_lcd_fill_rect((uint32_t)(127 + w), 4, (uint32_t)(108 - w), 9, RGB(40, 40, 50));
+  }
+  {
+    int w = (int)(now / (end_t / 240u + 1u));
+    if (w > 240) w = 240;
+    if (w > sh_prog) { fm1_lcd_fill_rect((uint32_t)sh_prog, 17, (uint32_t)(w - sh_prog), 2, RGB(90, 200, 255)); sh_prog = w; }
+  }
+  el = (int32_t)(now - jdg_t);
+  st = (jdg == J_NONE) ? 4 : el < 3087 ? 0 : el < 14553 ? 1 : el < 19845 ? 2 : el < 24255 ? 3 : 4;
+  if (jdg_seq != sh_jseq || st != sh_jstage) {
+    sh_jseq = jdg_seq;
+    sh_jstage = st;
+    box(168, 28, BLACK);
+    if (st == 0) box_text_c(0, jtext[jdg], 4, WHITE);                 /* pops up big */
+    else if (st < 4) box_text_c(4, jtext[jdg], 3, jcol[jdg][st - 1]); /* then fades */
+    box_show(0, STRIP_Y);
+  }
+  if (combo != sh_combo) {
+    sh_combo = combo;
+    box(70, 28, BLACK);
+    if (combo >= 2) {
+      uint16_t c = combo < 25 ? WHITE : combo < 50 ? RGB(120, 230, 255) : combo < 100 ? RGB(255, 210, 80) : RGB(255, 120, 230);
+      put_num(b, (uint32_t)combo, 0);
+      box_text(68 - text_w(b, 3), 0, b, 3, c);
+      box_text(68 - text_w("COMBO", 1), 21, "COMBO", 1, GREY);
+    }
+    box_show(170, STRIP_Y);
+  }
+}
+
+/* Lane key LEDs: on while a note of the lane is at the line. PLAY: blinks
+ * with the beat, steady while paused. HOME: on (quit). */
+static void game_leds(uint32_t now) {
+  uint32_t lanes = 0, beat = 4u * sps;
+  int i, play;
+  if (!paused) {
+    for (i = first; i < nn; i++) {
+      int32_t dt = (int32_t)(now - notes[i].step * sps);
+      if (dt < -W_GOOD) break;
+      if (notes[i].st == ST_WAIT && dt <= W_GOOD) lanes |= BIT(notes[i].lane);
+    }
+    for (i = 0; i < 8; i++) if (holding[i]) lanes |= BIT(i);
+  }
+  play = paused || (now % beat) < beat / 2u;
+  set_leds((play ? BIT(FM1_BTN_PLAY) : 0u) | BIT(FM1_BTN_HOME), lanes);
+}
+
+static void pause_toggle(void) {
+  int l;
+  paused = !paused;
+  if (paused) {
+    g_paused = 1;
+    for (l = 0; l < 8; l++) m_gate[l] = 0;
+    if (ms_on) { ms_on = 0; unlock_rows(MS_R0, MS_R1); }
+    lock_rows(PS_R0, PS_R1, 0xFF);
+    box(240, PS_R1 - PS_R0, PANEL);
+    box_rect(0, 0, 240, 1, GREY);
+    box_rect(0, PS_R1 - PS_R0 - 1, 240, 1, GREY);
+    box_text_c(6, "PAUSED", 3, WHITE);
+    box_text_c(32, "PLAY: GO ON   HOME: QUIT", 1, GREY);
+    box_show(0, PF_Y + PS_R0);
+  } else {
+    unlock_rows(PS_R0, PS_R1);
+    for (l = 0; l < 8; l++) if (holding[l]) { m_gate[l] = 1; m_trig[l]++; }
+    g_paused = 0;
+  }
+}
+
+static void game_start(void) {
+  const song_t *s = &songs[sel];
+  int l;
+  game_stop();
+  song = s;
+  sps = 661500u / s->bpm;
+  nn = build_song(s);
+  first = 0;
+  fall = (uint32_t)s->fall_ms * 441u / 10u;
+  end_t = (nbars + 2u) * 16u * sps;
+  score = 0; combo = 0; maxcombo = 0; life = 100; paused = 0;
+  cnt[0] = cnt[1] = cnt[2] = 0;
+  jdg = J_NONE; jdg_t = 0; jdg_seq = 0; sh_jseq = -1; sh_jstage = -1;
+  ms_on = 0;
+  for (l = 0; l < 8; l++) { holding[l] = 0; gate_off[l] = 0; }
+  reset_screen();
+  sh_score = 0xFFFFFFFFu; sh_life = -1; sh_combo = -1; sh_prog = 0;
+  text(100, 5, "LIFE", 1, GREY, BLACK);
+  fm1_lcd_fill_rect(125, 2, 112, 13, GREY);
+  fm1_lcd_fill_rect(0, 17, 240, 2, RGB(35, 35, 50));
+  mode = M_GAME;
+  song_pos = 0; seq_ctr = 0; seq_stp = 0;
+  g_paused = 0;
+  g_playing = 1;
+}
+
+/* ---- The three modes ---- */
+static void title_loop(uint32_t btn, uint32_t nk) {
+  if (btn & BIT(FM1_BTN_OCT_DOWN)) { sel = (sel + 2) % 3; title_song(); }
+  if (btn & BIT(FM1_BTN_OCT_UP))   { sel = (sel + 1) % 3; title_song(); }
+  if (nk & LANE_KEYS) { game_start(); return; }
+  title_frame();
+}
+
+static void game_loop(uint32_t btn, uint32_t nk) {
+  uint32_t now, kmask = 0, held = fm1_in.notes;
+  int l;
+  if (btn & BIT(FM1_BTN_HOME)) { game_stop(); title_enter(); return; }
+  if (btn & BIT(FM1_BTN_PLAY)) pause_toggle();
+  now = song_pos;
+  if (!paused) {
+    for (l = 0; l < 8; l++) if ((held >> lane_key[l]) & 1u) kmask |= BIT(l);
+    for (l = 0; l < 8; l++) if (nk & BIT(lane_key[l])) try_hit(l, now);
+    game_update(now);
+    if (mode != M_GAME) return;
+    ms_update(now);
+    game_frame(now, kmask);
+  }
+  hud_draw(now);
+  game_leds(now);
+}
+
+static void result_loop(uint32_t nk) {
+  int ready = (uint32_t)(g_blocks - res_t0) > 150u;   /* about 0.9 s */
+  set_leds(0, ready ? 0xFFu : 0u);
+  if (ready && (nk & LANE_KEYS)) title_enter();
+}
+
+/* ---- Program ---- */
+void setup(void) {
+  int i, l, lv;
+  for (i = 0; i < 256; i++) sintab[i] = sinf((float)i * (6.2831853f / 256.0f));
+  for (i = 0; i < 128; i++) inc_tab[i] = (uint32_t)(440.0f * powf(2.0f, (float)(i - 69) / 12.0f) * HZ2INC);
+  for (l = 0; l < 8; l++) {
+    const uint8_t *c = lane_rgb[l];
+    float p = (float)l / 7.0f;
+    for (lv = 0; lv < 16; lv++) {
+      float f = (float)lv / 15.0f;
+      bgc[l][lv] = colr(c, 0.08f + 0.5f * f, (int)(45.0f * f));
+    }
+    beatc[l] = colr(c, 0.15f, 14);
+    barc[l]  = colr(c, 0.28f, 34);
+    gedge[l] = colr(c, 0.8f, 60);
+    ghi[l]   = colr(c, 0.5f, 140);
+    gin[l]   = colr(c, 0.5f, 0);
+    bedge[l][0] = colr(c, 0.85f, 25); binner[l][0] = colr(c, 0.35f, 0);
+    bedge[l][1] = WHITE;              binner[l][1] = colr(c, 0.45f, 140);
+    bedge[l][2] = RGB(110, 110, 125); binner[l][2] = RGB(55, 55, 68);
+    padc[l][0] = colr(c, 0.3f, 0);
+    padc[l][1] = colr(c, 0.6f, 20);
+    padc[l][2] = colr(c, 0.45f, 150);
+    pan_l[l] = 1.0f - 0.45f * p;
+    pan_r[l] = 0.55f + 0.45f * p;
+    mv[l].inc = inc_tab[lane_midi[l] + 12];   /* the bell sounds one octave up */
+  }
+}
+
+void loop(void) {
+  uint32_t btn = fm1_input_edges(0), nk = fm1_input_note_edges();
+  float m = (float)fm1_master() * (1.0f / (float)FM1_MASTER_MAX);
+  g_vol = m * m * 0.5f;
+  switch (mode) {
+    case M_NONE: {
+      uint32_t i;
+      for (i = 0; i < FM1_NKEY; i++) { led_on[i] = -1; set_led(i, 0); }
+      title_enter();
+      break;
+    }
+    case M_TITLE: title_loop(btn, nk); break;
+    case M_GAME:  game_loop(btn, nk); break;
+    default:      result_loop(nk); break;
+  }
 }

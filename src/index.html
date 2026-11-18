@@ -8289,17 +8289,38 @@ about.onpointerdown = (event) => { if (event.target === about) about.close(); };
 
 const vibe = $('vibe');
 const VIBE_IDEAS = {
-  synth: 'A synth with 8 voices of two-operator FM. KNOB1 to KNOB4 set the ratio, the FM depth, the attack ' +
-    'and the release. OCT- and OCT+ change the octave. The screen shows a scope of the sound and the four ' +
-    'values, and the LED of each note key that plays is on.',
-  piece: 'An original synthwave piece of about two minutes, in A minor at 100 BPM: drums, a bass line, pads, ' +
-    'an arpeggio and a lead melody, with verses and a chorus. PLAY starts and stops it, and the note keys ' +
-    'play a lead over it. The screen shows the part of the piece, the bar and the beat, and a level bar for ' +
-    'each instrument.',
-  game: 'An original arcade game: a small ship flies through a cave that scrolls from right to left, and ' +
-    'collects stars. Two note keys move it up and down, and a third one fires: the note keys that the ' +
-    'computer keys W, S and J play (note keys 8, 9 and 18). Each star plays a note of a scale, a short ' +
-    'tune loops under the game, and the screen shows the score and the lives.',
+  synth: 'A plucked-string instrument made with physical modelling (Karplus-Strong) that sounds real: each ' +
+    'note key plucks a string, and up to 8 strings ring at the same time. ALGORITHM chooses the instrument: ' +
+    'harp, nylon guitar, koto or hammered dulcimer, each with its own body resonance. KNOB1 sets where the ' +
+    'string is plucked (soft to bright), KNOB2 how long it rings, KNOB3 the size of a stereo hall reverb, ' +
+    'and KNOB4 the speed of the strum. ARP strums: hold a chord, and its notes are played up and down, again ' +
+    'and again. SCL locks the note keys to a pentatonic scale: each key plays the next note of the scale, so ' +
+    'that a slide over all keys is a harp glissando over five octaves. OCT- and OCT+ change the octave. The ' +
+    'screen shows the 27 strings from left to right: a string that sounds swings from side to side as a real ' +
+    'string does, wide just after the pluck and smaller as it fades, with a glow in the colour of the ' +
+    'instrument. The name of the instrument and the four values are at the top.',
+  piece: 'An original piece in the style of a 90s demoscene intro, about three minutes long, with a show on ' +
+    'the screen in time with the music. The music: trance at 128 BPM in A minor, with a kick on each beat, ' +
+    'an acid bass line, a supersaw chord stab, an arpeggio, and a lead melody that one can sing. Parts of 8 ' +
+    'or 16 bars: intro, build, drop, a breakdown with a filter sweep and a riser, a second and bigger drop, ' +
+    'and an outro; then it starts again. The intro catches the ear at once, with a pad and the arpeggio ' +
+    'through a filter that opens. In the drops the stabs are big and wide in stereo, and pump with the kick; ' +
+    'the second drop is the high point, with a harmony over the lead. The show: a big 3D wireframe shape, ' +
+    'half as wide as the screen, that turns and jumps on each kick, ' +
+    'a starfield that flies faster in the loud parts, the name of the part at the top, and a scrolling text ' +
+    'with greetings at the bottom. PLAY starts and stops it. The buttons FX, SCL, ENV, LFO, EDIT and GLO ' +
+    'each mute one part (drums, bass, chords, arpeggio, lead, effects), and their LEDs show which parts play.',
+  game: 'An original rhythm game. Notes fall down the screen in 8 lanes, in time with a song, to a line at ' +
+    'the bottom. The player hits each note when it reaches the line, with the 8 white note keys from C4 to ' +
+    'C5: note keys 7, 9, 11, 12, 14, 16, 18 and 19 (on a computer: the keys A, S, D, F, G, H, J and K). Each ' +
+    'hit plays that note of the melody, so a good player plays the song, and a miss leaves a gap in it. Long ' +
+    'notes must be held. Three original songs of about two minutes, each with an intro, verses and ' +
+    'choruses: easy pop, normal funk and hard electro, with a full stereo band and a bright bell for the ' +
+    'notes that the player hits. On the title screen, OCT- and OCT+ (the computer keys Z and X) choose a ' +
+    'song, and a lane key starts it. The notes are shiny gems in the colour of their lane, a hit makes ' +
+    'sparks at the line, PERFECT, GOOD and MISS pop up big, and the screen flashes at combo 25, 50 and 100. ' +
+    'A score, a combo counter and a life bar that empties with misses. The LED of each lane key lights when ' +
+    'a note of its lane is at the line.',
 };
 // The address of this page, for an AI that is not in it. A page from disk has no address.
 const VIBE_SITE = /^https?:$/.test(location.protocol) ? location.origin + location.pathname : 'https://fm1studio.com/';
