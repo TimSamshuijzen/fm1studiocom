@@ -864,7 +864,7 @@ void loop(void) { }                         /* again and again: controls and scr
           editor: the page makes a new project of it, compiles it and runs it. A copy of the whole answer
           also works.</li>
         <li>Tell the AI what to change. The follow-up prompts of VIBE give the AI the log of a failed
-          compile, make the LEDs show which buttons to use, add a help page, and check the program for a
+          compile, add a help page, and check the program for a
           real FM-1.</li>
         <li>An AI makes mistakes. Test the program in the simulator before you install it on a real FM-1.</li>
       </ul>
@@ -1034,7 +1034,7 @@ void loop(void) { }                         /* again and again: controls and scr
     <div class="dialog-text" id="vibe-text" tabindex="0">
       <p class="lead">Vibe coding: you tell an AI what to make, the AI writes the code, and you play the
         result. You do not have to know C. The AI writes a program against <code>fm1.h</code>, the API of
-        this page, and the FM-1 simulator runs it. PROG-1, the first card of the gallery, was vibe-coded.</p>
+        this page, and the FM-1 simulator runs it.</p>
       <ol>
         <li>Write your idea below, or start from an example.</li>
         <li>Copy the prompt, and give it to an AI chat.</li>
@@ -1092,12 +1092,6 @@ Here is fm1.h:
 
 <span data-copy="log">[COPY puts the text of the LOG panel here]</span></pre>
         <button class="push copy" title="Copy the prompt, with the text of the LOG panel">COPY</button>
-      </div>
-      <h4>LEDs</h4>
-      <p>The LEDs show the player which buttons to use. For a program that keeps them dark:</p>
-      <div class="prompt">
-<pre>Use the LEDs to show which buttons and note keys do something. The LED of each button and control key that has a use now is on, also while nobody presses it, and the others are off. When a mode changes what the buttons do, the LEDs change with it. Show an on/off state by blinking: for example, PLAY is on while the music is stopped, and blinks with the beat while it plays. Note keys that play notes light up while their notes sound. Then tell me which LEDs are on in each mode.</pre>
-        <button class="push copy" title="Copy the prompt">COPY</button>
       </div>
       <h4>A help page</h4>
       <div class="prompt">

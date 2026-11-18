@@ -113,13 +113,12 @@ write it: you describe a synth, a piece or a game, and the AI writes `main.c`.
    makes a new project of it, compiles it and runs it. A copy of the whole answer also works: the page
    takes its longest code block.
 4. Tell the AI what to change. The follow-up prompts of the dialog give the AI the log of a failed
-   compile, make the LEDs show which buttons to use, add a help page, and check the program for a real
-   FM-1.
+   compile, add a help page, and check the program for a real FM-1.
 
 The rules in the prompt are those of a real FM-1: C, `float` and no `double`, no `malloc` and no
 `printf`, a fast `audio()` that does not draw, a `loop()` that returns soon, and LEDs that show which
 buttons do something. An AI makes mistakes: test the program in the simulator, and read "On a real
-FM-1" before you install it. PROG-1, the first card of the gallery, was vibe-coded by Hans Dam.
+FM-1" before you install it.
 
 ### On a real FM-1
 
