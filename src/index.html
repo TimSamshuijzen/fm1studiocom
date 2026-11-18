@@ -10061,8 +10061,7 @@ $('install-go').onclick = async () => {
 
   function installDone() {
     setProgress($('install-progress'), 1);
-    installSay('install-state', `Done. The FM-1 runs ${name.replace(/\.fwsc$/, '')} (${product}).\n` +
-      'You can disconnect the USB cable.', 'good');
+    installSay('install-state', `Done. The FM-1 runs ${name.replace(/\.fwsc$/, '')} (${product}).`, 'good');
     setStatus(`Installed ${name} on the FM-1`);
     log(`install: done, the FM-1 runs ${product}\n`);
     $('install-warning').hidden = $('install-go').hidden = true;
