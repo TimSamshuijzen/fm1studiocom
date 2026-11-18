@@ -1084,6 +1084,12 @@ Here is fm1.h:
 <pre>I hear a click at the start and at the end of each note, and the bass is too loud. Remove the clicks with short fades, and make the bass 6 dB softer.</pre>
         <button class="push copy" title="Copy the prompt">COPY</button>
       </div>
+      <h4>Button lights</h4>
+      <p>The LEDs show the player which buttons to use. For a program that keeps them dark:</p>
+      <div class="prompt">
+<pre>Use the LEDs to show which buttons and note keys do something. The LED of each button and control key that has a use now is on, also while nobody presses it, and the others are off. When a mode changes what the buttons do, the LEDs change with it. Show an on/off state by blinking: for example, PLAY is on while the music is stopped, and blinks with the beat while it plays. Note keys that play notes light up while their notes sound. Then tell me which LEDs are on in each mode.</pre>
+        <button class="push copy" title="Copy the prompt">COPY</button>
+      </div>
       <h4>A help page</h4>
       <div class="prompt">
 <pre>Add a help page. The HOME button shows it and hides it. It tells which note keys, buttons and encoders do what. Draw the text with a small bitmap font.</pre>
@@ -1112,7 +1118,7 @@ Here is fm1.h:
 
   <!-- The parts of the prompts of VIBE that all prompts have. -->
   <script type="text/plain" id="vibe-fm1">
-The FM-1 is a small synthesizer: 27 note keys, 14 buttons, 7 encoders, a MASTER pot, LEDs, a 240 x 240 colour screen and stereo sound. FM-1 Studio compiles C programs for it in the browser, and runs them in a simulator of the FM-1. It can also build a program for a real FM-1.
+The FM-1 is a small synthesizer: 27 note keys and 14 buttons, each with an LED, 7 encoders, a MASTER pot, a 240 x 240 colour screen and stereo sound. FM-1 Studio compiles C programs for it in the browser, and runs them in a simulator of the FM-1. It can also build a program for a real FM-1.
 </script>
   <script type="text/plain" id="vibe-rules">
 Rules for the program:
@@ -1120,6 +1126,7 @@ Rules for the program:
 - audio(out, frames) writes 256 stereo frames, L R L R ..., as signed 24-bit samples (FM1_AUDIO_MAX is full scale), at 44100 Hz. On a real FM-1 it is an interrupt: keep it fast, and do not draw from it.
 - loop() reads the keys, the buttons and the encoders, and draws. It must return soon: no endless loop, no waiting.
 - On a real FM-1 the screen is slow (a full screen takes about 77 ms): draw only what changed. fm1.h has no text function: for text, put a small bitmap font in main.c.
+- The LEDs are part of the interface: they show which buttons and note keys do something. The LED of each button that has a use now is on, also while nobody presses it, and the LED of a button without a use is off. When a mode changes what the buttons do (a title screen, a pause, a menu), the LEDs change with it. A button that switches something on and off shows the state by blinking: for example, PLAY is on while the music is stopped, and blinks with the beat while the music plays. Note keys that play notes light up while their notes sound. Note keys with another use, such as game controls, follow the rule of the buttons. Call fm1_led_key() only for an LED that changes.
 - Use fm1_master() as the volume, and keep the sound below full scale.
 - So that the program also runs on a real FM-1: float only (0.5f, sinf, powf; no double), no malloc, no printf, and small tables and buffers (the program and the platform share 464 KB of memory).
 </script>
