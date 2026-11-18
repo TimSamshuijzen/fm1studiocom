@@ -492,7 +492,7 @@
 
   /* ---- A file that is dragged above the page: a frame shows that the page takes it ---- */
   body.dropping::after {
-    content: "DROP A PROJECT ZIP FILE TO LOAD IT"; position: fixed; z-index: 100; inset: 10px;
+    content: "DROP A PROJECT ZIP FILE OR MAIN.C TO LOAD IT"; position: fixed; z-index: 100; inset: 10px;
     display: grid; place-items: center; pointer-events: none;
     border: 3px dashed var(--stripe-1); border-radius: 12px; background: #000000b0;
     color: var(--stripe-1); font-size: 22px; font-weight: 700; letter-spacing: 0.12em;
@@ -599,6 +599,25 @@
   .dialog-text .ports { margin: 0 0 12px; padding: 0; list-style: none; }
   .dialog-text .ports li { display: flex; align-items: center; gap: 12px; margin: 6px 0; }
   .dialog-text .ports .push { height: 24px; padding: 0 12px; font-size: 10px; }
+
+  /* ---- Vibe: prompts for an AI. Each prompt has a COPY button in its top right corner. ---- */
+  .dialog-text h4 { margin: 22px 0 8px; font: 700 17px/1.3 var(--font-label); }
+  .dialog-text .choices { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+  .dialog-text .choices .push[aria-pressed="true"] {  /* the choice that shows now: orange, as LOAD on a card */
+    color: #241000; background: linear-gradient(#f79a3e, var(--stripe-2) 45%, #cc6410);
+    box-shadow: 0 0 0 1px #000, 0 2px 0 #000, inset 0 1px 0 #ffffff59;
+  }
+  .dialog-text .idea {
+    display: block; width: 100%; min-height: 100px; margin: 0 0 8px; padding: 10px 12px; resize: vertical;
+    border: 1px solid var(--paper-rule); border-radius: 6px; background: #fff; color: var(--ink); font: 15px/1.5 var(--font-label);
+  }
+  .dialog-text .idea:focus-visible { outline-color: var(--link); outline-offset: 0; }
+  .dialog-text .prompt { position: relative; margin: 0 0 12px; }
+  .dialog-text .prompt pre { margin: 0; padding-right: 104px; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .dialog-text .prompt .copy { position: absolute; top: 8px; right: 8px; min-width: 88px; height: 28px; padding: 0 12px; font-size: 11px; }
+  .dialog-text .prompt mark { padding: 0 2px; border-radius: 3px; background: #fbd78a; color: inherit; }  /* the idea */
+  .dialog-text .prompt [data-copy] { color: var(--ink-dim); font-style: italic; }  /* COPY puts a text here */
+  @media (max-width: 620px) { .dialog-text .prompt pre { padding: 46px 12px 12px; } }
 </style>
 </head>
 <body>
@@ -614,7 +633,10 @@
         <span class="model">CODE WORKSTATION</span>
         <span class="tagline">code - simulate - install</span>
       </p>
-      <button class="push" id="about-open" title="About FM-1 Studio" aria-haspopup="dialog">ABOUT</button>
+      <div class="buttons">
+        <button class="push" id="about-open" title="About FM-1 Studio" aria-haspopup="dialog">ABOUT</button>
+        <button class="push" id="vibe-open" title="Vibe-code a synth, a piece or a game with an AI" aria-haspopup="dialog">VIBE</button>
+      </div>
       <div class="stripes"><i></i><i></i><i></i><i></i></div>
       <div class="oled glass status-oled">
         <div class="status-main" id="status">Loading the compiler…</div>
@@ -637,7 +659,7 @@
             <label class="field">NAME <input class="oled-input" id="project-name" spellcheck="false" autocomplete="off"></label>
             <div class="buttons">
               <button class="push" id="project-new" title="Start again with the startup demo project">NEW</button>
-              <button class="push" id="project-load" title="Load a project from a zip file (or drop the zip file on the page)">LOAD</button>
+              <button class="push" id="project-load" title="Load a project from a zip file (or drop the zip file, or a file main.c, on the page)">LOAD</button>
               <button class="push" id="project-save" title="Download the project as a zip file">SAVE</button>
               <button class="push file-buttons" id="file-new" title="Add a file to the project">+ FILE</button>
               <button class="push" id="file-delete" title="Delete the file in the editor from the project">DELETE</button>
@@ -826,7 +848,8 @@ void loop(void) { }                         /* again and again: controls and scr
           the project is built: <code>sources</code>, <code>include</code>, <code>define</code> and
           <code>flags</code>.</li>
         <li>The page keeps nothing between visits. SAVE downloads the project as a zip file, and LOAD reads
-          it back. You can also drop a project zip file on the page.</li>
+          it back. You can also drop a project zip file on the page. A file <code>main.c</code> that you
+          drop on the page makes a new project with it.</li>
       </ul>
       <p>The screen and input functions have the names and signatures of felucca-bsp
         <a class="ref" href="https://github.com/hugelton/felucca-bsp" target="_blank" rel="noopener" title="felucca-bsp">[4]</a>.</p>
@@ -976,6 +999,130 @@ void loop(void) { }                         /* again and again: controls and scr
       </ol>
     </div>
   </dialog>
+
+  <!-- VIBE: the dialog that the VIBE button opens. It tells how an AI can write a program, and gives
+       prompts for it, each with a COPY button. The page script fills in the parts of the prompts:
+       data-fill="idea" gets the text of the idea, data-fill="site" the address of this page, and
+       data-text the text block with that id. A data-copy part shows a note here, and COPY puts a
+       text in its place: fm1.h, or the text of the LOG panel. -->
+  <dialog class="dialog" id="vibe" aria-labelledby="vibe-title">
+    <header class="dialog-head">
+      <h2 class="logo" id="vibe-title">VIBE</h2>
+      <p class="brand-text">
+        <span class="model">CODE WITH AI</span>
+        <span class="tagline">a synth, a piece or a game</span>
+      </p>
+      <div class="stripes"><i></i><i></i><i></i><i></i></div>
+      <button class="push" id="vibe-close" title="Close (Esc)">CLOSE</button>
+    </header>
+
+    <div class="dialog-text" id="vibe-text" tabindex="0">
+      <p class="lead">Vibe coding: you tell an AI what to make, the AI writes the code, and you play the
+        result. You do not have to know C. The AI writes a program against <code>fm1.h</code>, the API of
+        this page, and the FM-1 simulator runs it. PROG-1, the first card of the gallery, was vibe-coded.</p>
+      <ol>
+        <li>Write your idea below, or start from an example.</li>
+        <li>Copy the prompt, and give it to an AI chat.</li>
+        <li>The AI writes <code>main.c</code>. Drop the file on this page: the page compiles it and runs it in
+          the simulator. Play it.</li>
+        <li>Tell the AI what to change. When a compile fails, give the AI the log.</li>
+        <li>SAVE the project. For a real FM-1, use FIRMWARE or INSTALL (see ABOUT).</li>
+      </ol>
+
+      <h3>1. Your idea</h3>
+      <div class="choices" id="vibe-ideas" role="group" aria-label="Examples of an idea">
+        <button class="push" data-idea="synth" aria-pressed="true">SYNTH</button>
+        <button class="push" data-idea="piece" aria-pressed="false">PIECE</button>
+        <button class="push" data-idea="game" aria-pressed="false">GAME</button>
+      </div>
+      <textarea class="idea" id="vibe-idea" aria-label="Your idea" placeholder="What does the program do?"></textarea>
+      <p class="small">Tell what it plays or does, which note keys, buttons and encoders control what, and
+        what the screen shows. The prompts below take this text.</p>
+
+      <h3>2. Your AI</h3>
+      <p>An AI chat writes the program: Claude on claude.ai or in the Claude app, or another AI. You bring
+        the code from the chat to this page.</p>
+      <ol>
+        <li>Open a new chat. Paste the prompt and send it. COPY also copies <code>fm1.h</code>, so that
+          the AI knows the API.</li>
+        <li>Save the code of the answer as the file <code>main.c</code>, and drop the file on this page:
+          the page makes a new project of it, and compiles it. Or click NEW, click in the editor, select
+          all of <code>main.c</code> (<kbd>Ctrl</kbd> + <kbd>A</kbd>), paste (<kbd>Ctrl</kbd> +
+          <kbd>V</kbd>) and click COMPILE. SAVE your project first if you want to keep it.</li>
+        <li>Tell the AI what to change, and bring the new <code>main.c</code> to this page in the same way.
+          When a compile fails, give it the log (see "Change it" below).</li>
+      </ol>
+      <div class="prompt">
+<pre>Write a program for the M-VAVE FM-1 that does my idea, for FM-1 Studio (<span data-fill="site"></span>). I test it there.
+
+My idea: <mark data-fill="idea"></mark>
+
+<span data-text="vibe-fm1"></span>
+
+Give me all of main.c in one code block, and tell me how to play it. I put it in FM-1 Studio, compile it, and tell you what to change or give you the log. After each change, give me all of main.c again.
+
+<span data-text="vibe-rules"></span>
+
+Here is fm1.h:
+
+<span data-copy="fm1.h">[COPY puts all of fm1.h here]</span></pre>
+        <button class="push copy" title="Copy the prompt, with fm1.h">COPY</button>
+      </div>
+
+      <h3>3. Change it</h3>
+      <p>Give these prompts to the same AI, in the same chat.</p>
+      <h4>The compile failed</h4>
+      <div class="prompt">
+<pre>FM-1 Studio gives errors for the program. Find their cause, fix it, and check the rest of main.c for the same mistake. Here is the log:
+
+<span data-copy="log">[COPY puts the text of the LOG panel here]</span></pre>
+        <button class="push copy" title="Copy the prompt, with the text of the LOG panel">COPY</button>
+      </div>
+      <h4>What you hear</h4>
+      <p>The AI cannot hear the sound. Tell it what you hear, for example:</p>
+      <div class="prompt">
+<pre>I hear a click at the start and at the end of each note, and the bass is too loud. Remove the clicks with short fades, and make the bass 6 dB softer.</pre>
+        <button class="push copy" title="Copy the prompt">COPY</button>
+      </div>
+      <h4>A help page</h4>
+      <div class="prompt">
+<pre>Add a help page. The HOME button shows it and hides it. It tells which note keys, buttons and encoders do what. Draw the text with a small bitmap font.</pre>
+        <button class="push copy" title="Copy the prompt">COPY</button>
+      </div>
+      <h4>Ready for a real FM-1</h4>
+      <div class="prompt">
+<pre>Check main.c for a real FM-1, and fix what breaks a rule: no double (also no constants such as 0.5 and no functions such as sin), no malloc and no printf, an audio() that is fast and does not draw, a loop() that returns soon, draws of only what changed, and small tables and buffers. Then tell me what you changed.</pre>
+        <button class="push copy" title="Copy the prompt">COPY</button>
+      </div>
+      <p>Then click FIRMWARE: it makes a package for a real FM-1, and the log tells when the program does
+        not fit. Give that log to the AI with "The compile failed".</p>
+
+      <h3>Good to know</h3>
+      <ul>
+        <li>Ask for one change at a time, and play the program after each change.</li>
+        <li>The page keeps nothing between visits: SAVE the project often. To continue another day, LOAD
+          the zip, and give its <code>main.c</code> to the AI.</li>
+        <li>An AI makes mistakes. A program that works in the simulator can fail on a real FM-1. You
+          install a program at your own risk: read ABOUT, and
+          <a href="https://github.com/TimSamshuijzen/fm1studiocom#on-a-real-fm-1" target="_blank" rel="noopener">"On a real FM-1"</a>
+          in the README, before you use INSTALL.</li>
+      </ul>
+    </div>
+  </dialog>
+
+  <!-- The parts of the prompts of VIBE that all prompts have. -->
+  <script type="text/plain" id="vibe-fm1">
+The FM-1 is a small synthesizer: 27 note keys, 14 buttons, 7 encoders, a MASTER pot, LEDs, a 240 x 240 colour screen and stereo sound. FM-1 Studio compiles C programs for it in the browser, and runs them in a simulator of the FM-1. It can also build a program for a real FM-1.
+</script>
+  <script type="text/plain" id="vibe-rules">
+Rules for the program:
+- One file, main.c, in C, not C++. It includes "fm1.h" and defines setup(), audio() and loop(). fm1.h documents the API: read all of it, and use only what it has.
+- audio(out, frames) writes 256 stereo frames, L R L R ..., as signed 24-bit samples (FM1_AUDIO_MAX is full scale), at 44100 Hz. On a real FM-1 it is an interrupt: keep it fast, and do not draw from it.
+- loop() reads the keys, the buttons and the encoders, and draws. It must return soon: no endless loop, no waiting.
+- On a real FM-1 the screen is slow (a full screen takes about 77 ms): draw only what changed. fm1.h has no text function: for text, put a small bitmap font in main.c.
+- Use fm1_master() as the volume, and keep the sound below full scale.
+- So that the program also runs on a real FM-1: float only (0.5f, sinf, powf; no double), no malloc, no printf, and small tables and buffers (the program and the platform share 464 KB of memory).
+</script>
 
   <!-- INSTALL: the dialog that the INSTALL button opens. It installs the program of the project. It has
        three steps, and the page script shows one of them at a time: read (the page makes the package of
@@ -8156,6 +8303,92 @@ $('about-open').onclick = () => {
 $('about-close').onclick = () => about.close();
 about.onpointerdown = (event) => { if (event.target === about) about.close(); };
 
+// ---- Vibe: prompts that let an AI write a program (see the VIBE dialog for its parts) ----
+
+const vibe = $('vibe');
+const VIBE_IDEAS = {
+  synth: 'A synth with 8 voices of two-operator FM. KNOB1 to KNOB4 set the ratio, the FM depth, the attack ' +
+    'and the release. OCT- and OCT+ change the octave. The screen shows a scope of the sound and the four ' +
+    'values, and the LED of each note key that plays is on.',
+  piece: 'An original synthwave piece of about two minutes, in A minor at 100 BPM: drums, a bass line, pads, ' +
+    'an arpeggio and a lead melody, with verses and a chorus. PLAY starts and stops it, and the note keys ' +
+    'play a lead over it. The screen shows the part of the piece, the bar and the beat, and a level bar for ' +
+    'each instrument.',
+  game: 'An original arcade game: a small ship flies through a cave that scrolls from right to left, and ' +
+    'collects stars. Two note keys move it up and down, and a third one fires: the note keys that the ' +
+    'computer keys W, S and J play (note keys 8, 9 and 18). Each star plays a note of a scale, a short ' +
+    'tune loops under the game, and the screen shows the score and the lives.',
+};
+// The address of this page, for an AI that is not in it. A page from disk has no address.
+const VIBE_SITE = /^https?:$/.test(location.protocol) ? location.origin + location.pathname : 'https://fm1studio.com/';
+const VIBE_COPY = {  // data-copy -> the text that COPY puts in its place
+  'fm1.h': () => '```c\n' + text('fm1.h').trimEnd() + '\n```',
+  log: () => $('log').textContent.trim() || '(The log is empty.)',
+};
+
+for (const part of vibe.querySelectorAll('[data-fill="site"]')) part.textContent = VIBE_SITE;
+for (const part of vibe.querySelectorAll('[data-text]')) part.textContent = text(part.dataset.text).trimEnd();
+
+function showIdea() {
+  const idea = $('vibe-idea').value.trim() || '[describe your idea here]';
+  for (const part of vibe.querySelectorAll('[data-fill="idea"]')) part.textContent = idea;
+}
+
+// Presses `button` (or none) of the buttons of `group`.
+function pressChoice(group, button) {
+  for (const other of group.querySelectorAll('button')) other.setAttribute('aria-pressed', other === button);
+}
+
+$('vibe-ideas').onclick = (event) => {
+  const button = event.target.closest('button');
+  if (!button) return;
+  pressChoice($('vibe-ideas'), button);
+  $('vibe-idea').value = VIBE_IDEAS[button.dataset.idea];
+  showIdea();
+};
+$('vibe-idea').oninput = () => {
+  pressChoice($('vibe-ideas'), null);  // it is the user's own idea now
+  showIdea();
+};
+$('vibe-idea').value = VIBE_IDEAS.synth;
+showIdea();
+
+// Puts `value` on the clipboard. Returns true when that worked.
+async function copyText(value) {
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {  // no clipboard API here: copy from a text box
+    const area = Object.assign(document.createElement('textarea'), { value });
+    area.style.cssText = 'position: fixed; opacity: 0;';
+    vibe.append(area);  // in the dialog: the page outside a modal dialog cannot be used
+    area.select();
+    const done = document.execCommand('copy');
+    area.remove();
+    return done;
+  }
+}
+
+// COPY: the text of its prompt, with the data-copy parts filled in.
+vibe.addEventListener('click', async (event) => {
+  const button = event.target.closest('.copy');
+  if (!button) return;
+  const prompt = button.parentElement.querySelector('pre').cloneNode(true);
+  for (const part of prompt.querySelectorAll('[data-copy]')) part.textContent = VIBE_COPY[part.dataset.copy]();
+  const done = await copyText(prompt.textContent);
+  button.textContent = done ? 'COPIED' : 'NOT COPIED';
+  button.classList.toggle('ok', done);  // green
+  clearTimeout(button.timer);
+  button.timer = setTimeout(() => { button.textContent = 'COPY'; button.classList.remove('ok'); }, 1500);
+});
+
+$('vibe-open').onclick = () => {
+  vibe.showModal();
+  $('vibe-text').scrollTop = 0;
+};
+$('vibe-close').onclick = () => vibe.close();
+vibe.onpointerdown = (event) => { if (event.target === vibe) vibe.close(); };
+
 // ---- Project: a name and text files. A file path can have folders, as in "firmware/src/main.c". ----
 
 const MANIFEST = 'fm1project.json';  // the optional file that says how the project is built (fm1.h tells more)
@@ -8444,14 +8677,28 @@ async function loadZip(file) {
   }
 }
 
+// Replaces the project with a new project of a file main.c (a File): main.c, and the fm1project.json
+// of the demo project. The project keeps its name, so that a new version of main.c from an AI keeps
+// it too, but not the name of a card of the gallery.
+async function loadMain(file) {
+  try {
+    const name = project.gallery ? 'main' : project.name || 'main';
+    setProject(name, new Map([[MANIFEST, text(MANIFEST)], ['main.c', await file.text()]]));
+    compileNew();
+  } catch (error) {
+    log(`Cannot load ${file.name}: ${error.message}\n`);
+  }
+}
+
 $('project-file').onchange = () => {
   const [file] = $('project-file').files;
   $('project-file').value = '';
   if (file) loadZip(file);
 };
 
-// A zip file that is dropped on the page is loaded, as with LOAD. The page takes each drag of files,
-// so that the browser does not open a file that is dropped next to the target.
+// A zip file that is dropped on the page is loaded, as with LOAD, and a file main.c makes a new
+// project. The page takes each drag of files, so that the browser does not open a file that is
+// dropped next to the target.
 const dragsFiles = (event) => event.dataTransfer.types.includes('Files');
 
 window.addEventListener('dragover', (event) => {
@@ -8471,10 +8718,10 @@ window.addEventListener('drop', (event) => {
   event.preventDefault();
   document.body.classList.remove('dropping');
   const files = [...event.dataTransfer.files];
-  const file = files.find((file) => /\.zip$/i.test(file.name));
-  if (!file) log(`Cannot load ${files[0]?.name ?? 'this'}: only a project zip file can be dropped here\n`);
+  const file = files.find((file) => /\.zip$/i.test(file.name) || file.name === 'main.c');
+  if (!file) log(`Cannot load ${files[0]?.name ?? 'this'}: only a project zip file or main.c can be dropped here\n`);
   else if (githubBusy) log(`Cannot load ${file.name}: a download from GitHub is in progress\n`);
-  else if (canReplace()) loadZip(file);
+  else if (canReplace()) (file.name === 'main.c' ? loadMain : loadZip)(file);
 });
 
 // ---- The gallery: demo projects of this page, and firmware from GitHub ----
@@ -10198,8 +10445,8 @@ function releaseComputerKey(code) {
 
 document.addEventListener('keydown', (event) => {
   if (heldCodes.has(event.code)) { event.preventDefault(); return; } // the key repeats
-  // The keys do not play while the cursor is in a text field, or while the ABOUT or INSTALL dialog is open.
-  const typing = ['TEXTAREA', 'SELECT', 'INPUT'].includes(event.target.tagName) || about.open || install.open;
+  // The keys do not play while the cursor is in a text field, or while a dialog (ABOUT, VIBE, INSTALL) is open.
+  const typing = ['TEXTAREA', 'SELECT', 'INPUT'].includes(event.target.tagName) || about.open || vibe.open || install.open;
   if (!(event.code in COMPUTER_KEYS) || typing || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
   event.preventDefault();
   heldCodes.add(event.code);

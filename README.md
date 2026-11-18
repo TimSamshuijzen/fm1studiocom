@@ -61,6 +61,8 @@ and runs it. Browsers block sound until a click or a key press, so click the pag
 | MIDI | The MIDI IN button asks the browser for permission |
 
 A project is a name and a set of text files. SAVE downloads it as a zip file and LOAD reads one back.
+A project zip file that is dropped on the page loads too. A file `main.c` that is dropped on the page
+makes a new project: that `main.c`, and the `fm1project.json` of the demo project.
 PROG-1, the first card of the gallery, loads a demo project in place of the project: a progressive rock
 band in an FM-1, by Hans Dam. SPACE-1, the second card, loads an original piece in the spirit
 of space sounds and synth bass, with laser shots, a flying saucer and sonar pings on the buttons. 
