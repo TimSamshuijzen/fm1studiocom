@@ -107,7 +107,7 @@ You do not have to write the program yourself. The VIBE button, next to ABOUT, t
 write it: you describe a synth, a piece or a game, and the AI writes `main.c`.
 
 1. Write the idea in the dialog, or start from one of its examples: SYNTH, PIECE or GAME.
-2. COPY the prompt, and give it to an AI chat: Claude on claude.ai or in the Claude app, or another AI.
+2. COPY the prompt, and give it to an AI chat.
    The prompt has the idea, the rules for a program on the FM-1, and all of `fm1.h`.
 3. Copy the code of the answer, and paste it on the page with `Ctrl`+`V`, outside the editor. The page
    makes a new project of it, compiles it and runs it. A copy of the whole answer also works: the page
