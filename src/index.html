@@ -601,7 +601,6 @@
   .dialog-text .ports .push { height: 24px; padding: 0 12px; font-size: 10px; }
 
   /* ---- Vibe: prompts for an AI. Each prompt has a COPY button in its top right corner. ---- */
-  .dialog-text h4 { margin: 22px 0 8px; font: 700 17px/1.3 var(--font-label); }
   .dialog-text .choices { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
   .dialog-text .choices .push[aria-pressed="true"] {  /* the choice that shows now: orange, as LOAD on a card */
     color: #241000; background: linear-gradient(#f79a3e, var(--stripe-2) 45%, #cc6410);
@@ -863,8 +862,8 @@ void loop(void) { }                         /* again and again: controls and scr
         <li>Paste the code of the answer on this page with <kbd>Ctrl</kbd> + <kbd>V</kbd>, outside the
           editor: the page makes a new project of it, compiles it and runs it. A copy of the whole answer
           also works.</li>
-        <li>Tell the AI what to change. The follow-up prompts of VIBE give the AI the log of a failed
-          compile and check the program for a real FM-1.</li>
+        <li>Tell the AI what to change. When a compile fails, copy the text of the LOG panel to the
+          AI.</li>
         <li>An AI makes mistakes. Test the program in the simulator before you install it on a real FM-1.</li>
       </ul>
 
@@ -1015,10 +1014,10 @@ void loop(void) { }                         /* again and again: controls and scr
   </dialog>
 
   <!-- VIBE: the dialog that the VIBE button opens. It tells how an AI can write a program, and gives
-       prompts for it, each with a COPY button. The page script fills in the parts of the prompts:
+       a prompt for it, with a COPY button. The page script fills in the parts of the prompt:
        data-fill="idea" gets the text of the idea, data-fill="site" the address of this page, and
        data-text the text block with that id. A data-copy part shows a note here, and COPY puts a
-       text in its place: fm1.h, or the text of the LOG panel. -->
+       text in its place: all of fm1.h. -->
   <dialog class="dialog" id="vibe" aria-labelledby="vibe-title">
     <header class="dialog-head">
       <h2 class="logo" id="vibe-title">VIBE</h2>
@@ -1051,9 +1050,9 @@ void loop(void) { }                         /* again and again: controls and scr
       </div>
       <textarea class="idea" id="vibe-idea" aria-label="Your idea" placeholder="What does the program do?"></textarea>
       <p class="small">Tell what it plays or does, which note keys, buttons and encoders control what, and
-        what the screen shows. The prompts below take this text.</p>
+        what the screen shows. The prompt below takes this text.</p>
 
-      <h3>2. Your AI</h3>
+      <h3>2. Prompt</h3>
       <p>An AI chat writes the program. You bring the code from the chat to this page.</p>
       <ol>
         <li>Open a new chat. Paste the prompt and send it. COPY also copies <code>fm1.h</code>, so that
@@ -1063,7 +1062,7 @@ void loop(void) { }                         /* again and again: controls and scr
           answer also works: the page takes its code. Or save the code as the file <code>main.c</code>,
           and drop the file on this page. SAVE your project first if you want to keep it.</li>
         <li>Tell the AI what to change, and bring the new <code>main.c</code> to this page in the same way.
-          When a compile fails, give it the log (see "Change it" below).</li>
+          When a compile fails, copy the text of the LOG panel to the AI.</li>
       </ol>
       <div class="prompt">
 <pre>Write a program for the M-VAVE FM-1 that does my idea, for FM-1 Studio (<span data-fill="site"></span>). I test it there.
@@ -1082,28 +1081,8 @@ Here is fm1.h:
         <button class="push copy" title="Copy the prompt, with fm1.h">COPY</button>
       </div>
 
-      <h3>3. Change it</h3>
-      <p>Give these prompts to the same AI, in the same chat.</p>
-      <h4>The compile failed</h4>
-      <div class="prompt">
-<pre>FM-1 Studio gives errors for the program. Find their cause, fix it, and check the rest of main.c for the same mistake. Here is the log:
-
-<span data-copy="log">[COPY puts the text of the LOG panel here]</span></pre>
-        <button class="push copy" title="Copy the prompt, with the text of the LOG panel">COPY</button>
-      </div>
-      <h4>Ready for a real FM-1</h4>
-      <div class="prompt">
-<pre>Check main.c for a real FM-1, and fix what breaks a rule: no double (also no constants such as 0.5 and no functions such as sin), no malloc and no printf, an audio() that is fast and does not draw, a loop() that returns soon, draws of only what changed, and small tables and buffers. Then tell me what you changed.</pre>
-        <button class="push copy" title="Copy the prompt">COPY</button>
-      </div>
-      <p>Then click FIRMWARE: it makes a package for a real FM-1, and the log tells when the program does
-        not fit. Give that log to the AI with "The compile failed".</p>
-
       <h3>Good to know</h3>
       <ul>
-        <li>Ask for one change at a time, and play the program after each change.</li>
-        <li>The page keeps nothing between visits: SAVE the project often. To continue another day, LOAD
-          the zip, and give its <code>main.c</code> to the AI.</li>
         <li>An AI makes mistakes. A program that works in the simulator can fail on a real FM-1. You
           install a program at your own risk: read ABOUT, and
           <a href="https://github.com/TimSamshuijzen/fm1studiocom#on-a-real-fm-1" target="_blank" rel="noopener">"On a real FM-1"</a>
@@ -8326,7 +8305,6 @@ const VIBE_IDEAS = {
 const VIBE_SITE = /^https?:$/.test(location.protocol) ? location.origin + location.pathname : 'https://fm1studio.com/';
 const VIBE_COPY = {  // data-copy -> the text that COPY puts in its place
   'fm1.h': () => '```c\n' + text('fm1.h').trimEnd() + '\n```',
-  log: () => $('log').textContent.trim() || '(The log is empty.)',
 };
 
 for (const part of vibe.querySelectorAll('[data-fill="site"]')) part.textContent = VIBE_SITE;
