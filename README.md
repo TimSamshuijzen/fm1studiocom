@@ -9,6 +9,8 @@ package for a real FM-1 from a project (FIRMWARE), and an installer writes it to
 (INSTALL). Code that works in this simulator does not guarantee it will work on a real FM-1.
 
 - **Code editor** with a file list, syntax colours and projects of more than one file.
+- **Vibe coding**: prompts with which an AI chat writes a program from your idea. C code that is pasted
+  on the page becomes a project.
 - **Simulator compiler**: clang 8.0.1 and wasm-ld as WebAssembly (wasm-clang), in a Web Worker. The output
   is one WebAssembly module.
 - **FM-1 simulator**: the front panel with its 240 x 240 screen, 27 note keys, 14 buttons, 7 encoders,
@@ -98,6 +100,26 @@ The API gives the program:
 The screen and input functions have the names and signatures of
 [felucca-bsp](https://github.com/hugelton/felucca-bsp). The demo project `main.c` uses all of the API:
 a small FM synthesizer with an arpeggiator, an echo and its own screen.
+
+### Vibe coding
+
+You do not have to write the program yourself. The VIBE button, next to ABOUT, tells how an AI chat can
+write it: you describe a synth, a piece or a game, and the AI writes `main.c`.
+
+1. Write the idea in the dialog, or start from one of its examples: SYNTH, PIECE or GAME.
+2. COPY the prompt, and give it to an AI chat: Claude on claude.ai or in the Claude app, or another AI.
+   The prompt has the idea, the rules for a program on the FM-1, and all of `fm1.h`.
+3. Copy the code of the answer, and paste it on the page with `Ctrl`+`V`, outside the editor. The page
+   makes a new project of it, compiles it and runs it. A copy of the whole answer also works: the page
+   takes its longest code block.
+4. Tell the AI what to change. The follow-up prompts of the dialog give the AI the log of a failed
+   compile, make the LEDs show which buttons to use, add a help page, and check the program for a real
+   FM-1.
+
+The rules in the prompt are those of a real FM-1: C, `float` and no `double`, no `malloc` and no
+`printf`, a fast `audio()` that does not draw, a `loop()` that returns soon, and LEDs that show which
+buttons do something. An AI makes mistakes: test the program in the simulator, and read "On a real
+FM-1" before you install it. PROG-1, the first card of the gallery, was vibe-coded by Hans Dam.
 
 ### On a real FM-1
 
