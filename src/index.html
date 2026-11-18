@@ -849,7 +849,8 @@ void loop(void) { }                         /* again and again: controls and scr
           <code>flags</code>.</li>
         <li>The page keeps nothing between visits. SAVE downloads the project as a zip file, and LOAD reads
           it back. You can also drop a project zip file on the page. A file <code>main.c</code> that you
-          drop on the page makes a new project with it.</li>
+          drop on the page makes a new project with it, and so does C code that you paste on the page with
+          <kbd>Ctrl</kbd> + <kbd>V</kbd>, outside the editor.</li>
       </ul>
       <p>The screen and input functions have the names and signatures of felucca-bsp
         <a class="ref" href="https://github.com/hugelton/felucca-bsp" target="_blank" rel="noopener" title="felucca-bsp">[4]</a>.</p>
@@ -1023,8 +1024,8 @@ void loop(void) { }                         /* again and again: controls and scr
       <ol>
         <li>Write your idea below, or start from an example.</li>
         <li>Copy the prompt, and give it to an AI chat.</li>
-        <li>The AI writes <code>main.c</code>. Drop the file on this page: the page compiles it and runs it in
-          the simulator. Play it.</li>
+        <li>The AI writes <code>main.c</code>. Copy it, and paste it on this page with <kbd>Ctrl</kbd> +
+          <kbd>V</kbd>: the page compiles it and runs it in the simulator. Play it.</li>
         <li>Tell the AI what to change. When a compile fails, give the AI the log.</li>
         <li>SAVE the project. For a real FM-1, use FIRMWARE or INSTALL (see ABOUT).</li>
       </ol>
@@ -1045,10 +1046,10 @@ void loop(void) { }                         /* again and again: controls and scr
       <ol>
         <li>Open a new chat. Paste the prompt and send it. COPY also copies <code>fm1.h</code>, so that
           the AI knows the API.</li>
-        <li>Save the code of the answer as the file <code>main.c</code>, and drop the file on this page:
-          the page makes a new project of it, and compiles it. Or click NEW, click in the editor, select
-          all of <code>main.c</code> (<kbd>Ctrl</kbd> + <kbd>A</kbd>), paste (<kbd>Ctrl</kbd> +
-          <kbd>V</kbd>) and click COMPILE. SAVE your project first if you want to keep it.</li>
+        <li>Copy the code of the answer, and paste it on this page with <kbd>Ctrl</kbd> + <kbd>V</kbd>,
+          outside the editor: the page makes a new project of it, and compiles it. A copy of the whole
+          answer also works: the page takes its code. Or save the code as the file <code>main.c</code>,
+          and drop the file on this page. SAVE your project first if you want to keep it.</li>
         <li>Tell the AI what to change, and bring the new <code>main.c</code> to this page in the same way.
           When a compile fails, give it the log (see "Change it" below).</li>
       </ol>
@@ -8678,14 +8679,19 @@ async function loadZip(file) {
   }
 }
 
-// Replaces the project with a new project of a file main.c (a File): main.c, and the fm1project.json
-// of the demo project. The project keeps its name, so that a new version of main.c from an AI keeps
-// it too, but not the name of a card of the gallery.
+// Replaces the project with a new project of `code`: main.c, and the fm1project.json of the demo
+// project. The project keeps its name, so that a new version of main.c from an AI keeps it too, but
+// not the name of a card of the gallery.
+function loadMainCode(code) {
+  const name = project.gallery ? 'main' : project.name || 'main';
+  setProject(name, new Map([[MANIFEST, text(MANIFEST)], ['main.c', code]]));
+  compileNew();
+}
+
+// The same for a file main.c (a File).
 async function loadMain(file) {
   try {
-    const name = project.gallery ? 'main' : project.name || 'main';
-    setProject(name, new Map([[MANIFEST, text(MANIFEST)], ['main.c', await file.text()]]));
-    compileNew();
+    loadMainCode(await file.text());
   } catch (error) {
     log(`Cannot load ${file.name}: ${error.message}\n`);
   }
@@ -8723,6 +8729,27 @@ window.addEventListener('drop', (event) => {
   if (!file) log(`Cannot load ${files[0]?.name ?? 'this'}: only a project zip file or main.c can be dropped here\n`);
   else if (githubBusy) log(`Cannot load ${file.name}: a download from GitHub is in progress\n`);
   else if (canReplace()) (file.name === 'main.c' ? loadMain : loadZip)(file);
+});
+
+// C code that is pasted on the page (Ctrl+V), but not in a text field, makes a new project, as a
+// dropped main.c does. Of a whole answer of an AI chat, with the code in ``` blocks, it takes the
+// longest block. Only a program for fm1.h replaces the project: other text does not.
+document.addEventListener('paste', (event) => {
+  const field = ['TEXTAREA', 'SELECT', 'INPUT'].includes(event.target.tagName) && !event.target.readOnly;
+  const pasted = event.clipboardData.getData('text/plain');
+  if (field || install.open || !pasted.trim()) return;  // INSTALL: the project does not change during an install
+  event.preventDefault();
+  const blocks = [...pasted.matchAll(/```[^\n]*\n([\s\S]*?)```/g)].map((match) => match[1]);
+  const code = blocks.sort((a, b) => b.length - a.length)[0] ?? pasted;
+  if (!/#\s*include\s*["<]fm1\.h[">]/.test(code)) {
+    log('Cannot load the pasted text: only C code with #include "fm1.h" can be pasted here\n');
+  } else if (githubBusy) {
+    log('Cannot load the pasted code: a download from GitHub is in progress\n');
+  } else if (canReplace()) {
+    about.close();  // so that the new project shows
+    vibe.close();
+    loadMainCode(code.trim() + '\n');
+  }
 });
 
 // ---- The gallery: demo projects of this page, and firmware from GitHub ----
