@@ -71,6 +71,8 @@ PROG-1, the first card of the gallery, loads a demo project in place of the proj
 band in an FM-1, by Hans Dam. SPACE-1, the second card, loads an original piece in the spirit
 of space sounds and synth bass, with laser shots, a flying saucer and sonar pings on the buttons. 
 GAME-1, the third card, loads a game: NEON REEF, a vertical shooter. Fly with the computer keys `A`, `W`, `S` and `D`, and fire with `J`.
+GAME-2, the fourth card, loads SWOOPERS, an arcade shooter with a swarm of aliens that dive at you. Move
+with the computer keys `A` and `D`, and fire with `J`.
 The page keeps nothing between visits: save a project before you close the page.
 
 ## Write a program
@@ -370,7 +372,7 @@ takes. The file list marks the files that the compiler gets with BUILD.
 
 ## Firmware gallery
 
-The first three cards, PROG-1, SPACE-1 and GAME-1, load the demo projects of the page (see "Use"). Each
+The first four cards, PROG-1, SPACE-1, GAME-1 and GAME-2, load the demo projects of the page (see "Use"). Each
 other card loads one firmware from its own repository on GitHub, at a fixed tag or commit, and compiles it in the
 page.
 
@@ -420,6 +422,7 @@ reads:
 | `prog-1/fm1project.json`, `prog-1/main.c` | The demo project of the PROG-1 card, by Hans Dam |
 | `space-1/fm1project.json`, `space-1/main.c` | The demo project of the SPACE-1 card |
 | `game-1/fm1project.json`, `game-1/main.c` | The demo project of the GAME-1 card: NEON REEF (`src/examples/neonreef`) |
+| `game-2/fm1project.json`, `game-2/main.c` | The demo project of the GAME-2 card: SWOOPERS (`src/vibe-examples/game`) |
 | `compiler-worker.js` | The compiler worker: the simulator compiler |
 | `fm1-worklet.js` | The audio worklet that runs the program |
 | `firmware-worker.js` | The firmware worker: the firmware compiler and the build of a package |
