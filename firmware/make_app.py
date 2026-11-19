@@ -33,7 +33,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 MANIFEST = "fm1project.json"
-MAX_FILES = 570          # as the simulator's compiler
+MAX_FILES = 570          # a zip file with more is no project
 MAX_BYTES = 8 << 20      # of one file
 
 # words.tsv. (web/make_platform.py makes the header of these words for the build in the browser.)

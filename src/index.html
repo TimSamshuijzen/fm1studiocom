@@ -693,7 +693,7 @@
           <div class="wasm-badge" role="img" aria-label="WebAssembly compiler" title="The firmware is compiled in this page, for the processor of the FM-1 (JieLi pi32v2).
 Compiler: pi32v2-llvm by Julius Vitkauskas (github.com/jvitkauskas/pi32v2-llvm, Apache-2.0 with LLVM exceptions):
 clang 23.1.5 and ld.lld, release pi32v2-23.1.5-5, built as WebAssembly with Emscripten 7.0.0.
-Loaded from fwsc/ of this site the first time (52 MB).
+The same compiler as for the simulator, loaded from fwsc/ of this site when the page opens.
 It runs in a Web Worker; its output is a .fwsc package for a real FM-1.">
             <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M0 0H37A13 13 0 0 0 63 0H100V100H0Z"/><text x="96" y="94">WA</text></svg>
           </div>
@@ -761,11 +761,13 @@ It runs in a Web Worker; its output is a .fwsc package for a real FM-1.">
             </div>
             <div class="progress" id="compile-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
               aria-label="Compile progress, an estimate" title="Compile progress (an estimate)"><i></i></div>
-            <!-- The compiler of the simulator: wasm-clang, as WebAssembly (wasm-clang/, run by compiler-worker.js). -->
+            <!-- The compiler of the simulator: pi32v2-llvm with its WebAssembly target, as WebAssembly (fwsc/, run by compiler-worker.js). -->
             <div class="wasm-logo" role="img" aria-label="WebAssembly compiler" title="The program is compiled in this page, to WebAssembly.
-Compiler: wasm-clang by Ben Smith (github.com/binji/wasm-clang, Apache-2.0):
-clang 8.0.1 and wasm-ld, built as WebAssembly, from commit 648c4a8 of its repository.
-Loaded from wasm-clang/ of this site the first time (about 60 MB).
+Compiler: pi32v2-llvm by Julius Vitkauskas (github.com/jvitkauskas/pi32v2-llvm, Apache-2.0 with LLVM exceptions):
+clang 23.1.5 and wasm-ld, release pi32v2-23.1.5-5, built as WebAssembly with Emscripten 7.0.0,
+with the targets WebAssembly and pi32v2: the same compiler as for the firmware.
+Loaded from fwsc/ of this site the first time (53 MB).
+An fm1.h program is C with float only, as on a real FM-1: each file is also compiled for the FM-1, to check it.
 It runs in a Web Worker; the simulator runs its output, fm1.wasm.">
               <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M0 0H37A13 13 0 0 0 63 0H100V100H0Z"/><text x="96" y="94">WA</text></svg>
             </div>
@@ -884,8 +886,7 @@ void loop(void) { }                         /* again and again: controls and scr
 
       <h3>Firmware for a real FM-1</h3>
       <p>The FIRMWARE button makes an installable <code>.fwsc</code> package of an <code>fm1.h</code> project
-        and downloads it. The first time, it loads the firmware compiler (52 MB): clang for the processor
-        of the FM-1, the JieLi pi32v2
+        and downloads it. It uses the compiler of COMPILE, for the processor of the FM-1: the JieLi pi32v2
         <a class="ref" href="https://github.com/jvitkauskas/pi32v2-llvm" target="_blank" rel="noopener" title="pi32v2-llvm">[5]</a>.
         An adapter gives the program the functions of <code>fm1.h</code> on fm1-base
         <a class="ref" href="https://github.com/charlesvestal/fm1-base" target="_blank" rel="noopener" title="fm1-base">[3]</a>,
@@ -905,13 +906,16 @@ void loop(void) { }                         /* again and again: controls and scr
         <a href="https://github.com/TimSamshuijzen/fm1studiocom#on-a-real-fm-1" target="_blank" rel="noopener">"On a real FM-1"</a>
         in the README: how to install a package, which FM-1 units it is for, and what to do when an install
         goes wrong. Keep M-VAVE's <code>FM-1.fwsc</code> on your computer.</p>
-      <p>On the FM-1, a program must keep to more rules than in this page:</p>
+      <p>COMPILE already keeps a program to three rules of the FM-1, as FIRMWARE does:</p>
       <ul>
         <li>C only, no C++.</li>
-        <li><code>float</code> only. A <code>double</code> stops the build: write <code>0.5f</code>,
-          <code>sinf</code>, <code>powf</code>.</li>
+        <li><code>float</code> only. A <code>double</code> stops the compile, and the LOG panel names the
+          functions: write <code>0.5f</code>, <code>sinf</code>, <code>powf</code>.</li>
         <li>No <code>malloc</code> and no <code>printf</code>. The <code>float</code> maths and the string
-          functions are there.</li>
+          functions of the FM-1 are there.</li>
+      </ul>
+      <p>On the FM-1, a program must also keep to more rules than in this page:</p>
+      <ul>
         <li>464 KB of memory for the program and the platform together.</li>
         <li><code>audio()</code> is an interrupt. Do not draw in it, and draw only what changed.</li>
       </ul>
@@ -921,32 +925,36 @@ void loop(void) { }                         /* again and again: controls and scr
 
       <h3>How it works</h3>
       <ol>
-        <li><strong>The simulator compiler</strong> is wasm-clang by Ben Smith
-          <a class="ref" href="https://github.com/binji/wasm-clang" target="_blank" rel="noopener" title="wasm-clang">[2]</a>:
-          clang 8.0.1 and wasm-ld as WebAssembly, in a Web Worker. Its files are those of a fixed commit of its
-          repository, on this site (about 60 MB the first time). The output is one WebAssembly module.</li>
+        <li><strong>The compiler</strong> is pi32v2-llvm by Julius Vitkauskas
+          <a class="ref" href="https://github.com/jvitkauskas/pi32v2-llvm" target="_blank" rel="noopener" title="pi32v2-llvm">[5]</a>:
+          clang 23.1.5, wasm-ld and ld.lld, built from its source as WebAssembly with Emscripten
+          <a class="ref" href="https://emscripten.org" target="_blank" rel="noopener" title="Emscripten">[7]</a>
+          by FM-1 Studio, with two targets: WebAssembly and the FM-1's pi32v2. The page loads it one time
+          (53 MB the first time).</li>
+        <li><strong>The simulator compiler</strong> uses it in a Web Worker, for WebAssembly: the output is one
+          WebAssembly module. It also compiles each file of an <code>fm1.h</code> program for the FM-1, to
+          check that it has no <code>double</code>. A firmware of the gallery gets the C library of WASI from
+          wasm-clang by Ben Smith
+          <a class="ref" href="https://github.com/binji/wasm-clang" target="_blank" rel="noopener" title="wasm-clang">[2]</a>.</li>
         <li><strong>The simulator</strong> runs that module on the audio thread of the browser (an
           AudioWorklet). For each block of 256 frames it calls <code>loop()</code> and then
           <code>audio()</code>. The page shows the screen and the LEDs, and sends the keys, the encoders
           and the MIDI messages.</li>
-        <li><strong>The firmware compiler</strong> is pi32v2-llvm by Julius Vitkauskas
-          <a class="ref" href="https://github.com/jvitkauskas/pi32v2-llvm" target="_blank" rel="noopener" title="pi32v2-llvm">[5]</a>:
-          clang 23.1.5 and ld.lld for pi32v2, built from its source as WebAssembly with Emscripten
-          <a class="ref" href="https://emscripten.org" target="_blank" rel="noopener" title="Emscripten">[7]</a>
-          by FM-1 Studio, in a second Web Worker. It does the steps of fm1-base's own build, and for a
-          firmware of the gallery those of the firmware's own build. For the projects that were compared,
-          the package is the same bytes as the one from that build with the same compiler.</li>
+        <li><strong>The firmware compiler</strong> uses it in a second Web Worker, for the FM-1. It does the
+          steps of fm1-base's own build, and for a firmware of the gallery those of the firmware's own build.
+          For the projects that were compared, the package is the same bytes as the one from that build with
+          the same compiler.</li>
       </ol>
-      <p>The WebAssembly logos in the PROGRAM and FIRMWARE panels name their compiler in their hints. The
-        application is one HTML file, the files of the firmware compiler, and the installer. The README
+      <p>The WebAssembly logos in the PROGRAM and FIRMWARE panels name the compiler in their hints. The
+        application is one HTML file, the files of the compiler, and the installer. The README
         <a class="ref" href="https://github.com/TimSamshuijzen/fm1studiocom#how-it-works" target="_blank" rel="noopener" title="README of FM-1 Studio">[1]</a>
         tells more.</p>
 
       <h3>Limits</h3>
       <ul>
-        <li>The simulator compiler is clang 8.0.1. A program whose main loop does not return cannot run.
-          A page that is opened from disk loads the simulator compiler from fm1studio.com.</li>
-        <li>A project holds text files only: about 570 files and folders at most.</li>
+        <li>The simulator compiler takes C only. A program whose main loop does not return cannot run.
+          A page that is opened from disk loads the compiler from fm1studio.com.</li>
+        <li>A project holds text files only.</li>
         <li>The LEDs are on or off: the dim levels of some firmware are not shown.</li>
         <li>GitHub gives the list of files of a repository 60 times in an hour to one address. A firmware
           of the gallery uses one or more of these for its first load.</li>
@@ -971,9 +979,9 @@ void loop(void) { }                         /* again and again: controls and scr
         <tr><td><a href="https://github.com/TimSamshuijzen/fm1studiocom/blob/main/firmware/README.md" target="_blank" rel="noopener">firmware/README.md</a></td>
           <td>The adapter for <code>fm1.h</code> on fm1-base, and a build on your own computer with JieLi's compiler</td></tr>
         <tr><td><a href="https://github.com/TimSamshuijzen/fm1studiocom/blob/main/src/fwsc/README.md" target="_blank" rel="noopener">src/fwsc/README.md</a></td>
-          <td>The compiler for the FM-1 as WebAssembly: how another page can use it</td></tr>
+          <td>The compiler for WebAssembly and for the FM-1, as WebAssembly: how another page can use it</td></tr>
         <tr><td><a href="https://github.com/TimSamshuijzen/fm1studiocom/blob/main/src/wasm-clang/README.md" target="_blank" rel="noopener">src/wasm-clang/README.md</a></td>
-          <td>The simulator compiler: its files, where they come from, and how to check them</td></tr>
+          <td>The C library of WASI for the firmwares of the gallery: where it comes from, and how to check it</td></tr>
         <tr><td><a href="https://github.com/TimSamshuijzen/fm1studiocom/blob/main/firmware/web/README.md" target="_blank" rel="noopener">firmware/web/README.md</a></td>
           <td>How that compiler is built, and how to check a package</td></tr>
         <tr><td><a href="https://github.com/TimSamshuijzen/fm1studiocom/blob/main/src/install/README.md" target="_blank" rel="noopener">src/install/README.md</a></td>
@@ -993,8 +1001,8 @@ void loop(void) { }                         /* again and again: controls and scr
         <li><a href="https://github.com/TimSamshuijzen/fm1studiocom" target="_blank" rel="noopener">FM-1 Studio</a>,
           Tim Samshuijzen. The source code and the documents of this application. GPL-3.0-only.</li>
         <li><a href="https://github.com/binji/wasm-clang" target="_blank" rel="noopener">wasm-clang</a>,
-          Ben Smith. clang 8.0.1 and wasm-ld as WebAssembly: the simulator compiler, from a fixed commit of
-          its repository. Apache-2.0.</li>
+          Ben Smith. Its sysroot, from a fixed commit of its repository: the C library of WASI (wasi-libc) for
+          the firmwares of the gallery in the simulator. Apache-2.0; wasi-libc: MIT.</li>
         <li><a href="https://github.com/charlesvestal/fm1-base" target="_blank" rel="noopener">fm1-base</a>,
           Charles Vestal. The open platform for FM-1 firmware: screen, keys, LEDs, sound, USB MIDI, update
           entry, safe mode, the build tool, and the installer of this page (with work of Leo Kuroshita and
@@ -1003,8 +1011,9 @@ void loop(void) { }                         /* again and again: controls and scr
           Leo Kuroshita, Hügelton Instruments. The chip and board layer of the FM-1, the update loader, the
           package format and the install tools. MPL-2.0.</li>
         <li><a href="https://github.com/jvitkauskas/pi32v2-llvm" target="_blank" rel="noopener">pi32v2-llvm</a>,
-          Julius Vitkauskas. LLVM with a target for JieLi's pi32v2 processor: the firmware compiler, release
-          pi32v2-23.1.5-5, built here as WebAssembly. Apache-2.0 with LLVM exceptions.</li>
+          Julius Vitkauskas. LLVM with a target for JieLi's pi32v2 processor: the compiler of the simulator
+          and of the firmware, release pi32v2-23.1.5-5, built here as WebAssembly. Apache-2.0 with LLVM
+          exceptions.</li>
         <li><a href="https://github.com/jvitkauskas/pi32v2-isa" target="_blank" rel="noopener">pi32v2-isa</a>,
           Julius Vitkauskas. Documents of the pi32v2 instruction set, and a runtime library.</li>
         <li><a href="https://emscripten.org" target="_blank" rel="noopener">Emscripten</a>. The tools that
@@ -1012,7 +1021,7 @@ void loop(void) { }                         /* again and again: controls and scr
         <li><a href="https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK" target="_blank" rel="noopener">AC79 SDK</a>,
           JieLi. Three files of it go into each package. Apache-2.0.</li>
         <li><a href="https://llvm.org" target="_blank" rel="noopener">LLVM</a>. clang and lld: the base of
-          both compilers.</li>
+          the compiler, with its WebAssembly target.</li>
       </ol>
     </div>
   </dialog>
@@ -1441,7 +1450,30 @@ int fm1_midi_take(uint32_t *packet);
 <script type="text/plain" id="fm1_runtime.c">
 /* fm1_runtime.c - simulator side of fm1.h. Linked into each compiled program.
  * The fm1_sim_ functions are called by the audio worklet (fm1-worklet.js). */
+#include <stddef.h>
 #include "fm1.h"
+
+/* ---- The part of the C library that the FM-1's platform has (felucca-bsp's chip/libc.c). The
+ * adapter's fm1_libc.c, also linked into each program, has the other functions of its headers. ---- */
+
+void *memcpy(void *to, const void *from, size_t n) {
+  unsigned char *d = to;
+  const unsigned char *s = from;
+  while (n--) *d++ = *s++;
+  return to;
+}
+
+void *memset(void *to, int value, size_t n) {
+  unsigned char *d = to;
+  while (n--) *d++ = (unsigned char)value;
+  return to;
+}
+
+int memcmp(const void *a, const void *b, size_t n) {
+  const unsigned char *x = a, *y = b;
+  for (; n; n--, x++, y++) if (*x != *y) return *x - *y;
+  return 0;
+}
 
 /* ---- Audio ---- */
 
@@ -7860,42 +7892,40 @@ void loop(void) {
 <!-- ==== Compiler worker: started from this text by the page script ==== -->
 <script type="text/plain" id="compiler-worker.js">
 // Compiles an FM-1 project (C files) to a WebAssembly module, in the browser: the simulator compiler.
-// The compiler is wasm-clang by Ben Smith (github.com/binji/wasm-clang, Apache-2.0): clang 8.0.1 and
-// wasm-ld built as WebAssembly, the files of a fixed commit of its repository (wasm-clang/README.md).
-// The page puts two constants in front of this code: TOOLS (the address of the folder wasm-clang/)
-// and FILES (the text of fm1.h and fm1_runtime.c).
+// The compiler is the one of fwsc/ (fwsc/README.md): clang 23.1.5 and wasm-ld of pi32v2-llvm by Julius
+// Vitkauskas, built as WebAssembly with two targets: WebAssembly, and the FM-1's processor (pi32v2). The
+// firmware worker uses the same compiler.
+//
+// An fm1.h program is compiled as on a real FM-1: C only, with the C library of the FM-1 (the headers of
+// firmware/adapter/libc, the adapter's fm1_libc.c, and memcpy, memset and memcmp in fm1_runtime.c). Each
+// file of the program is also compiled for the FM-1, with the options of the firmware build: an object file
+// that needs a routine for double fails, as in the firmware build (the FM-1 has float only).
+// A program with the web_ interface (a firmware of the gallery) has its own FM-1 inside: it gets the C
+// library of WASI (wasi-libc, from the sysroot of wasm-clang: sysroot.tar), and no check for double.
+//
+// The page puts three constants in front of this code: BASE (the address of fwsc/), SYSROOT (the address of
+// sysroot.tar) and FILES (the text of fm1.h and fm1_runtime.c). The first message of the page is
+// { module }: llvm.wasm compiled, from an earlier worker, or null. The worker gives the module that it uses
+// to the page ({ type: 'module' }), for the next worker.
 
-importScripts(TOOLS + 'shared.js'); // defines API
-
-// The compiler asks for the time: for __DATE__ and __TIME__, and when it stops on an error.
-// shared.js gives it no clock, and the compiler then stops with no message of its own.
-// shared.js starts each tool with WebAssembly.instantiate: the clock goes in there.
-const instantiate = WebAssembly.instantiate;
-WebAssembly.instantiate = async (module, imports) => {
-  let memory = null;
-  if (imports && imports.wasi_unstable) {
-    imports.wasi_unstable.clock_time_get = (clock, precision, timeOut) => {
-      new DataView(memory.buffer).setBigUint64(timeOut, BigInt(Date.now()) * 1000000n, true); // nanoseconds
-      return 0;
-    };
-  }
-  const instance = await instantiate(module, imports);
-  memory = instance.exports.memory;
-  return instance;
-};
-
-const CLANG_ARGS = [
-  '-cc1', '-emit-obj', '-disable-free',
-  '-isysroot', '/',
-  '-internal-isystem', '/include/c++/v1',
-  '-internal-isystem', '/include',
-  '-internal-isystem', '/lib/clang/8.0.1/include',
-  '-I', 'fm1', // the folder of fm1.h
-  '-ferror-limit', '19', '-O2', '-Wall',
-  '-fno-common', // WebAssembly has no common symbols: without this, clang stops on `int x;` in C
-];
+importScripts(BASE + 'llvm.js'); // defines createLLVM
 
 const MANIFEST = 'fm1project.json';
+const CWD = '/work/project'; // the folder of the project's files: the compiler's messages name them from here
+const SOURCE = /\.(c|cc|cpp|cxx)$/i;
+
+// The options of a C file of the program in the firmware build (build_app of fm1-base's tools/build.py, as
+// firmware-worker.js has them), with fm1.h in /fm1.
+const C_FLAGS = ['-std=gnu11', '-ffunction-sections', '-fno-builtin', '-Wall', '-Wno-unused-function', '-ffp-contract=off',
+  '-nostdlibinc', '-I/fm1'];
+// For the simulator: WebAssembly, at -O2 for speed.
+const SIM_FLAGS = ['-target', 'wasm32-unknown-unknown', '-O2', ...C_FLAGS];
+// For the check: the FM-1, at the level of the firmware build, without warnings (the simulator's compile gave them).
+const FM1_FLAGS = ['-target', 'pi32v2', '-mcpu=r3', '-Os', ...C_FLAGS, '-w'];
+// A program with the web_ interface: WebAssembly at -O2, with the C library of WASI.
+const WEB_FLAGS = ['-target', 'wasm32-wasi', '-O2', '-Wall', '-nostdlibinc', '-isystem', '/sysroot/include', '-I/fm1'];
+// The C library of the FM-1: after the folders of the project, as in the firmware build.
+const FM1_LIBC = '-I/fm1/libc';
 
 // The functions that the audio worklet calls.
 const EXPORTS = [
@@ -7904,15 +7934,14 @@ const EXPORTS = [
   'fm1_sim_key', 'fm1_sim_leds', 'fm1_sim_enc', 'fm1_sim_master', 'fm1_sim_midi',
 ];
 
-const FOLDER = 'project/'; // the folder of the project files in the compiler's file system
-const ROOM = 570;          // about the count of project files and folders that this file system has room for
+// A double in the code brings in these routines on the FM-1: it has no hardware for them (as firmware-worker.js).
+const SOFT_DOUBLE = /^__(?:add|sub|mul|div|neg|cmp|eq|ne|lt|le|gt|ge|un|extendsf|truncdf|fixdf|fixunsdf|floatsidf|floatunsidf|floatdidf)\w*df\w*$/;
 
-// Shows compiler output without colour codes, the folder of the project, and the tool commands.
-let quiet = false; // true while a new file system is made: its messages are not shown
-function log(text) {
-  text = text.replace(/\x1b\[[0-9;]*m/g, '').replaceAll(FOLDER, '');
-  if (!quiet && !/^> (clang|wasm-ld) /.test(text)) postMessage({ type: 'log', text });
-}
+const encoder = new TextEncoder();
+const log = (text) => postMessage({ type: 'log', text });
+
+// A failed step: its text is in the log already.
+class Stopped extends Error {}
 
 async function fetchOk(url) {
   const response = await fetch(url);
@@ -7920,49 +7949,211 @@ async function fetchOk(url) {
   return response;
 }
 
-// Each file of the compiler site is loaded one time.
-const loaded = {}; // url -> promise
-const loadOnce = (url, load) => (loaded[url] ||= load(url));
+// ---- The files, loaded one time ----
 
-// The compiler's file system has room for about 1000 files and folders, of which the C and C++
-// libraries use 445, and it cannot delete one. Thus each compile gets a new file system: a file
-// that the user deleted or renamed is not there, and a large project can be compiled again.
-let api = null;
-const modules = {}; // the compiled tools, for each file system
-let runtime = null; // obj/fm1_runtime.o: the simulator runtime, compiled one time
+let llvmModule = null;     // llvm.wasm, compiled
+const base = new Map();    // the files of each compile: clang's C headers, fm1.h and the headers of the FM-1's C library
+const once = new Map();    // the objects that are compiled one time: fm1_runtime.o and fm1_libc.o
+const builtins = new Map(); // compiler-rt's builtins for the FM-1, for the check for double
+let sysroot = null;        // promise of the files of the C library of WASI
 
-async function newFileSystem() {
-  api = new API({
-    readBuffer: (url) => loadOnce(url, async () => (await fetchOk(url)).arrayBuffer()),
-    compileStreaming: (url) => loadOnce(url, async () => WebAssembly.compile(await (await fetchOk(url)).arrayBuffer())),
-    hostWrite: log,
-    clang: TOOLS + 'clang.wasm',
-    lld: TOOLS + 'lld.wasm',
-    memfs: TOOLS + 'memfs.wasm',
-    sysroot: TOOLS + 'sysroot.tar',
+async function load(module) {
+  const platform = await (await fetchOk(BASE + 'platform.json')).json();
+  for (const [key, text] of Object.entries(platform.text)) {
+    if (key.startsWith('res/')) base.set('/' + key, encoder.encode(text));
+    else if (key.startsWith('app/adapter/libc/')) base.set('/fm1/libc/' + key.slice(17), encoder.encode(text));
+  }
+  base.set('/fm1/fm1.h', encoder.encode(FILES['fm1.h']));
+  builtins.set('/rt/libclang_rt.builtins.a', Uint8Array.from(atob(platform.binary['rt/libclang_rt.builtins.a']), (c) => c.charCodeAt(0)));
+  if (module) llvmModule = module;
+  else {
+    try {
+      llvmModule = await WebAssembly.compileStreaming(fetchOk(BASE + 'llvm.wasm'));
+    } catch (error) { // a server that does not say that the file is WebAssembly
+      llvmModule = await WebAssembly.compile(await (await fetchOk(BASE + 'llvm.wasm')).arrayBuffer());
+    }
+  }
+  postMessage({ type: 'module', module: llvmModule });
+  // The simulator side of fm1.h, and the C library of the adapter (with fastmath.h of fm1-base, which it includes).
+  const files = new Map([
+    ['/once/fm1_runtime.c', FILES['fm1_runtime.c']],
+    ['/once/fm1_libc.c', platform.text['app/adapter/fm1_libc.c']],
+    ['/once/fastmath.h', platform.text['fm1-base/include/fastmath.h']],
+  ].map(([path, text]) => [path, encoder.encode(text)]));
+  for (const name of ['fm1_runtime', 'fm1_libc']) {
+    await compileUnit([...SIM_FLAGS, FM1_LIBC, '-c', `${name}.c`, '-o', `/obj/${name}.o`], [base, files], '/once');
+    once.set(`/obj/${name}.o`, files.get(`/obj/${name}.o`));
+  }
+}
+
+// The C library of WASI, from the sysroot of wasm-clang (a tar file): its headers without those of C++, the
+// library and compiler-rt's builtins.
+const SYSROOT_LIBS = {
+  'lib/wasm32-wasi/libc.a': '/sysroot/lib/libc.a',
+  'lib/clang/8.0.1/lib/wasi/libclang_rt.builtins-wasm32.a': '/sysroot/lib/libclang_rt.builtins-wasm32.a',
+};
+const loadSysroot = () => (sysroot ||= (async () => {
+  const tar = new Uint8Array(await (await fetchOk(SYSROOT)).arrayBuffer());
+  const files = new Map();
+  const field = (at, length) => new TextDecoder().decode(tar.subarray(at, at + length)).replace(/\0[\s\S]*$/, '');
+  for (let at = 0; at + 512 <= tar.length;) {
+    const path = field(at, 100);
+    if (!path) break;
+    const size = parseInt(field(at + 124, 12).trim() || '0', 8);
+    const data = tar.subarray(at + 512, at + 512 + size);
+    if (path.startsWith('include/') && !path.startsWith('include/c++/') && !path.endsWith('/')) files.set('/sysroot/' + path, data);
+    else if (SYSROOT_LIBS[path]) files.set(SYSROOT_LIBS[path], data);
+    at += 512 + Math.ceil(size / 512) * 512;
+  }
+  return files;
+})());
+
+// ---- One run of a tool ----
+
+const dirname = (path) => path.slice(0, path.lastIndexOf('/'));
+
+// Runs clang or wasm-ld one time, in a new instance of the program (a tool cannot run two times in one
+// instance). The instance gets the files of `maps` (each path -> bytes), and runs in the folder `cwd`.
+// Returns the exit code, the text that the tool wrote, and those of the files `outputs` that it made.
+async function run(args, maps, outputs = [], cwd = CWD) {
+  let text = '';
+  const llvm = await createLLVM({
+    instantiateWasm(imports, done) {
+      WebAssembly.instantiate(llvmModule, imports).then((instance) => done(instance, llvmModule));
+      return {};
+    },
+    print: (line) => { text += line + '\n'; },
+    printErr: (line) => { text += line + '\n'; },
   });
-  api.moduleCache = modules;
-  await api.ready;
-  api.memfs.addDirectory('fm1');
-  api.memfs.addDirectory('obj');
-  addFile('fm1/fm1.h', FILES['fm1.h']);
-  if (runtime) api.memfs.addFile('obj/fm1_runtime.o', runtime);
+  for (const map of maps) {
+    for (const [path, bytes] of map) {
+      llvm.FS.mkdirTree(dirname(path));
+      llvm.FS.writeFile(path, bytes);
+    }
+  }
+  for (const path of outputs) llvm.FS.mkdirTree(dirname(path));
+  llvm.FS.mkdirTree(cwd);
+  llvm.FS.chdir(cwd);
+  let code;
+  try {
+    code = llvm.callMain(args);
+  } catch (error) {
+    if (typeof error.status !== 'number') throw error;
+    code = error.status; // the tool called exit()
+  }
+  const made = new Map();
+  for (const path of outputs) {
+    try { made.set(path, llvm.FS.readFile(path)); } catch (error) { /* the tool did not make it */ }
+  }
+  return { code, text, made };
 }
 
-const addFile = (path, text) => api.memfs.addFile(path, new TextEncoder().encode(text));
-
-async function clang(...args) {
-  await api.run(await api.getModule(api.clangFilename), 'clang', ...CLANG_ARGS, ...args);
+// Shows the text of a tool: without colour codes, and without the folder of the project.
+function show(text) {
+  if (text.trim()) log(text.replace(/\x1b\[[0-9;]*m/g, '').replaceAll(CWD + '/', ''));
 }
 
-// Done one time: load the compiler and compile the simulator runtime.
-const ready = (async () => {
-  await newFileSystem();
-  addFile('fm1/fm1_runtime.c', FILES['fm1_runtime.c']);
-  await clang('-x', 'c', '-o', 'obj/fm1_runtime.o', 'fm1/fm1_runtime.c');
-  runtime = api.memfs.getFileContents('obj/fm1_runtime.o').slice();
-})();
-ready.then(() => postMessage({ type: 'ready', ok: true }), () => postMessage({ type: 'ready', ok: false }));
+// Compiles one C file to the object file of `-o` (an absolute path), which goes into the last of `maps`.
+// clang's driver cannot start a process here. So "clang -###" gives its jobs, and each job is a run of its own.
+async function compileUnit(args, maps, cwd = CWD) {
+  const target = args[args.indexOf('-o') + 1];
+  const list = await run(['clang', '-###', '-resource-dir', '/res', ...args], maps, [], cwd);
+  const jobs = list.text.split('\n').filter((line) => line.startsWith(' "')).map((line) =>
+    [...line.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((word) => word[1].replace(/\\(.)/g, '$1')));
+  if (list.code || !jobs.length) {
+    show(list.text);
+    throw new Stopped();
+  }
+  for (const job of jobs) {
+    const result = await run(job.slice(1), maps, [target], cwd);
+    show(result.text);
+    if (result.code) throw new Stopped();
+    for (const [path, bytes] of result.made) maps.at(-1).set(path, bytes);
+  }
+  if (!maps.at(-1).has(target)) throw new Error(`The compiler made no ${target}.`);
+}
+
+// ---- The check for double ----
+
+// An ELF file (32-bit, low byte first): its sections, and its symbols with the index of their section
+// (0: the file does not define the symbol).
+function elfFile(data) {
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const text = (from) => {
+    let end = from;
+    while (data[end]) end++;
+    return new TextDecoder().decode(data.subarray(from, end));
+  };
+  const at = view.getUint32(0x20, true), size = view.getUint16(0x2E, true);
+  const sections = Array.from({ length: view.getUint16(0x30, true) }, (_, index) => {
+    const head = (field) => view.getUint32(at + index * size + field * 4, true);
+    return { name: head(0), type: head(1), offset: head(4), size: head(5), link: head(6), info: head(7) };
+  });
+  const names = sections[view.getUint16(0x32, true)].offset;
+  for (const section of sections) section.name = text(names + section.name);
+  const table = sections.find((section) => section.type === 2); // the symbols
+  const symbols = [];
+  for (let entry = table.offset; entry < table.offset + table.size; entry += 16) {
+    symbols.push({ name: text(sections[table.link].offset + view.getUint32(entry, true)), section: view.getUint16(entry + 14, true) });
+  }
+  return { view, sections, symbols };
+}
+
+// The functions of an object file of the FM-1 that call a routine for double, each with those routines.
+// Each function has a section of its own (-ffunction-sections), whose relocations name what it calls.
+function doubleCalls(data) {
+  const { view, sections, symbols } = elfFile(data);
+  const calls = new Map(); // function -> Set of routines
+  for (const relocations of sections.filter((section) => section.type === 4 || section.type === 9)) { // RELA, REL
+    const step = relocations.type === 4 ? 12 : 8;
+    const name = sections[relocations.info].name.replace(/^\.text\./, '');
+    for (let entry = relocations.offset; entry < relocations.offset + relocations.size; entry += step) {
+      const symbol = symbols[view.getUint32(entry + 4, true) >>> 8];
+      if (symbol && SOFT_DOUBLE.test(symbol.name)) {
+        if (!calls.has(name)) calls.set(name, new Set());
+        calls.get(name).add(symbol.name);
+      }
+    }
+  }
+  return calls;
+}
+
+// The check of the firmware build for double. Each file of the program is compiled for the FM-1 with the
+// options of that build, and the object files are linked as there: with --gc-sections and compiler-rt's
+// builtins at the end. The ELF file then has a routine for double when the code that setup(), audio() and
+// loop() reach needs one, as in the firmware build. The LOG names the functions that call it.
+async function checkFloat(sources, maps, options) {
+  const objects = [], calls = [];
+  for (const [index, path] of sources.entries()) {
+    objects.push(`/work/fm1/${index}.o`);
+    await compileUnit([...FM1_FLAGS, ...options, '-c', path, '-o', objects.at(-1)], maps);
+    calls.push(doubleCalls(maps.at(-1).get(objects.at(-1))));
+  }
+  const elf = '/work/fm1/program.elf';
+  const link = await run(['ld.lld', '--gc-sections', '-e', 'setup', '-u', 'audio', '-u', 'loop', '--unresolved-symbols=ignore-all',
+    ...objects, '/rt/libclang_rt.builtins.a', '-o', elf], [...maps, builtins], [elf]);
+  if (link.code || !link.made.has(elf)) {
+    show(link.text);
+    throw new Stopped();
+  }
+  const kept = new Set(elfFile(link.made.get(elf)).symbols.filter((symbol) => symbol.section).map((symbol) => symbol.name));
+  const routines = [...kept].filter((name) => SOFT_DOUBLE.test(name)).sort();
+  if (!routines.length) {
+    log('  ok    no double in the code (the FM-1 has float only)\n');
+    return;
+  }
+  const errors = [];
+  sources.forEach((path, index) => {
+    const functions = [...calls[index].keys()].filter((name) => kept.has(name)).sort();
+    const needs = [...new Set(functions.flatMap((name) => [...calls[index].get(name)]))].sort();
+    if (functions.length) errors.push(`${path}: a double in ${functions.join(', ')} (it needs ${needs.slice(0, 6).join(', ')})`);
+  });
+  if (!errors.length) errors.push(`a double in the code (it needs ${routines.slice(0, 6).join(', ')})`);
+  for (const error of errors) log(`  FAIL  ${error}: the FM-1 has float only. Write 0.5f, sinf, powf.\n`);
+  throw new Stopped();
+}
+
+// ---- The build ----
 
 // The optional project file fm1project.json (fm1.h tells what it can have).
 function readManifest(files) {
@@ -7985,78 +8176,64 @@ function readManifest(files) {
   return manifest;
 }
 
-// `files` has the text of each project file by its path. The .cpp, .cc, .cxx and .c files are
-// compiled (or only the "sources" of fm1project.json); the other files are there for #include.
-// Returns the module, and the "web" part of fm1project.json for the audio worklet.
+// `files` has the text of each project file by its path. The .c files are compiled (or only the "sources" of
+// fm1project.json); the other files are there for #include. Returns the module, and the "web" part of
+// fm1project.json for the audio worklet.
 async function build(files) {
   const manifest = readManifest(files);
-  quiet = true;
-  try {
-    await newFileSystem();
-  } finally {
-    quiet = false;
+  const web = manifest.web != null;
+  const sources = manifest.sources ?? Object.keys(files).filter((path) => SOURCE.test(path)).sort();
+  if (!sources.length) throw new Error('The project has no .c file.');
+  for (const path of sources) {
+    if (!/\.c$/i.test(path)) throw new Error(`${path}: the compiler takes C only. It has no C++ library, as the FM-1 has none.`);
   }
-  const folders = new Set();
-  let count = 0;
-  try {
-    for (const [path, text] of Object.entries(files)) {
-      // A file that is not text (a picture, a sound) has NUL characters. The compiler cannot use it.
-      if (text.includes('\0')) continue;
-      const parts = (FOLDER + path).split('/');
-      for (let depth = 1; depth < parts.length; depth++) {
-        const parent = parts.slice(0, depth).join('/');
-        if (folders.has(parent)) continue;
-        api.memfs.addDirectory(parent);
-        folders.add(parent);
-        count++;
-      }
-      addFile(FOLDER + path, text);
-      count++;
-    }
-  } catch (error) {
-    // The file system stops with a trap when it is full.
-    throw new Error(`The project has too many files for the compiler: it stopped after ${count} text ` +
-      `files and folders. There is room for about ${ROOM}.`);
+  const work = new Map(); // the files of this build: path -> bytes
+  for (const [path, text] of Object.entries(files)) {
+    // A file that is not text (a picture, a sound) has NUL characters. The compiler cannot use it.
+    if (!text.includes('\0')) work.set(`${CWD}/${path}`, encoder.encode(text));
   }
-  const sources = manifest.sources ??
-    Object.keys(files).filter((path) => /\.(c|cc|cpp|cxx)$/i.test(path)).sort();
-  if (!sources.length) throw new Error('The project has no .cpp or .c file.');
+  const maps = web ? [base, await loadSysroot(), work] : [base, work];
   const options = [
-    '-I', FOLDER.slice(0, -1),
-    ...(manifest.include ?? []).flatMap((path) => ['-I', FOLDER + path]),
+    '-I.', ...(manifest.include ?? []).map((path) => '-I' + path), ...(web ? [] : [FM1_LIBC]),
     ...(manifest.define ?? []).map((define) => '-D' + define),
     ...(manifest.flags ?? []),
   ];
   const objects = [];
-  for (const path of sources) {
+  for (const [index, path] of sources.entries()) {
     log(`compile ${path}\n`);
-    const object = `obj/${objects.length}.o`;
-    const language = /\.c$/i.test(path) ? ['-x', 'c'] : ['-std=c++14', '-x', 'c++'];
-    await clang(...language, ...options, '-o', object, FOLDER + path);
-    objects.push(object);
+    objects.push(`/work/obj/${index}.o`);
+    await compileUnit([...(web ? WEB_FLAGS : SIM_FLAGS), ...options, '-c', path, '-o', objects.at(-1)], maps);
   }
+  if (!web) await checkFloat(sources, maps, options);
   log('link fm1.wasm\n');
   // A program with the web_ interface has its own FM-1: it gets no runtime, and exports all its functions.
-  const link = manifest.web
-    ? ['--export-dynamic', '--export=__wasm_call_ctors', ...objects]
-    : [...EXPORTS.map((name) => '--export=' + name), ...objects, 'obj/fm1_runtime.o'];
+  const link = web
+    ? ['--export-dynamic', '--export=__wasm_call_ctors', ...objects, ...Object.values(SYSROOT_LIBS)]
+    : [...EXPORTS.map((name) => '--export=' + name), ...objects, ...once.keys()];
   if (manifest.stack) link.unshift('-z', 'stack-size=' + manifest.stack);
-  await api.run(
-    await api.getModule(api.lldFilename), 'wasm-ld', '--no-threads', '--no-entry',
-    '-Llib/wasm32-wasi', ...link, '-lc', '-lc++', '-lc++abi',
-    '-o', 'fm1.wasm');
-  return { wasm: api.memfs.getFileContents('fm1.wasm').slice().buffer, web: manifest.web || null };
+  const result = await run(['wasm-ld', '--no-entry', ...link, '-o', '/work/fm1.wasm'], [...maps, once], ['/work/fm1.wasm']);
+  show(result.text);
+  if (result.code || !result.made.has('/work/fm1.wasm')) throw new Stopped();
+  return { wasm: result.made.get('/work/fm1.wasm').slice().buffer, web: manifest.web || null };
 }
 
-onmessage = async (event) => {
+let ready = null;
+onmessage = async ({ data }) => {
+  if ('module' in data) { // the first message
+    ready = load(data.module);
+    ready.then(() => postMessage({ type: 'ready', ok: true }), (error) => {
+      if (!(error instanceof Stopped)) log(`Error: ${error.message}\n`);
+      postMessage({ type: 'ready', ok: false });
+    });
+    return;
+  }
   let built = { wasm: null, web: null };
   try {
     await ready;
-    built = await build(event.data.files);
+    built = await build(data.files);
     log(`fm1.wasm: ${built.wasm.byteLength} bytes\n`);
   } catch (error) {
-    // A failed compiler run has already written its own message.
-    if (!('code' in error)) log(`Error: ${error.message}\n`);
+    if (!(error instanceof Stopped)) log(`Error: ${error.message}\n`);
   }
   postMessage({ type: 'done', ...built }, built.wasm ? [built.wasm] : []);
 };
@@ -8099,7 +8276,7 @@ const fixed = new Map();   // the files that each compiler run gets: path -> byt
 const blobs = {};          // ota.bin and the SDK files
 const platformText = {};   // the text files of fm1-base and felucca-bsp: path below fm1-base/ -> text
 let about = {};
-let llvmModule = null;     // llvm.wasm, compiled
+let llvmModule = null;     // llvm.wasm, compiled: from the page ({ module }: the simulator compiler loaded it), or loaded here
 let loading = null;
 
 async function fetchOk(url) {
@@ -8127,7 +8304,8 @@ const load = () => (loading ||= (async () => {
     else blobs[key] = bytes;
   }
   importScripts(BASE + 'llvm.js'); // defines createLLVM
-  log('load the compiler (52 MB the first time)\n');
+  if (llvmModule) return;
+  log('load the compiler (53 MB the first time)\n');
   try {
     llvmModule = await WebAssembly.compileStreaming(fetchOk(BASE + 'llvm.wasm'));
   } catch (error) { // a server that does not say that the file is WebAssembly
@@ -9270,6 +9448,10 @@ async function buildDevice(texts, device) {
 }
 
 onmessage = async ({ data }) => {
+  if ('module' in data) { // the compiler, compiled by the simulator compiler: before the first build only
+    if (!loading) llvmModule = data.module;
+    return;
+  }
   let made = { name: '', fwsc: null, image: null };
   try {
     made = await build(data.files, data.zip);
@@ -10762,21 +10944,29 @@ function log(text) {
 // ---- Compiler ----
 
 // The compiler worker starts from inline code, because a page opened from disk cannot load
-// a worker from a file. It gets the address of the simulator compiler as the constant TOOLS, and
-// fm1.h and the runtime as the constant FILES, in front of its code.
-// The simulator compiler is in the folder wasm-clang/ next to this page. A page opened from disk
-// cannot fetch a file of its own folder: it loads the same files from fm1studio.com.
-const TOOLS = location.protocol === 'file:' ? 'https://www.fm1studio.com/wasm-clang/' : new URL('wasm-clang/', location.href).href;
+// a worker from a file. It gets the address of the compiler (fwsc/) as the constant BASE, that of the
+// C library for a firmware with the web_ interface as SYSROOT, and fm1.h and the runtime as the
+// constant FILES, in front of its code.
+// The compiler is in the folder fwsc/ next to this page, the C library in wasm-clang/. A page opened
+// from disk cannot fetch a file of its own folder: it loads the same files from fm1studio.com.
+const SITE = location.protocol === 'file:' ? 'https://www.fm1studio.com/' : location.href;
 const files = { 'fm1.h': text('fm1.h'), 'fm1_runtime.c': text('fm1_runtime.c') };
 const compilerUrl = URL.createObjectURL(new Blob(
-  [`const TOOLS = ${JSON.stringify(TOOLS)};\n`, `const FILES = ${JSON.stringify(files)};\n`, text('compiler-worker.js')],
+  [`const BASE = ${JSON.stringify(new URL('fwsc/', SITE).href)};\n`,
+    `const SYSROOT = ${JSON.stringify(new URL('wasm-clang/sysroot.tar', SITE).href)};\n`,
+    `const FILES = ${JSON.stringify(files)};\n`, text('compiler-worker.js')],
   { type: 'text/javascript' }));
-let compiler = null;  // the worker. stopCompile() replaces it with a new one.
+let compiler = null;      // the worker. stopCompile() replaces it with a new one.
+let llvmModule = null;    // the compiler (llvm.wasm), compiled: each new worker, and the firmware worker, get it
 
 function startCompiler() {
   const worker = new Worker(compilerUrl);
   // A worker that was stopped gives no messages to the page.
-  worker.onmessage = ({ data }) => { if (worker === compiler) compilerMessage(data); };
+  worker.onmessage = ({ data }) => {
+    if (data.type === 'module') llvmModule = data.module;
+    else if (worker === compiler) compilerMessage(data);
+  };
+  worker.postMessage({ module: llvmModule });
   // The worker code itself failed, for example because the compiler site cannot be reached.
   // The worker cannot compile after that.
   worker.onerror = (event) => {
@@ -10862,7 +11052,7 @@ function compile() {
 
 // Stops a compile that runs now, because its project is replaced. Returns true if there was one.
 // The compiler cannot stop in the middle of a file. Thus the worker is stopped, and a new worker
-// starts: it loads the compiler again, which is faster than the end of a firmware compile.
+// starts, with the compiler that the first worker compiled.
 function stopCompile() {
   if (!compiling) return false;
   compiler.terminate();
@@ -10911,8 +11101,9 @@ document.addEventListener('keydown', (event) => {
 
 // ---- Firmware: a .fwsc package of the project, for a real FM-1 ----
 
-// The firmware worker (the firmware-worker.js block) has its own compiler, the firmware compiler: clang
-// for the FM-1's processor (fwsc/). It starts at the first FIRMWARE or INSTALL, because it loads 52 MB.
+// The firmware worker (the firmware-worker.js block) uses the compiler of fwsc/ for the FM-1's processor,
+// as the firmware compiler. It starts at the first FIRMWARE or INSTALL, and gets the compiler from the
+// simulator compiler when that has loaded it (llvmModule).
 let firmware = null;      // the worker
 let firmwareName = '';    // the name of the project that it builds now, or '' when it does nothing
 let firmwareMade = null;  // the last package: { name, fwsc, image } (the bytes as ArrayBuffer)
@@ -11014,6 +11205,7 @@ function makeFirmware() {
       log(`Firmware error: ${event.message}\n`);
       firmwareMessage({ type: 'done', fwsc: null });
     };
+    if (llvmModule) firmware.postMessage({ module: llvmModule });
   }
   firmwareName = project.name || 'project';
   showFirmware();
@@ -11593,7 +11785,7 @@ function drawBoard() {
   // The CPU: the WebAssembly module. Its hint tells what runs the program.
   const cpu = svg(board, 'g', {});
   svg(cpu, 'title', {}, 'WebAssembly: the processor of the program in this page.\n' +
-    'The browser runs fm1.wasm, the module that the simulator compiler (wasm-clang) made from the project,\n' +
+    'The browser runs fm1.wasm, the module that the simulator compiler (pi32v2-llvm) made from the project,\n' +
     'on its audio thread (an AudioWorklet). For each block of 256 frames it calls loop() and then audio()\n' +
     '(a firmware of the gallery: web_render()).\n' +
     'J1: the module from COMPILE. ROM: the module. RAM: its memory. J2: the FM-1 API.');

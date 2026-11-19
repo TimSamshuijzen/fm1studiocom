@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) 2026 Tim Samshuijzen
 #
-# build_compiler.sh - clang and ld.lld for the FM-1's processor (pi32v2) as WebAssembly, from the source of
-# pi32v2-llvm: the firmware compiler of FM-1 Studio, src/fwsc/llvm.js and src/fwsc/llvm.wasm.
+# build_compiler.sh - clang, ld.lld and wasm-ld for the FM-1's processor (pi32v2) and for WebAssembly, as
+# WebAssembly, from the source of pi32v2-llvm: src/fwsc/llvm.js and src/fwsc/llvm.wasm.
 #
 #   firmware/web/build_compiler.sh
 #
@@ -18,7 +18,8 @@
 #   2. Gets the Emscripten SDK (github.com/emscripten-core/emsdk) at a fixed version.
 #   3. Gets compiler-rt's builtins for pi32v2 from the fork's release package (checked by hash).
 #   4. Builds LLVM's tablegen tools for this computer: the build of step 5 runs them.
-#   5. Builds LLVM's multicall tool "llvm" (clang and lld in one program) with Emscripten.
+#   5. Builds LLVM's multicall tool "llvm" (clang and lld in one program) with Emscripten, with two targets:
+#      pi32v2 (the default) and WebAssembly (wasm32).
 #   6. Links it two times: for a browser worker (llvm.js: the function createLLVM, a file system in memory)
 #      and for Node with the real file system (llvm-node.js: for opentc.py).
 #   7. Copies llvm.js, llvm.wasm and the licence texts to src/fwsc.
@@ -31,6 +32,7 @@ EMSDK_VERSION=7.0.0
 RELEASE=pi32v2-llvm-23.1.5-5-linux-x64.tar.xz
 RELEASE_URL=https://github.com/jvitkauskas/pi32v2-llvm/releases/download/pi32v2-23.1.5-5/$RELEASE
 RELEASE_SHA256=a20e257b840eb6b212761bfa93a7f3804502940d0035d62790da3d42fefa31e3   # from the release's SHA256SUMS
+TARGETS=WebAssembly                                 # LLVM's own targets in the build, besides the experimental PI32V2
 JOBS=${JOBS:-6}                                     # a compile job of clang's larger files takes about 1 GB of memory
 export GIT_TERMINAL_PROMPT=0
 
@@ -100,7 +102,8 @@ fi
 
 # ---- 5. clang and lld with Emscripten ----
 
-if [ ! -f "$W/build/build.ninja" ]; then
+# A build that was configured with other targets is configured again.
+if [ ! -f "$W/build/build.ninja" ] || ! grep -qx "LLVM_TARGETS_TO_BUILD:STRING=$TARGETS" "$W/build/CMakeCache.txt"; then
     step "5. Configuration for Emscripten"
     # The multicall tool takes each tool that can go into it: all but clang and lld are switched off.
     # (With llvm-objcopy in it, cmake stops: its links ask for the file name of a target that is not a program.
@@ -113,7 +116,7 @@ if [ ! -f "$W/build/build.ninja" ]; then
     emcmake cmake -G Ninja -S "$L/llvm" -B "$W/build" \
         -DCMAKE_BUILD_TYPE=MinSizeRel \
         -DLLVM_HOST_TRIPLE=wasm32-unknown-emscripten \
-        -DLLVM_TARGETS_TO_BUILD="" -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=PI32V2 -DLLVM_DEFAULT_TARGET_TRIPLE=pi32v2 \
+        -DLLVM_TARGETS_TO_BUILD="$TARGETS" -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=PI32V2 -DLLVM_DEFAULT_TARGET_TRIPLE=pi32v2 \
         -DLLVM_ENABLE_PROJECTS="clang;lld" \
         -DLLVM_TOOL_LLVM_DRIVER_BUILD=ON "${off[@]}" \
         -DLLVM_NATIVE_TOOL_DIR="$W/native/bin" \
@@ -157,6 +160,7 @@ if [ ! -f "$W/out/llvm.wasm" ] || [ "$W/build/bin/llvm.wasm" -nt "$W/out/llvm.wa
         -sINVOKE_RUN=0 -sENVIRONMENT=web,worker,node -sFORCE_FILESYSTEM=1
 fi
 node "$W/out/llvm-node.js" clang --version | head -2
+node "$W/out/llvm-node.js" clang -print-targets
 
 # ---- 7. To the site ----
 

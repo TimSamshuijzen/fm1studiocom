@@ -1,9 +1,10 @@
-# src/fwsc: a compiler for the M-VAVE FM-1 that runs in a browser
+# src/fwsc: a compiler for the M-VAVE FM-1 and for WebAssembly that runs in a browser
 
-This directory has clang and ld.lld for the processor of the M-VAVE FM-1 (JieLi pi32v2), built as
-WebAssembly. It also has one file with all sources and binary parts that a firmware on
-[fm1-base](https://github.com/charlesvestal/fm1-base) needs. With these files, a web page can compile a
-C program and make an installable `.fwsc` package. It needs no server side and no installed compiler.
+This directory has clang, ld.lld and wasm-ld for two processors, built as WebAssembly: the processor of
+the M-VAVE FM-1 (JieLi pi32v2) and WebAssembly itself (wasm32). It also has one file with all sources and
+binary parts that a firmware on [fm1-base](https://github.com/charlesvestal/fm1-base) needs. With these
+files, a web page can compile a C program and make an installable `.fwsc` package, or compile the same
+program to a WebAssembly module. It needs no server side and no installed compiler.
 
 The files are made by the scripts in [firmware/web](../../firmware/web/README.md). Do not change them by
 hand. They are the work of others, under their own licences. Not affiliated with M-VAVE or JieLi.
@@ -13,7 +14,7 @@ hand. They are the work of others, under their own licences. Not affiliated with
 | File | Size | What |
 | --- | --- | --- |
 | `llvm.js` | 71 KB | The loader that Emscripten made. It defines the function `createLLVM` |
-| `llvm.wasm` | 51.9 MB | clang 23.1.5 and ld.lld in one program |
+| `llvm.wasm` | 53.2 MB | clang 23.1.5, ld.lld and wasm-ld in one program, with the targets pi32v2 (the default) and wasm32 |
 | `platform.json` | 1.8 MB | The platform: 144 text files and 5 binary files (see "platform.json") |
 | `licences/` | | The licence texts of LLVM, Emscripten and musl |
 
@@ -21,7 +22,7 @@ hand. They are the work of others, under their own licences. Not affiliated with
 
 | File | From | Licence |
 | --- | --- | --- |
-| `llvm.wasm`, `llvm.js` | [pi32v2-llvm](https://github.com/jvitkauskas/pi32v2-llvm) by Julius Vitkauskas: LLVM with a target for pi32v2. Commit `60b0340f47083cf088903030a9b55d8a65525dde` (release `pi32v2-23.1.5-5`), built with [Emscripten](https://emscripten.org) 7.0.0 by `firmware/web/build_compiler.sh` | Apache-2.0 with LLVM exceptions; Emscripten's runtime and musl: MIT and others (`licences/`) |
+| `llvm.wasm`, `llvm.js` | [pi32v2-llvm](https://github.com/jvitkauskas/pi32v2-llvm) by Julius Vitkauskas: LLVM with a target for pi32v2. Commit `60b0340f47083cf088903030a9b55d8a65525dde` (release `pi32v2-23.1.5-5`), built with LLVM's WebAssembly target too, with [Emscripten](https://emscripten.org) 7.0.0, by `firmware/web/build_compiler.sh` | Apache-2.0 with LLVM exceptions; Emscripten's runtime and musl: MIT and others (`licences/`) |
 | `platform.json` | See the table below | |
 
 The parts of `platform.json`:
@@ -48,7 +49,10 @@ in memory (`FS`) and the function `callMain(args)`. It is built for a page, a wo
 
 The rules:
 
-- **The first argument selects the tool:** `clang` or `ld.lld`.
+- **The first argument selects the tool:** `clang`, `ld.lld` (for pi32v2) or `wasm-ld` (for WebAssembly).
+- **The target.** clang compiles for pi32v2 by default. `-target wasm32-unknown-unknown` compiles for
+  WebAssembly, and `wasm-ld` links such object files to a module. There is no C library for WebAssembly
+  in these files.
 - **One run for each instance.** A tool cannot run two times in one instance. Compile `llvm.wasm` one
   time, and give the compiled module to each new instance with `instantiateWasm`.
 - **No processes.** clang's driver starts a process for each job, and WebAssembly cannot do that. Run
@@ -119,6 +123,10 @@ for (const job of jobs) {
 A link is one call: `run(['ld.lld', '-e', 'add', 'add.o', '-o', 'add.elf', '/rt/libclang_rt.builtins.a'], files)`,
 with the object file and `rt/libclang_rt.builtins.a` (decoded from base64) in `files`.
 
+For WebAssembly, add `-target wasm32-unknown-unknown` to `args`, and link with
+`run(['wasm-ld', '--no-entry', '--export=add', 'add.o', '-o', 'add.wasm'], files)`: `add.wasm` is a
+module that a page can run.
+
 ## platform.json
 
 The file is one JSON object with three parts:
@@ -162,7 +170,7 @@ table of hashes below.
 
 ```
 c9113eb13497667a7241278ca29b6d6c89f32007ce47ab00b5867c53367cd9ee  llvm.js
-3e20f2e1e664e81c8856912c0981df95a424c688d38a49ba32a8523144088af3  llvm.wasm
+9b3ccb40d5641709c7c408990081a72dc09bda825a314652772506ee7e3bb5c0  llvm.wasm
 46d3926ee24877d59715919d0a17209fe22b51cedeab53498821e447cdb4ec31  platform.json
 ```
 
@@ -186,8 +194,11 @@ gallery, the bytes are the same too (November 2026).
   known.
 - **C, assembly and LLVM IR only.** LLVM IR as the builds of Felucca and FMINI-1 give it (their size
   pass). Nothing else was tried.
-- **The files were built one time.** It is not known if a second build gives the same bytes.
-- **`llvm.wasm` is large.** A page must load it only when it is needed.
+- **Built on one computer.** The build with the WebAssembly target makes the same packages and the same
+  `platform.json` as the earlier build without it, for the 21 projects that were compared (November
+  2026). It is not known if a build on another computer gives the same bytes.
+- **`llvm.wasm` is large.** A page must load it only when it is needed, and one time: a compiled module
+  can be given to other workers with `postMessage`.
 
 ## Licences
 
@@ -196,5 +207,5 @@ compiled code of fm1-base, felucca-bsp and the adapter, the update loader, and t
 
 ## Used by
 
-The firmware compiler of [FM-1 Studio](https://github.com/TimSamshuijzen/fm1studiocom): the worker
-`firmware-worker.js` in `src/index.html`.
+The simulator compiler and the firmware compiler of [FM-1 Studio](https://github.com/TimSamshuijzen/fm1studiocom):
+the workers `compiler-worker.js` and `firmware-worker.js` in `src/index.html`.

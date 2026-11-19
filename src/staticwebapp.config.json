@@ -1,5 +1,6 @@
 {
   "routes": [
+    { "route": "/fwsc/*", "headers": { "Access-Control-Allow-Origin": "*" } },
     { "route": "/wasm-clang/*", "headers": { "Access-Control-Allow-Origin": "*" } }
   ],
   "mimeTypes": {

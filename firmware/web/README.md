@@ -1,7 +1,7 @@
 # firmware/web: the scripts that make src/fwsc
 
-This directory has the scripts that make the files of [src/fwsc](../../src/fwsc/README.md): clang and
-ld.lld for JieLi's pi32v2 processor as WebAssembly, and `platform.json`. It also has a tool that gives
+This directory has the scripts that make the files of [src/fwsc](../../src/fwsc/README.md): clang, ld.lld
+and wasm-ld for JieLi's pi32v2 processor and for WebAssembly, as WebAssembly, and `platform.json`. It also has a tool that gives
 this compiler to fm1-base's build (`tools/build.py`) in place of JieLi's compiler, and a script that
 makes a reference package with it.
 
@@ -55,7 +55,9 @@ that step is not there:
 2. It gets and installs the Emscripten SDK.
 3. It gets the builtins library from the release package.
 4. It builds LLVM's tablegen tools for this computer. Step 5 runs them.
-5. It builds LLVM's multicall tool `llvm`, with clang and lld only, with Emscripten.
+5. It builds LLVM's multicall tool `llvm`, with clang and lld only, with Emscripten. Its targets are
+   pi32v2 (the default) and those of `TARGETS` at the top of the script: WebAssembly. A build that was
+   configured with other targets is configured again.
 6. It links that tool two times: for a browser (`llvm.js`: the function `createLLVM`, files in memory)
    and for Node (`llvm-node.js`: the files of the computer).
 7. It copies `llvm.js`, `llvm.wasm` and the licence texts to `src/fwsc`.
@@ -203,6 +205,8 @@ changes too.
 
 - **One program for clang and lld.** LLVM's multicall tool is smaller than two programs, and a page
   loads one file.
+- **Two targets in that program.** With WebAssembly besides pi32v2, one compiler compiles a program for a
+  page and for the FM-1: the same version of clang, with the same messages, for both.
 - **No llvm-objcopy in that program.** With it, the configuration for Emscripten stops. Its work here
   is small: `section()` in `opentc.py`.
 - **Two links of the same objects.** The browser and Node need other settings for files. With the same
