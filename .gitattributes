@@ -7,6 +7,11 @@ firmware/**/*.py text eol=lf
 src/fwsc/llvm.js -text
 src/fwsc/platform.json -text
 firmware/*.cmd text eol=crlf
+# The files of the simulator compiler are copies from wasm-clang: Git must not change a byte of them.
+src/wasm-clang/*.wasm -text
+src/wasm-clang/sysroot.tar -text
+src/wasm-clang/shared.js -text
+src/wasm-clang/licences/* -text
 # The files of the INSTALL button are copies from fm1-base: Git must not change a byte of them.
 src/install/*.js -text
 src/install/LICENSE -text

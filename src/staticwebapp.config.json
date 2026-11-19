@@ -1,4 +1,10 @@
 {
+  "routes": [
+    { "route": "/wasm-clang/*", "headers": { "Access-Control-Allow-Origin": "*" } }
+  ],
+  "mimeTypes": {
+    ".tar": "application/x-tar"
+  },
   "responseOverrides": {
     "404": { "rewrite": "/error.html" }
   }

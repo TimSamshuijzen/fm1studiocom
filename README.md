@@ -32,9 +32,9 @@ these places:
 | --- | --- | --- |
 | What | clang 8.0.1 and wasm-ld, for WebAssembly | clang 23.1.5 and ld.lld, for the FM-1's processor (JieLi pi32v2) |
 | Project | [wasm-clang](https://github.com/binji/wasm-clang) by Ben Smith, a demo of his CppCon 2019 talk | [pi32v2-llvm](https://github.com/jvitkauskas/pi32v2-llvm) by Julius Vitkauskas: LLVM with a target for pi32v2, which its author calls experimental |
-| Version | The files of wasm-clang's demo site at the time of the load. In its repository, `clang` and `lld` last changed in commit `88838f3` (May 2020) | Commit `60b0340f47083cf088903030a9b55d8a65525dde`, release `pi32v2-23.1.5-5` |
+| Version | The files of wasm-clang's repository at commit `648c4a89997a351eef75cdaec3ef5b89d4937dec` (December 2023). There, `clang` and `lld` last changed in commit `88838f3` (May 2020) | Commit `60b0340f47083cf088903030a9b55d8a65525dde`, release `pi32v2-23.1.5-5` |
 | Built by | Ben Smith, from his LLVM fork ([binji/llvm-project](https://github.com/binji/llvm-project)), compiled for WASI; `memfs` gives it a file system in memory | This repository: `firmware/web/build_compiler.sh` builds it from source with Emscripten 7.0.0 |
-| Loaded from | `https://binji.github.io/wasm-clang/`: `clang`, `lld`, `memfs`, `sysroot.tar`, `shared.js` (about 60 MB) | `src/fwsc` of this site: `llvm.js`, `llvm.wasm` (52 MB), `platform.json` |
+| Loaded from | `src/wasm-clang` of this site: `clang.wasm`, `lld.wasm`, `memfs.wasm`, `sysroot.tar`, `shared.js` (about 60 MB) | `src/fwsc` of this site: `llvm.js`, `llvm.wasm` (52 MB), `platform.json` |
 | Runs in | `compiler-worker.js` in `src/index.html` | `firmware-worker.js` in `src/index.html` |
 | Makes | `fm1.wasm`, which the simulator runs | A `.fwsc` package for a real FM-1 |
 | Licence | Apache-2.0 | Apache-2.0 with LLVM exceptions; Emscripten's runtime and musl: MIT and others |
@@ -42,7 +42,8 @@ these places:
 The page loads the simulator compiler when it opens, and the firmware compiler at the first FIRMWARE or
 INSTALL. The WebAssembly logo in the PROGRAM panel and the one in the FIRMWARE panel name their compiler
 in their hints.
-[src/fwsc/README.md](src/fwsc/README.md) lists all parts of the firmware compiler, and
+[src/wasm-clang/README.md](src/wasm-clang/README.md) lists the files of the simulator compiler and how to
+check them. [src/fwsc/README.md](src/fwsc/README.md) lists all parts of the firmware compiler, and
 [firmware/web/README.md](firmware/web/README.md) tells how to build it again and how to check its
 packages. On a computer, `firmware/build.sh` builds the same kind of package with JieLi's own compiler
 (clang 4.0.1 for pi32v2, a binary from JieLi's server, without source code):
@@ -410,9 +411,9 @@ Three things that such a repository does not have come from this one:
 
 ## How it works
 
-The application is one file, `src/index.html`, the firmware compiler in `src/fwsc`, and the installer
-in `src/install`. The page has the styles, the page script, and these text blocks that the page script
-reads:
+The application is one file, `src/index.html`, the simulator compiler in `src/wasm-clang`, the firmware
+compiler in `src/fwsc`, and the installer in `src/install`. The page has the styles, the page script, and
+these text blocks that the page script reads:
 
 | Block | What |
 |---|---|
@@ -428,8 +429,8 @@ reads:
 | `firmware-worker.js` | The firmware worker: the firmware compiler and the build of a package |
 
 1. The page starts the **compiler worker**. It loads the simulator compiler,
-   [wasm-clang](https://github.com/binji/wasm-clang) (clang 8.0.1), from `binji.github.io/wasm-clang` and
-   compiles `fm1_runtime.c` one time.
+   [wasm-clang](https://github.com/binji/wasm-clang) (clang 8.0.1), from `src/wasm-clang` and compiles
+   `fm1_runtime.c` one time.
 2. For each compile, the worker makes a new file system in memory, writes the project files to it,
    compiles the sources and links them to `fm1.wasm`.
 3. The page sends the module to the **audio worklet**, which makes an instance of it. For each block of
@@ -439,8 +440,10 @@ reads:
    the keys, encoders, MASTER position and MIDI messages to the worklet.
 
 The page is made so that it also works when `index.html` is opened from disk: the worker and the worklet
-start from text in the page, and the extras are scripts. Only the firmware compiler and the installer
-need a web server.
+start from text in the page, and the extras are scripts. Such a page cannot fetch the files of its own
+folder: it loads the simulator compiler from `https://www.fm1studio.com/wasm-clang/`, the same files
+(`src/staticwebapp.config.json` lets other pages fetch them). Only the firmware compiler and the
+installer need a web server.
 
 ### The firmware worker
 
@@ -509,12 +512,12 @@ There is no build step. Serve the folder `src`:
 python -m http.server 8765 --bind 127.0.0.1 --directory src
 ```
 
-Then open `http://127.0.0.1:8765`. The page needs the internet for the simulator compiler (from
-wasm-clang's demo site) and for the gallery.
+Then open `http://127.0.0.1:8765`. The page needs the internet only for the gallery.
 
 ```
 src/index.html                 the application
 src/extras/                    files for the firmware of the gallery
+src/wasm-clang/                the simulator compiler: clang for WebAssembly, as WebAssembly
 src/fwsc/                      the firmware compiler: clang for the FM-1 as WebAssembly, and the platform
 src/install/                   the installer of fm1-base
 src/error.html                 the page for an address that does not exist
@@ -544,8 +547,8 @@ of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/ma
 
 - The simulator compiler is clang 8.0.1. C++ files are compiled as C++14. It has no Asyncify, so a
   program whose main loop does not return cannot run as it is.
-- The page loads the simulator compiler from wasm-clang's demo site, not from this repository: COMPILE
-  needs that site, and has the files that the site has at the time.
+- A page that is opened from disk loads the simulator compiler from fm1studio.com: COMPILE then needs
+  that site.
 - A project holds text files only, and the simulator compiler has room for about 570 files and folders.
 - GitHub gives the list of files of a repository 60 times in an hour to one address. The first LOAD of
   a firmware uses one such request for each item in its `sources` (four for FELUCCA). After that, the
@@ -588,8 +591,9 @@ from that code, and their licences apply to them.
 The progressive rock band of the PROG-1 card (`prog-1/main.c` in `src/index.html`, and
 `src/examples/prog-1`) is by Hans Dam.
 
-The simulator compiler is [wasm-clang](https://github.com/binji/wasm-clang) by Ben Smith (Apache-2.0),
-loaded from its demo site (see "The compilers").
+The folder `src/wasm-clang` has the simulator compiler, [wasm-clang](https://github.com/binji/wasm-clang)
+by Ben Smith (Apache-2.0), with clang, lld and libc++ of LLVM (Apache-2.0 with LLVM exceptions):
+[src/wasm-clang/README.md](src/wasm-clang/README.md).
 
 The folder `src/fwsc` has work of others, the firmware compiler: LLVM with the pi32v2 target of Julius
 Vitkauskas (Apache-2.0 with LLVM exceptions), built with Emscripten; the sources of fm1-base and

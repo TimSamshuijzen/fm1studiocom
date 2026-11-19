@@ -761,11 +761,11 @@ It runs in a Web Worker; its output is a .fwsc package for a real FM-1.">
             </div>
             <div class="progress" id="compile-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
               aria-label="Compile progress, an estimate" title="Compile progress (an estimate)"><i></i></div>
-            <!-- The compiler of the simulator: wasm-clang, loaded at run time (compiler-worker.js). -->
+            <!-- The compiler of the simulator: wasm-clang, as WebAssembly (wasm-clang/, run by compiler-worker.js). -->
             <div class="wasm-logo" role="img" aria-label="WebAssembly compiler" title="The program is compiled in this page, to WebAssembly.
 Compiler: wasm-clang by Ben Smith (github.com/binji/wasm-clang, Apache-2.0):
-clang 8.0.1 and wasm-ld, built as WebAssembly.
-Loaded from binji.github.io/wasm-clang the first time (about 60 MB).
+clang 8.0.1 and wasm-ld, built as WebAssembly, from commit 648c4a8 of its repository.
+Loaded from wasm-clang/ of this site the first time (about 60 MB).
 It runs in a Web Worker; the simulator runs its output, fm1.wasm.">
               <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M0 0H37A13 13 0 0 0 63 0H100V100H0Z"/><text x="96" y="94">WA</text></svg>
             </div>
@@ -923,8 +923,8 @@ void loop(void) { }                         /* again and again: controls and scr
       <ol>
         <li><strong>The simulator compiler</strong> is wasm-clang by Ben Smith
           <a class="ref" href="https://github.com/binji/wasm-clang" target="_blank" rel="noopener" title="wasm-clang">[2]</a>:
-          clang 8.0.1 and wasm-ld as WebAssembly, in a Web Worker. The page loads it from wasm-clang's demo
-          site, binji.github.io/wasm-clang (about 60 MB the first time). The output is one WebAssembly module.</li>
+          clang 8.0.1 and wasm-ld as WebAssembly, in a Web Worker. Its files are those of a fixed commit of its
+          repository, on this site (about 60 MB the first time). The output is one WebAssembly module.</li>
         <li><strong>The simulator</strong> runs that module on the audio thread of the browser (an
           AudioWorklet). For each block of 256 frames it calls <code>loop()</code> and then
           <code>audio()</code>. The page shows the screen and the LEDs, and sends the keys, the encoders
@@ -945,7 +945,7 @@ void loop(void) { }                         /* again and again: controls and scr
       <h3>Limits</h3>
       <ul>
         <li>The simulator compiler is clang 8.0.1. A program whose main loop does not return cannot run.
-          COMPILE needs wasm-clang's demo site.</li>
+          A page that is opened from disk loads the simulator compiler from fm1studio.com.</li>
         <li>A project holds text files only: about 570 files and folders at most.</li>
         <li>The LEDs are on or off: the dim levels of some firmware are not shown.</li>
         <li>GitHub gives the list of files of a repository 60 times in an hour to one address. A firmware
@@ -972,6 +972,8 @@ void loop(void) { }                         /* again and again: controls and scr
           <td>The adapter for <code>fm1.h</code> on fm1-base, and a build on your own computer with JieLi's compiler</td></tr>
         <tr><td><a href="https://github.com/TimSamshuijzen/fm1studiocom/blob/main/src/fwsc/README.md" target="_blank" rel="noopener">src/fwsc/README.md</a></td>
           <td>The compiler for the FM-1 as WebAssembly: how another page can use it</td></tr>
+        <tr><td><a href="https://github.com/TimSamshuijzen/fm1studiocom/blob/main/src/wasm-clang/README.md" target="_blank" rel="noopener">src/wasm-clang/README.md</a></td>
+          <td>The simulator compiler: its files, where they come from, and how to check them</td></tr>
         <tr><td><a href="https://github.com/TimSamshuijzen/fm1studiocom/blob/main/firmware/web/README.md" target="_blank" rel="noopener">firmware/web/README.md</a></td>
           <td>How that compiler is built, and how to check a package</td></tr>
         <tr><td><a href="https://github.com/TimSamshuijzen/fm1studiocom/blob/main/src/install/README.md" target="_blank" rel="noopener">src/install/README.md</a></td>
@@ -991,8 +993,8 @@ void loop(void) { }                         /* again and again: controls and scr
         <li><a href="https://github.com/TimSamshuijzen/fm1studiocom" target="_blank" rel="noopener">FM-1 Studio</a>,
           Tim Samshuijzen. The source code and the documents of this application. GPL-3.0-only.</li>
         <li><a href="https://github.com/binji/wasm-clang" target="_blank" rel="noopener">wasm-clang</a>,
-          Ben Smith. clang 8.0.1 and wasm-ld as WebAssembly: the simulator compiler, loaded from its demo
-          site. Apache-2.0.</li>
+          Ben Smith. clang 8.0.1 and wasm-ld as WebAssembly: the simulator compiler, from a fixed commit of
+          its repository. Apache-2.0.</li>
         <li><a href="https://github.com/charlesvestal/fm1-base" target="_blank" rel="noopener">fm1-base</a>,
           Charles Vestal. The open platform for FM-1 firmware: screen, keys, LEDs, sound, USB MIDI, update
           entry, safe mode, the build tool, and the installer of this page (with work of Leo Kuroshita and
@@ -7859,10 +7861,10 @@ void loop(void) {
 <script type="text/plain" id="compiler-worker.js">
 // Compiles an FM-1 project (C files) to a WebAssembly module, in the browser: the simulator compiler.
 // The compiler is wasm-clang by Ben Smith (github.com/binji/wasm-clang, Apache-2.0): clang 8.0.1 and
-// wasm-ld built as WebAssembly, loaded from its public demo site (TOOLS).
-// The page puts the constant FILES in front of this code: the text of fm1.h and fm1_runtime.c.
+// wasm-ld built as WebAssembly, the files of a fixed commit of its repository (wasm-clang/README.md).
+// The page puts two constants in front of this code: TOOLS (the address of the folder wasm-clang/)
+// and FILES (the text of fm1.h and fm1_runtime.c).
 
-const TOOLS = 'https://binji.github.io/wasm-clang/';
 importScripts(TOOLS + 'shared.js'); // defines API
 
 // The compiler asks for the time: for __DATE__ and __TIME__, and when it stops on an error.
@@ -7934,9 +7936,9 @@ async function newFileSystem() {
     readBuffer: (url) => loadOnce(url, async () => (await fetchOk(url)).arrayBuffer()),
     compileStreaming: (url) => loadOnce(url, async () => WebAssembly.compile(await (await fetchOk(url)).arrayBuffer())),
     hostWrite: log,
-    clang: TOOLS + 'clang',
-    lld: TOOLS + 'lld',
-    memfs: TOOLS + 'memfs',
+    clang: TOOLS + 'clang.wasm',
+    lld: TOOLS + 'lld.wasm',
+    memfs: TOOLS + 'memfs.wasm',
     sysroot: TOOLS + 'sysroot.tar',
   });
   api.moduleCache = modules;
@@ -10760,10 +10762,14 @@ function log(text) {
 // ---- Compiler ----
 
 // The compiler worker starts from inline code, because a page opened from disk cannot load
-// a worker from a file. It gets fm1.h and the runtime as the constant FILES in front of its code.
+// a worker from a file. It gets the address of the simulator compiler as the constant TOOLS, and
+// fm1.h and the runtime as the constant FILES, in front of its code.
+// The simulator compiler is in the folder wasm-clang/ next to this page. A page opened from disk
+// cannot fetch a file of its own folder: it loads the same files from fm1studio.com.
+const TOOLS = location.protocol === 'file:' ? 'https://www.fm1studio.com/wasm-clang/' : new URL('wasm-clang/', location.href).href;
 const files = { 'fm1.h': text('fm1.h'), 'fm1_runtime.c': text('fm1_runtime.c') };
 const compilerUrl = URL.createObjectURL(new Blob(
-  [`const FILES = ${JSON.stringify(files)};\n`, text('compiler-worker.js')],
+  [`const TOOLS = ${JSON.stringify(TOOLS)};\n`, `const FILES = ${JSON.stringify(files)};\n`, text('compiler-worker.js')],
   { type: 'text/javascript' }));
 let compiler = null;  // the worker. stopCompile() replaces it with a new one.
 
