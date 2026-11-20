@@ -1164,11 +1164,10 @@ Rules for the program:
         <p class="state" id="install-package" role="status"></p>
         <div class="progress" id="install-package-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
           aria-label="Package progress, an estimate" title="Package progress (an estimate)"><i></i></div>
-        <p class="note"><strong>This page was tested on one FM-1:</strong> the newer flash chip (B36014), with
-          m-bootloader 2.4-395e6cc. You install at your own risk. An install that goes wrong can give an FM-1
+        <p class="note">You install at your own risk. An install that goes wrong can give an FM-1
           that does not start.</p>
         <ul>
-          <li><strong>Work with M-Flasher first.</strong>
+          <li><strong>Work with M-Flasher first and install the m-bootloader.</strong>
             <a href="https://jvitkauskas.github.io/m-apps/flasher/" target="_blank" rel="noopener">M-Flasher</a>
             makes a backup of the flash of the FM-1, shows its flash chip and its boot loader, and installs
             <a href="https://github.com/jvitkauskas/m-bootloader" target="_blank" rel="noopener">m-bootloader</a>:
@@ -1191,7 +1190,7 @@ Rules for the program:
         <ol>
           <li>Connect the FM-1 to this computer with the USB cable, without a hub between them.</li>
           <li>Switch the FM-1 on and let it start.
-            <span class="optional">To see its boot loader and its flash chip, start it in
+            <span class="optional">Optional: To see its boot loader and its flash chip, start it in
             m-bootloader's MIDI mode: hold PLAY while you switch it on, then choose MIDI MODE in the menu
             (press OCT+ twice to select MIDI MODE then press PLAY). Do not put it in another update mode.</span>
           </li>
