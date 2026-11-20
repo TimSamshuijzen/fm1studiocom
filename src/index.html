@@ -1201,6 +1201,7 @@ Rules for the program:
         <p class="actions">
           <button class="push go" id="install-go">INSTALL NOW</button>
           <button class="push" id="install-again" hidden>CONNECT AGAIN</button>
+          <button class="push ok" id="install-done" title="Close (Esc)" hidden>CLOSE</button>
         </p>
       </section>
     </div>
@@ -11736,9 +11737,10 @@ $('install-ready').onclick = () => {
   installSay('install-state', 'Nothing is written yet.');
   $('install-warning').hidden = $('install-go').hidden = false;
   $('install-go').disabled = false;
-  $('install-again').hidden = true;
+  $('install-again').hidden = $('install-done').hidden = true;
   showInstallStep('write');
 };
+$('install-done').onclick = () => install.close();  // the install is done
 
 // INSTALL NOW writes the package to the FM-1.
 $('install-go').onclick = async () => {
@@ -11795,6 +11797,7 @@ $('install-go').onclick = async () => {
     setStatus(`Installed ${name} on the FM-1`);
     log(`install: done, the FM-1 runs ${product}\n`);
     $('install-warning').hidden = $('install-go').hidden = true;
+    $('install-done').hidden = false;
     showInstallStep('end');
   }
 
