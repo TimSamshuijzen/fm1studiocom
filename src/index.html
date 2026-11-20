@@ -1178,7 +1178,6 @@ Rules for the program:
             that installs it.
             <a href="https://github.com/TimSamshuijzen/fm1studiocom#if-it-goes-wrong" target="_blank" rel="noopener">"If it goes wrong"</a>
             in the README tells what to do with an FM-1 that does not start.</li>
-          <li>The sounds and settings that the FM-1 has saved can be lost.</li>
           <li>You need Chrome or Edge on a computer, and a USB cable that carries data.</li>
         </ul>
         <!-- For a firmware of the gallery only: the page script fills in its name, licence and repository. -->
@@ -1192,10 +1191,11 @@ Rules for the program:
         <ol>
           <li>Connect the FM-1 to this computer with the USB cable, without a hub between them.</li>
           <li>Switch the FM-1 on and let it start.
-            <span class="optional">Optional: To see its boot loader and its flash chip too, start it in
-            m-bootloader's MIDI mode: hold PLAY while you switch it on, then choose MIDI MODE in the menu. Do not
-            put it in another update mode.</span></li>
-          <li>Close other programs and browser tabs that use MIDI: they can keep the FM-1 busy.</li>
+            <span class="optional">Optional: To see its boot loader and its flash chip, start it in
+            m-bootloader's MIDI mode: hold PLAY while you switch it on, then choose MIDI MODE in the menu
+            (press OCT+ twice to select MIDI MODE then press PLAY). Do not put it in another update mode.</span>
+          </li>
+          <li>Close other programs (such as M-Flasher) and browser tabs that use MIDI: they can keep the FM-1 busy.</li>
           <li>Click CONNECT. The browser asks to let this page use MIDI devices: allow it.</li>
         </ol>
         <p class="state" id="install-device" role="status">The FM-1 is not connected to the page.</p>
@@ -11564,7 +11564,8 @@ const INSTALL_ERRORS = {
   denied: 'The browser did not let the page use MIDI devices. Allow MIDI for this site in the settings ' +
     'of the browser (the icon at the left of the address), then click CONNECT.',
   notfound: 'No FM-1 answered. Make sure that the USB cable carries data and that no other program or ' +
-    'tab uses MIDI, then click CONNECT.',
+    'tab uses MIDI, then click CONNECT. If the FM-1 is booted up in m-loader, then select MIDI MODE in the ' +
+    'menu of the FM-1, and click CONNECT.',
   model: 'This device is not an FM-1. Nothing was written.',
   open: 'This FM-1 runs M-VAVE\'s Open firmware. That firmware takes only the firmware of M-VAVE itself: ' +
     'put the stock firmware back first, with a tool of M-VAVE. Nothing was written.',
