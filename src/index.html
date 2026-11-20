@@ -1190,11 +1190,21 @@ Rules for the program:
       <section data-step="connect" hidden>
         <ol>
           <li>Connect the FM-1 to this computer with the USB cable, without a hub between them.</li>
-          <li>Switch the FM-1 on and let it start. Do not put it in an update mode.</li>
+          <li>Switch the FM-1 on and let it start. To see its boot loader and its flash chip too, start it in
+            m-bootloader's MIDI mode: hold PLAY while you switch it on, then choose MIDI MODE in the menu. Do not
+            put it in another update mode.</li>
           <li>Close other programs and browser tabs that use MIDI: they can keep the FM-1 busy.</li>
           <li>Click CONNECT. The browser asks to let this page use MIDI devices: allow it.</li>
         </ol>
         <p class="state" id="install-device" role="status">The FM-1 is not connected to the page.</p>
+        <!-- What m-bootloader's MIDI mode told about the FM-1: the page script fills it in. -->
+        <table id="install-info" hidden></table>
+        <!-- When CONNECT found a firmware that runs: it does not tell its boot loader. -->
+        <p class="note" id="install-boot-how" hidden>A firmware that runs does not tell the boot loader. To see it,
+          start the FM-1 in m-bootloader's MIDI mode (step 2), and click CONNECT again. When no menu with MIDI MODE
+          comes, the FM-1 has M-VAVE's boot loader or an m-bootloader before version 2.2:
+          <a href="https://jvitkauskas.github.io/m-apps/flasher/" target="_blank" rel="noopener">M-Flasher</a>
+          shows which.</p>
         <!-- The page script adds the MIDI ports that it did not ask, each with a TRY button. -->
         <div id="install-other" hidden>
           <p>The page asks only the MIDI ports that have a usual name of an FM-1. If your FM-1 is one of
@@ -1211,6 +1221,7 @@ Rules for the program:
         <table>
           <tr><th>Package</th><td id="install-from"></td></tr>
           <tr><th>FM-1</th><td id="install-to"></td></tr>
+          <tr id="install-boot-row" hidden><th>Boot loader</th><td id="install-boot"></td></tr>
         </table>
         <p class="note" id="install-warning"><strong>Do not disconnect the USB cable and do not switch the
           FM-1 off</strong> until this page says that the install is done. The install can take some
@@ -11540,6 +11551,7 @@ const installer = {
   access: null,      // Web MIDI with SysEx
   tried: new Set(),  // the MIDI ports that the user let the page ask with TRY
   device: null,      // the FM-1 that CONNECT found: { id, name }
+  mboot: null,       // what m-bootloader's MIDI mode, or M-Flasher's stage, told about that FM-1 (askMboot), or null
   writing: false,    // an install is busy
 };
 const INSTALL_HINT = $('install-open').title;
@@ -11669,9 +11681,9 @@ addEventListener('beforeunload', (event) => { if (installer.writing) event.preve
 
 // The step 'connect', with no FM-1 found yet.
 function showConnectStep() {
-  installer.device = null;
+  installer.device = installer.mboot = null;
   installSay('install-device', 'The FM-1 is not connected to the page.');
-  $('install-other').hidden = true;
+  $('install-other').hidden = $('install-info').hidden = $('install-boot-how').hidden = true;
   $('install-ready').disabled = true;
   showInstallStep('connect');
 }
@@ -11686,10 +11698,79 @@ function newUpdater() {
   return updater;
 }
 
-// Tells what the FM-1 runs, from the identity that it gave. `block` is the code of INSTALL_ERRORS
-// when the package cannot be written to it. The update mode of M-VAVE's firmware, and M-VAVE's
-// Open firmware, take only M-VAVE's own firmware.
-function describeDevice(id) {
+// m-bootloader (github.com/jvitkauskas/m-bootloader, docs/SPEC.md 11.6 and 11.7) has a MIDI mode in its menu, the
+// USB-MIDI device "FM-1 Update", and M-Flasher has a stage that runs the same code from RAM. Both answer the update
+// protocol as the update loader MBOOT_ID, and command 0x12 with "MBOOT", the protocol, the kind (2: the stage, else
+// m-bootloader), flags, the chip key (2 bytes), the size of the flash (4), its JEDEC ID (4), its unique ID (8), two
+// zeros, and the version as text with a zero at its end (numbers low byte first). That is what M-Flasher shows of the
+// boot loader and the flash chip. The page sends 0x12 only to a port that answered as MBOOT_ID: M-VAVE's firmware
+// takes the same framing, and some of its commands erase the flash. A firmware that runs does not tell its boot
+// loader, and the stage does not either.
+const MBOOT_ID = 'ota-FM-1_900';
+const FLASH_CHIPS = { 0x856014: 'Puya P25Q80, the first chip', 0xB36014: 'UC25HQ80, the newer chip' };  // README, "Which FM-1"
+const PACKAGE_CHIP_KEY = 0x980F;  // CHIP_KEY of firmware-worker.js: the program area of each package has this key
+
+// Asks m-bootloader's MIDI mode (or the stage) what it is, on the link of a port that answered as MBOOT_ID. Gives
+// { stage, key, size, jedec, unit, version }, or null when the port is neither.
+async function askMboot(link) {
+  const { pack7, parseFrame } = installer.code;
+  link.drain();
+  // command 0x12 with no body: 00 59 12, the length (3 bytes), the complement of the sum of the body
+  if (!link.send([0xF0, ...pack7([0x00, 0x59, 0x12, 0, 0, 0, 0xFF]), 0xF7])) return null;
+  const end = Date.now() + 1000;
+  while (Date.now() < end) {
+    const packet = await link.read(end - Date.now());
+    if (!packet) break;
+    const frame = parseFrame(packet);
+    if (frame?.cmd === 0) return null;  // command 0: refused
+    if (frame?.cmd !== 0x12) continue;
+    const body = frame.body;
+    if (body.length < 29 || String.fromCharCode(...body.slice(0, 5)) !== 'MBOOT') return null;
+    const u32 = (at) => (body[at] | body[at + 1] << 8 | body[at + 2] << 16 | body[at + 3] << 24) >>> 0;
+    const zero = body.indexOf(0, 28);
+    const version = String.fromCharCode(...body.slice(28, zero < 0 ? body.length : zero));
+    return {
+      stage: body[6] === 2,
+      key: body[8] | body[9] << 8,
+      size: u32(10),
+      jedec: u32(14),
+      unit: [...body.slice(18, 26)].map((byte) => byte.toString(16).padStart(2, '0')).join('').toUpperCase(),
+      version: /^[\x20-\x7E]{1,31}$/.test(version) ? version : '',
+    };
+  }
+  return null;
+}
+
+// The table of the step 'connect': what m-bootloader's MIDI mode (or the stage) told, as M-Flasher shows it.
+function showDeviceInfo(mboot) {
+  const hex = (value, digits) => '0x' + value.toString(16).toUpperCase().padStart(digits, '0');
+  const rows = [
+    ['Boot loader', mboot.stage ? 'Not told: M-Flasher\'s stage runs from RAM, under the boot loader that the FM-1 has'
+      : `m-bootloader ${mboot.version || '(its version did not read)'}`],
+    ...(mboot.stage ? [['Stage', `M-Flasher's stage ${mboot.version}`.trim()]] : []),
+    ['Flash chip', `${hex(mboot.jedec, 6)} (${FLASH_CHIPS[mboot.jedec] ?? 'not a chip known in an FM-1'}), ` +
+      `${+(mboot.size / 1048576).toFixed(2)} MiB`],
+    ['Chip key', hex(mboot.key, 4) + (mboot.key === PACKAGE_CHIP_KEY ? ''
+      : `: not the key of the packages of this page (${hex(PACKAGE_CHIP_KEY, 4)}). The FM-1 refuses them, and writes nothing.`)],
+    ['Unit ID', mboot.unit],
+  ];
+  $('install-info').replaceChildren(...rows.map(([name, value]) => {
+    const row = document.createElement('tr');
+    row.append(Object.assign(document.createElement('th'), { textContent: name }),
+      Object.assign(document.createElement('td'), { textContent: value }));
+    return row;
+  }));
+  $('install-info').hidden = false;
+}
+
+// Tells what the FM-1 runs, from the identity that it gave, and `mboot` when it is m-bootloader's MIDI mode or the
+// stage. `block` is the code of INSTALL_ERRORS when the package cannot be written to it. The update mode of M-VAVE's
+// firmware, and M-VAVE's Open firmware, take only M-VAVE's own firmware.
+function describeDevice(id, mboot) {
+  if (mboot) {
+    return { text: mboot.stage ? 'It runs M-Flasher\'s stage, from RAM. The stage writes the package.'
+      : 'It is in m-bootloader\'s MIDI mode. m-bootloader writes the package, in the program area only: it keeps itself.' };
+  }
   if (isLoader(id)) {
     if (installer.code.IS_MVAVE_LOADER(id)) return { block: 'foreign' };
     return { text: 'It is in update mode: an install was not finished. The install of this package finishes it.' };
@@ -11704,7 +11785,8 @@ function describeDevice(id) {
 // Finds the FM-1 and shows what it is. With `only`, it asks that MIDI port only (TRY).
 async function connectFm1(only) {
   $('install-connect').disabled = $('install-ready').disabled = true;
-  installer.device = null;
+  installer.device = installer.mboot = null;
+  $('install-info').hidden = $('install-boot-how').hidden = true;
   installSay('install-device', 'Looking for the FM-1…');
   try {
     try {
@@ -11718,11 +11800,16 @@ async function connectFm1(only) {
     const found = only ? await updater.find(null, only)
       : await updater.find(isLoader) ?? await updater.findAny((id) => !isLoader(id));
     if (!found) throw installError('notfound');
+    const mboot = found.id.text === MBOOT_ID ? await askMboot(found.link) : null;
     found.link.close();
-    const what = describeDevice(found.id);
+    const what = describeDevice(found.id, mboot);
     installSay('install-device', `Found on the MIDI port "${found.name}": ${found.id.text}\n` +
       (what.block ? INSTALL_ERRORS[what.block] : what.text), what.block ? 'bad' : 'good');
     if (!what.block) installer.device = { id: found.id, name: found.name };
+    installer.mboot = mboot;
+    if (mboot) showDeviceInfo(mboot);
+    // A firmware that runs: how to see the boot loader
+    $('install-boot-how').hidden = mboot !== null || isLoader(found.id) || what.block === 'model';
     $('install-other').hidden = true;
   } catch (error) {
     installSay('install-device', INSTALL_ERRORS[error.code] ?? `Error: ${error.message}`, 'bad');
@@ -11753,6 +11840,10 @@ function showOtherPorts() {
 $('install-ready').onclick = () => {
   $('install-from').textContent = `${installer.package.name}, identity ${installer.package.product}`;
   $('install-to').textContent = `${installer.device.id.text}, on the MIDI port "${installer.device.name}"`;
+  $('install-boot').textContent = installer.mboot && !installer.mboot.stage
+    ? `${['m-bootloader', installer.mboot.version].filter(Boolean).join(' ')}, in its MIDI mode. It writes the program ` +
+      'area only: the boot loader stays.' : '';
+  $('install-boot-row').hidden = !$('install-boot').textContent;
   setProgress($('install-progress'), 0);
   installSay('install-state', 'Nothing is written yet.');
   $('install-warning').hidden = $('install-go').hidden = false;

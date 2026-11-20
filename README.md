@@ -166,10 +166,15 @@ the steps:
    and agree. For a firmware of the gallery, you also agree that it is the work of its authors and that
    you keep to its licence; the box links to its repository. The dialog tells you to work
    with [M-Flasher](https://github.com/jvitkauskas/m-flasher) first: make a backup, check the flash chip and
-   the boot loader, and install [m-bootloader](https://github.com/jvitkauskas/m-bootloader). The page cannot
-   see the boot loader: a firmware that runs does not tell it.
+   the boot loader, and install [m-bootloader](https://github.com/jvitkauskas/m-bootloader).
 2. **Connect.** Connect the FM-1 with a USB cable that carries data, and let it run as it is. CONNECT
-   asks the browser for MIDI with SysEx messages, finds the FM-1, and tells which firmware it runs.
+   asks the browser for MIDI with SysEx messages, finds the FM-1, and tells which firmware it runs. A
+   firmware that runs does not tell the boot loader. To see it, start the FM-1 in m-bootloader's MIDI mode
+   (version 2.2 or later: hold PLAY at power-on, then choose MIDI MODE). There, CONNECT also shows what
+   M-Flasher shows of the boot loader and the flash: the version of m-bootloader, the flash chip, the chip
+   key and the ID of the unit (command `0x12` of m-bootloader's `docs/SPEC.md`, 11.6). The page sends that
+   command only to an FM-1 that answers as m-bootloader (`ota-FM-1_900`): M-VAVE's firmware takes the same
+   kind of message, and some of its commands erase the flash.
 3. **Install.** INSTALL NOW starts the install. The firmware on the FM-1 checks the package and starts
    the update loader of the package. The loader writes the program, and the FM-1 starts again. The
    page then asks the FM-1 for its identity and compares it with the package.
