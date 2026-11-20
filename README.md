@@ -149,8 +149,8 @@ and no `double`; the LOG panel tells when a program does not fit the FM-1.
 
 **FM-1 Studio was tested on a real FM-1, with all its features**: DOWNLOAD and INSTALL, for `fm1.h`
 programs and for each firmware of the gallery in the table of "The gallery's firmware on a real FM-1".
-That FM-1 has the newer flash chip and m-bootloader 2.4-395e6cc, installed with M-Flasher
-(see "Which FM-1"). Read this section to its end before you install a package.
+"Which FM-1" tells which FM-1, and what was not tried. Read this section to its end before you install a
+package.
 [firmware/README.md](firmware/README.md) tells what a program must keep to on the FM-1.
 
 The folder `firmware` builds the same kind of package on your own computer, from a project zip (the file
@@ -265,8 +265,9 @@ FM-1 of "Which FM-1".
 
 **The page builds FM-106 without Bluetooth.** FM-106's own build links JieLi's closed Bluetooth libraries
 (with link-time optimisation, in Docker); the page does the build that its `build.py` makes with
-`FELUCCA_BLE=0`, which has no Bluetooth MIDI or audio. FM-106 1.0 takes both flash chips. It has a boot
-stub in front of the app (`firmware/stub`): the chip's boot code starts the stub on every start, and the
+`FELUCCA_BLE=0`, which has no Bluetooth MIDI or audio (in `device`: its `"flags"`, and one core with
+`"dualCore": 0`). FM-106 1.0 takes both flash chips. It has a boot stub in front of the app (`firmware/stub`, `"stub": true`):
+the chip's boot code starts the stub on every start, and the
 stub starts the app only when the commit marker that the packer writes is right. `firmware/stub/stub.lock`
 has the hash of the stub that JieLi's compiler made. The page's stub, from the firmware compiler, is another
 one, and the log says so, as FM-106's `build.py` does: an install then also writes the flash sector of
@@ -290,7 +291,7 @@ disassembly (`tools/stack_check.py`, not in the page). With this compiler, that 
 functions that it does not know to call through a pointer: `fl_erase4k`, which calls the flash driver's
 RAM code as the functions that the check knows do, and `knob_param`, whose jump table has bytes that the
 disassembler shows as a call. With those two known, the check passes with 22 KB of the user stack and
-6 KB of the system stack free.
+6 KB of the system stack free. Its build keeps 4 KiB of RAM free (`"ramFree": 4096`).
 
 **Felucca and FMINI-1: the `"felucca"` build.** FMINI-1 is made from Felucca, and the `build.py` of both
 has more steps than AURORA's: the headers in `build/gen` (in the page: from the extras file, which the
@@ -379,18 +380,14 @@ is built. All parts are optional:
 }
 ```
 
-`web` is for firmware that has its own browser emulator (see below). `device` is the build of such a
-firmware for a real FM-1: the firmware compiler then makes its package with the steps of its own build.
-Two builds are known now: `"dinghy"`, the build of AURORA, CS-1, FM-106 and GR!MM, and `"felucca"`, the
-build of Felucca, FMINI-1, SLOOP, SKIFF and JIANT. FM-106's `device` also has `"flags"` (more options for
-each C file), `"dualCore": 0` (one core) and `"stub": true` (its boot stub), and GR!MM's has
-`"ramFree": 4096` (the RAM that its build keeps free; SLOOP's, SKIFF's and JIANT's have `"ramFree": 0`, as
-the `"felucca"` build otherwise keeps 4 KiB free). Those of Felucca, FMINI-1, SKIFF and JIANT have
-`"size"` (the files whose functions are built for size), Felucca's has `"hal"` (the folders of its
-hardware layer), SKIFF's has `"loaderFlags"`, `"loaderMax"`, `"giants"` and `"keepInline"`, and JIANT's
-has `"sizeRoots"`, `"sizeGlobals"`, `"sizeAttributes"`, `"sizeEvents"`, `"sizeEventKeep"`, `"hot"` and
-`"appSlot"` (see SKIFF and JIANT above); `fm1.h` tells what each option does and which files each build
-takes. The file list marks the files that the compiler gets with BUILD.
+`web` is for firmware that has its own browser emulator (see "Firmware gallery"). `device` is the build of
+such a firmware for a real FM-1: the firmware compiler then makes its package with the steps of its own
+build. Two builds are known now: `"dinghy"`, the build of AURORA, CS-1, FM-106 and GR!MM, and
+`"felucca"`, the build of Felucca, FMINI-1, SLOOP, SKIFF and JIANT. More options of `device` turn on the
+steps that only some of these builds have: `fm1.h` tells what each option does and which files each build
+takes, the entries of `GITHUB_PROJECTS` in `src/index.html` show which firmware has which, and "The
+gallery's firmware on a real FM-1" tells why. The file list marks the files that the compiler gets with
+BUILD.
 
 ## Firmware gallery
 
@@ -424,11 +421,10 @@ Three things that such a repository does not have come from this one:
   tools. They are in `src/extras/<id>.js`. Each file tells at its top where its parts come from. For
   SLOOP and GR!MM, the file also has the emulator source that FM-1 Studio compiles
   (`fm1studio/sloop_web.c`, `fm1studio/grimm_web.c`).
-- **Patches**: text changes in a loaded file, for firmware that cannot run here as it is, or not on the
-  newer flash chip of the FM-1, or not with the firmware compiler. GR!MM has five for its browser build
-  (in `#ifdef GRIMM_WEB`); CS-1 and GR!MM have nine each for the flash chip, SKIFF six for the firmware
-  compiler, and JIANT five for the firmware compiler and two for the flash chip (see "The gallery's
-  firmware on a real FM-1"). Each change is marked with "FM-1 Studio" in a comment.
+- **Patches**: text changes in a loaded file, for firmware that cannot run here as it is (GR!MM), or not
+  on the newer flash chip of the FM-1 (CS-1, GR!MM, JIANT), or not with the firmware compiler (SKIFF,
+  JIANT): see "The gallery's firmware on a real FM-1". Each change is marked with "FM-1 Studio" in a
+  comment.
 
 ## How it works
 
@@ -592,19 +588,14 @@ of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/ma
   their repositories: DOWNLOAD and INSTALL are off for them, and their hints tell why. INSTALL installs
   the program of the project only, not other files such as M-VAVE's firmware. The package of an `fm1.h`
   program has no USB audio and no Bluetooth; USB MIDI in works.
-- The gallery's CS-1 and GR!MM are CS-1 0.3.4 and GR!MM 2.0.2 with a change for the newer flash chip (see
-  "The gallery's firmware on a real FM-1"): their packages are not the same as their own builds of those
-  versions. The gallery's SKIFF is SKIFF 2.5.1 with a change for the firmware compiler, which changes
-  nothing that it does. The gallery's JIANT is the firmware of its main branch, v0.9.18 (not its release
-  V10.7.23), with a `memmove` for the firmware compiler and a change for the newer flash chip.
-- The page's FM-106 has no Bluetooth, and its boot stub is not the one of FM-106's `stub.lock`.
-- The page's SLOOP build does not build again with the boot logo as text when the flash is full, as
-  SLOOP's `build.py` does (see "The gallery's firmware on a real FM-1").
+- Some firmwares of the gallery are not as their own builds make them: CS-1, GR!MM and JIANT have a change
+  for the newer flash chip, SKIFF and JIANT a change for the firmware compiler, JIANT is v0.9.18 and not
+  its release V10.7.23, FM-106 has no Bluetooth and another boot stub, and the build of SLOOP does not
+  try again with the boot logo as text. "The gallery's firmware on a real FM-1" tells each.
 - For a changed firmware of the gallery, the firmware worker does not do the checks of its build that
   need a disassembly: run `firmware/web/reference_device.sh` for those.
 - The installer needs Chrome or Edge on a computer (Web MIDI).
-- The packages of the firmware compiler and the installer were tested on one FM-1 only: the newer flash
-  chip, with m-bootloader (see "Which FM-1").
+- The packages and the installer were tested on one FM-1 only (see "Which FM-1").
 
 ## Licence
 
