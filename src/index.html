@@ -130,7 +130,7 @@
     border-style: solid; border-width: 6px 0 6px 7px; border-color: transparent transparent transparent currentColor;
   }
   .big-button.send i::after { content: ""; position: absolute; left: 2px; top: -7px; width: 2px; height: 14px; background: currentColor; }
-  /* COMPILE and INSTALL are a clear red and FIRMWARE a clear amber, with less shadow than the other
+  /* COMPILE and INSTALL are a clear red and DOWNLOAD a clear amber, with less shadow than the other
      big buttons. */
   .big-button.red, .big-button.amber {
     box-shadow: 0 0 0 2px #0b0a09, 0 0 0 4px #3b3833, 0 3px 0 4px #0b0a09, inset 0 2px 0 #ffffff40;
@@ -143,7 +143,8 @@
   .big-button.amber { --glow: #ff9a2a; color: #241000; text-shadow: none; background: linear-gradient(#f79a3e, var(--stripe-2) 45%, #cc6410); }
   .big-button.green { color: #a6d9b0; background: linear-gradient(#1d6b34, #145226 60%, #0c3a19); }
   .big-button.lit { color: #fff; }  /* RUN stays bright while the program runs: it does not pulse */
-  /* The compiler or the firmware build is busy: the button pulses to a bright colour, with a glow. */
+  /* The job of the button is busy (COMPILE: a compile, DOWNLOAD: the package to download): the button
+     pulses to a bright colour, with a glow. */
   .big-button.red.lit, .big-button.amber.lit { animation: glow 0.6s ease-in-out infinite alternate; }
   .big-button.red.lit { background: radial-gradient(circle at 50% 42%, #ffc2b3 0%, #ff4a30 38%, #ee1c10 70%, #c20c06 100%); }
   .big-button.amber.lit { color: #241000; background: radial-gradient(circle at 50% 42%, #fff0c8 0%, #ffb648 38%, #f58a14 70%, #c96508 100%); }
@@ -698,7 +699,7 @@ It runs in a Web Worker; its output is a .fwsc package for a real FM-1.">
             <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M0 0H37A13 13 0 0 0 63 0H100V100H0Z"/><text x="96" y="94">WA</text></svg>
           </div>
           <div class="transport">
-            <button class="big-button amber down" id="firmware" title="Build and download project as a .fwsc package. You can load this .fwsc package onto your FM-1 with M-Flasher, at your own risk. Make sure you have m-bootloader installed on your device first."><i></i>FIRMWARE</button>
+            <button class="big-button amber down" id="download" title="Build and download project as a .fwsc package. You can load this .fwsc package onto your FM-1 with M-Flasher, at your own risk. Make sure you have m-bootloader installed on your device first."><i></i>DOWNLOAD</button>
             <button class="big-button red send" id="install-open" title="Install the program of the project on a real FM-1 over USB, at your own risk. A dialog shows the steps." aria-haspopup="dialog"><i></i>INSTALL</button>
             <div class="progress" id="firmware-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
               aria-label="Firmware progress, an estimate" title="Firmware progress (an estimate)"><i></i></div>
@@ -885,14 +886,14 @@ void loop(void) { }                         /* again and again: controls and scr
         <a class="ref" href="https://github.com/TimSamshuijzen/fm1studiocom#add-a-firmware-to-the-gallery" target="_blank" rel="noopener" title="README of FM-1 Studio">[1]</a>.</p>
 
       <h3>Firmware for a real FM-1</h3>
-      <p>The FIRMWARE button makes an installable <code>.fwsc</code> package of an <code>fm1.h</code> project
+      <p>The DOWNLOAD button makes an installable <code>.fwsc</code> package of an <code>fm1.h</code> project
         and downloads it. It uses the compiler of COMPILE, for the processor of the FM-1: the JieLi pi32v2
         <a class="ref" href="https://github.com/jvitkauskas/pi32v2-llvm" target="_blank" rel="noopener" title="pi32v2-llvm">[4]</a>.
         An adapter gives the program the functions of <code>fm1.h</code> on fm1-base
         <a class="ref" href="https://github.com/charlesvestal/fm1-base" target="_blank" rel="noopener" title="fm1-base">[2]</a>,
         the open platform for FM-1 firmware, and felucca-bsp
         <a class="ref" href="https://github.com/hugelton/felucca-bsp" target="_blank" rel="noopener" title="felucca-bsp">[3]</a>.
-        For a firmware of the gallery with "yes" under "Real FM-1" in the table above, FIRMWARE does the
+        For a firmware of the gallery with "yes" under "Real FM-1" in the table above, DOWNLOAD does the
         steps of the firmware's own build instead, with the changes that you made in its files.</p>
       <p>The INSTALL button makes the same package and writes it to an FM-1 over USB. A dialog shows the
         steps: read, connect the FM-1, install. It uses Web MIDI, so it needs Chrome or Edge. The firmware
@@ -906,7 +907,7 @@ void loop(void) { }                         /* again and again: controls and scr
         <a href="https://github.com/TimSamshuijzen/fm1studiocom#on-a-real-fm-1" target="_blank" rel="noopener">"On a real FM-1"</a>
         in the README: how to install a package, which FM-1 units it is for, and what to do when an install
         goes wrong. Keep M-VAVE's <code>FM-1.fwsc</code> on your computer.</p>
-      <p>COMPILE already keeps a program to three rules of the FM-1, as FIRMWARE does:</p>
+      <p>COMPILE already keeps a program to three rules of the FM-1, as DOWNLOAD and INSTALL do:</p>
       <ul>
         <li>C only, no C++.</li>
         <li><code>float</code> only. A <code>double</code> stops the compile, and the LOG panel names the
@@ -956,9 +957,9 @@ void loop(void) { }                         /* again and again: controls and scr
         <li>The LEDs are on or off: the dim levels of some firmware are not shown.</li>
         <li>GitHub gives the list of files of a repository 60 times in an hour to one address. A firmware
           of the gallery uses one or more of these for its first load.</li>
-        <li>FIRMWARE is for <code>fm1.h</code> programs in C, and for the firmwares of the gallery with "yes"
-          under "Real FM-1". The other firmwares of the gallery have their own builds in their repositories:
-          FIRMWARE and INSTALL are off for them, and their hints tell why. INSTALL installs the program of the project only: to put the
+        <li>DOWNLOAD and INSTALL are for <code>fm1.h</code> programs in C, and for the firmwares of the gallery
+          with "yes" under "Real FM-1". The other firmwares of the gallery have their own builds in their
+          repositories: the two buttons are off for them, and their hints tell why. INSTALL installs the program of the project only: to put the
           firmware of M-VAVE back, use a tool of M-VAVE or another installer. CS-1 0.3.4 and GR!MM 2.0.2
           know only the first flash chip of the FM-1: the page changes them when it loads them, so that they
           also take the newer chip, as AURORA does. The package of FM-106 has no Bluetooth: its Bluetooth needs closed
@@ -1045,7 +1046,7 @@ void loop(void) { }                         /* again and again: controls and scr
         <li>The AI writes <code>main.c</code>. Copy it, and paste it on this page with <kbd>Ctrl</kbd> +
           <kbd>V</kbd>: the page compiles it and runs it in the simulator. Play it.</li>
         <li>Tell the AI what to change. When a compile fails, give the AI the log.</li>
-        <li>SAVE the project. For a real FM-1, use FIRMWARE or INSTALL (see ABOUT).</li>
+        <li>SAVE the project. For a real FM-1, use DOWNLOAD or INSTALL (see ABOUT).</li>
       </ol>
 
       <h3>1. Your idea</h3>
@@ -1120,7 +1121,7 @@ Rules for the program:
     <header class="dialog-head">
       <h2 class="logo" id="install-title">INSTALL</h2>
       <p class="brand-text">
-        <span class="model">ON A REAL FM-1</span>
+        <span class="model">ON YOUR FM-1</span>
         <span class="tagline">over USB, with Web MIDI</span>
       </p>
       <div class="stripes"><i></i><i></i><i></i><i></i></div>
@@ -1135,7 +1136,7 @@ Rules for the program:
       </ol>
 
       <section data-step="read">
-        <p class="lead">This writes the program of this project to a real M-VAVE FM-1, in place of the
+        <p class="lead">This writes the program of this project to your FM-1, in place of the
           firmware that the FM-1 has now.</p>
         <p class="state" id="install-package" role="status"></p>
         <div class="progress" id="install-package-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
@@ -1250,9 +1251,9 @@ Rules for the program:
  *
  * The examples for "buttons", "encoders" and "screen" are those of Felucca.
  *
- * "device" is for such a firmware too: the firmware compiler (FIRMWARE, INSTALL)
+ * "device" is for such a firmware too: the firmware compiler (DOWNLOAD, INSTALL)
  * then makes its package for a real FM-1 with the steps of its own build, from
- * the files of the project (with your changes). Without it, FIRMWARE and INSTALL
+ * the files of the project (with your changes). Without it, DOWNLOAD and INSTALL
  * are off for a project with "web". "device" has:
  *
  *   "build":   "dinghy"                  the steps of tools/build.py of AURORA,
@@ -9928,7 +9929,7 @@ $('about-open').onclick = () => {
       const link = Object.assign(document.createElement('a'),
         { href: `https://github.com/${repo}`, target: '_blank', rel: 'noopener', textContent: repo });
       const row = gallery.insertRow();
-      // Real FM-1: FIRMWARE and INSTALL can build the firmware with its own build ("device")
+      // Real FM-1: DOWNLOAD and INSTALL can build the firmware with its own build ("device")
       for (const text of [entry.label, entry.version, entry.about, '', entry.license, entry.manifest.device ? 'yes' : 'no']) {
         row.insertCell().textContent = text;
       }
@@ -10141,7 +10142,7 @@ function showTree(reveal = false) {
     else if (bottom > tree.scrollTop + tree.clientHeight) tree.scrollTop = bottom - tree.clientHeight + 5;
   }
   showSummary();
-  showFirmware(); // fm1project.json also says if FIRMWARE can build the project
+  showFirmware(); // fm1project.json also says if DOWNLOAD and INSTALL can build the project
 }
 
 // Puts a file in the editor. Without a path, the editor shows fm1.h, which cannot be changed.
@@ -11190,8 +11191,8 @@ function setCompiling(busy) {
 // ---- Progress of a compile, and of a firmware build ----
 // The compiler gives no progress during a file, and a firmware is one large file. Thus the bar
 // below the COMPILE button shows the time of the compile against an estimate of its full time.
-// The bar below the FIRMWARE button does the same for a firmware build, and so does the bar below
-// the package in the INSTALL dialog.
+// The bar below the DOWNLOAD and INSTALL buttons does the same for a firmware build, and so does the
+// bar below the package in the INSTALL dialog.
 
 // `part` is 0 to 1.
 function setProgress(bar, part) {
@@ -11295,25 +11296,28 @@ document.addEventListener('keydown', (event) => {
 // ---- Firmware: a .fwsc package of the project, for a real FM-1 ----
 
 // The firmware worker (the firmware-worker.js block) uses the compiler of fwsc/ for the FM-1's processor,
-// as the firmware compiler. It starts at the first FIRMWARE or INSTALL, and gets the compiler from the
+// as the firmware compiler. It starts at the first DOWNLOAD or INSTALL, and gets the compiler from the
 // simulator compiler when that has loaded it (llvmModule).
 let firmware = null;      // the worker
 let firmwareName = '';    // the name of the project that it builds now, or '' when it does nothing
+let firmwareDownload = false;  // the build is for DOWNLOAD (that button pulses during it), not for INSTALL
 let firmwareMade = null;  // the last package: { name, fwsc, image } (the bytes as ArrayBuffer)
 let firmwareTimer = 0;    // moves the progress bars during a build
-// The bars that show a build: below the FIRMWARE button, and below the package in the INSTALL dialog.
+// The bars that show a build: below the DOWNLOAD and INSTALL buttons, and below the package in the
+// INSTALL dialog.
 const firmwareBars = [$('firmware-progress'), $('install-package-progress')];
 let firmwareStart = 0;    // when the build started (Date.now())
 let firmwareDone = null;  // gives the result of the build to makeFirmware()'s promise
 const firmwareSeconds = new Map(); // project name -> the time of its last good build on this computer
-const FIRMWARE_HINT = $('firmware').title;
+const DOWNLOAD_HINT = $('download').title;
 const FIRMWARE_LOAD_SECONDS = 10;   // the load of the compiler: a guess, it changes with the connection
 const FIRMWARE_BASE_SECONDS = 2.5;  // the build of a small program, measured on a fast computer
 
-// Tells why FIRMWARE cannot make a package of the project, or gives '' when it can.
+// Tells why the firmware compiler cannot make a package of the project (for DOWNLOAD and INSTALL), or
+// gives '' when it can.
 function firmwareBlock() {
   if (location.protocol === 'file:') {
-    return 'FIRMWARE needs the page from a web server (fm1studio.com, or a server on this computer): ' +
+    return 'DOWNLOAD and INSTALL need the page from a web server (fm1studio.com, or a server on this computer): ' +
       'a page that is opened from disk cannot load the compiler for the FM-1.';
   }
   // A firmware with its own FM-1 inside (the web_ interface) is no fm1.h program: the firmware
@@ -11333,19 +11337,19 @@ function firmwareBlock() {
     : 'The firmware\'s own repository builds its .fwsc.');
 }
 
-// Shows on the FIRMWARE and INSTALL buttons if they can be used, with the reason in the hint when
+// Shows on the DOWNLOAD and INSTALL buttons if they can be used, with the reason in the hint when
 // one cannot: a build is busy, the button is not available for the project, or (INSTALL) the
 // browser has no Web MIDI. showTree() calls this after each change of the project.
 function showFirmware() {
   const busy = firmwareName !== '';
   const hint = (block) => (busy ? 'Making the firmware… please wait' : block && `Not available: ${block}`);
   const block = firmwareBlock();
-  $('firmware').disabled = busy || block !== '';
-  $('firmware').classList.toggle('lit', busy);
-  $('firmware').title = hint(block) || FIRMWARE_HINT;
+  $('download').disabled = busy || block !== '';
+  $('download').classList.toggle('lit', busy && firmwareDownload);  // it pulses for its own build only
+  $('download').title = hint(block) || DOWNLOAD_HINT;
   for (const bar of firmwareBars) bar.classList.toggle('busy', busy);
-  $('firmware').closest('.section').classList.toggle('busy', busy);  // the border of FIRMWARE pulses
-  // INSTALL is off for a project that FIRMWARE cannot build.
+  $('download').closest('.section').classList.toggle('busy', busy);  // the border of the FIRMWARE panel pulses
+  // INSTALL is off for a project that the firmware compiler cannot build.
   const installBlock = block || (navigator.requestMIDIAccess ? '' : 'INSTALL needs Web MIDI: use Chrome or Edge on a computer.');
   // During an install, the button shows the dialog again.
   $('install-open').disabled = !installer.writing && (busy || installBlock !== '');
@@ -11383,9 +11387,10 @@ function firmwareMessage(data) {
 }
 
 // Makes the package of the project. Gives a promise of the package ({ name, fwsc, image }), or of
-// null when it was not made: the log then tells why. FIRMWARE and INSTALL call this. They are
-// disabled during a build, and for a project that cannot be built (see showFirmware()).
-function makeFirmware() {
+// null when it was not made: the log then tells why. DOWNLOAD (with `download` true: its button
+// pulses during the build) and INSTALL call this. They are disabled during a build, and for a project
+// that cannot be built (see showFirmware()).
+function makeFirmware(download = false) {
   if (!compiling) $('log').textContent = '';
   if (!firmware) {
     const url = URL.createObjectURL(new Blob(
@@ -11401,6 +11406,7 @@ function makeFirmware() {
     if (llvmModule) firmware.postMessage({ module: llvmModule });
   }
   firmwareName = project.name || 'project';
+  firmwareDownload = download;
   showFirmware();
   firmwareStart = Date.now();
   const full = estimateFirmware();
@@ -11420,9 +11426,9 @@ function makeFirmware() {
   return new Promise((resolve) => { firmwareDone = resolve; });
 }
 
-// FIRMWARE makes the package and downloads it.
-$('firmware').onclick = async () => {
-  const made = await makeFirmware();
+// DOWNLOAD makes the package and downloads it.
+$('download').onclick = async () => {
+  const made = await makeFirmware(true);
   if (!made) return;
   const link = document.createElement('a');
   link.href = URL.createObjectURL(new Blob([made.fwsc], { type: 'application/octet-stream' }));
@@ -11544,7 +11550,8 @@ async function installCode() {
 }
 
 // INSTALL opens the dialog at its first step, and makes the package of the project while the user
-// reads. The button is disabled for a project that FIRMWARE cannot build (see showFirmware()).
+// reads. The button is disabled for a project that the firmware compiler cannot build (see showFirmware()).
+// DOWNLOAD does not pulse during this build: it is not its job.
 $('install-open').onclick = async () => {
   if (installer.writing) {  // the dialog was closed during an install: show it again
     install.showModal();

@@ -5,7 +5,7 @@ A code workstation for the M-VAVE FM-1 synthesizer that runs in the browser: **[
 Write a program in C, press COMPILE, and play it on a simulated FM-1. The compiler, the program
 and the simulator all run in the page. There is no server side and nothing to install. It is a simulation
 of the FM-1 API, not an emulation of the CPUs. The same compiler, for the FM-1's processor, makes an
-installable package for a real FM-1 from a project (FIRMWARE), and an installer writes it to an FM-1 over
+installable package for a real FM-1 from a project (DOWNLOAD), and an installer writes it to an FM-1 over
 USB (INSTALL). Code that works in this simulator does not guarantee it will work on a real FM-1.
 
 - **Code editor** with a file list, syntax colours and projects of more than one file.
@@ -40,7 +40,7 @@ WebAssembly with two targets. It runs in the browser.
 | Makes | `fm1.wasm`, which the simulator runs | A `.fwsc` package for a real FM-1 |
 | Licence | Apache-2.0 with LLVM exceptions; Emscripten's runtime and musl: MIT and others | The same |
 
-The page loads the compiler when it opens, and gives it to the firmware worker at the first FIRMWARE or
+The page loads the compiler when it opens, and gives it to the firmware worker at the first DOWNLOAD or
 INSTALL. The WebAssembly logo in the PROGRAM panel and the one in the FIRMWARE panel name the compiler in
 their hints.
 
@@ -139,13 +139,13 @@ mistakes: test the program in the simulator, and read "On a real FM-1" before yo
 
 ### On a real FM-1
 
-The FIRMWARE button makes a `.fwsc` package of the project with the firmware compiler, and downloads it.
+The DOWNLOAD button makes a `.fwsc` package of the project with the firmware compiler, and downloads it.
 It uses the compiler that the page loaded for COMPILE: a package takes some seconds. The NAME of the
 project gives the name on the FM-1's start screen. An adapter makes the functions of `fm1.h` from
 [fm1-base](https://github.com/charlesvestal/fm1-base) and felucca-bsp. The program must be C, with `float`
 and no `double`; the LOG panel tells when a program does not fit the FM-1.
 
-**FM-1 Studio was tested on a real FM-1, with all its features**: FIRMWARE and INSTALL, for `fm1.h`
+**FM-1 Studio was tested on a real FM-1, with all its features**: DOWNLOAD and INSTALL, for `fm1.h`
 programs and for each firmware of the gallery in the table of "The gallery's firmware on a real FM-1".
 That FM-1 has the newer flash chip and m-bootloader 2.4-395e6cc, installed with M-Flasher
 (see "Which FM-1"). Read this section to its end before you install a package.
@@ -189,7 +189,7 @@ flash chip (see "Which FM-1"): use the file from the link.
 
 ##### Other tools
 
-Other tools install the file that FIRMWARE downloads. They are felucca-bsp's and M-VAVE's, not ours:
+Other tools install the file that DOWNLOAD gives. They are felucca-bsp's and M-VAVE's, not ours:
 
 - `tools/fm1_install.py PACKAGE.fwsc` of felucca-bsp installs over USB MIDI. It needs Python with `mido`
   and `python-rtmidi`. Run it in Windows, not in WSL: WSL does not see the FM-1.
@@ -458,12 +458,12 @@ The application is one file, `src/index.html`, the compiler in `src/fwsc`, and t
 The page is made so that it also works when `index.html` is opened from disk: the worker and the worklet
 start from text in the page, and the extras are scripts. Such a page cannot fetch the files of its own
 folder: it loads the compiler from `https://www.fm1studio.com/fwsc/`, the same files
-(`src/staticwebapp.config.json` lets other pages fetch them). Only FIRMWARE and the installer need a web
+(`src/staticwebapp.config.json` lets other pages fetch them). Only DOWNLOAD and INSTALL need a web
 server.
 
 ### The firmware worker
 
-The **firmware worker** starts at the first FIRMWARE or INSTALL. It gets the compiler from the page (the
+The **firmware worker** starts at the first DOWNLOAD or INSTALL. It gets the compiler from the page (the
 compiler worker loaded it; it loads `src/fwsc/llvm.wasm` itself when the page has none yet), and loads
 `src/fwsc/platform.json` (the sources of fm1-base and felucca-bsp, the adapter, the update loader and three
 files of JieLi's SDK). [src/fwsc/README.md](src/fwsc/README.md) tells how a page calls this compiler.
@@ -581,7 +581,7 @@ of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/ma
 - The LEDs are on or off: the dim levels of some firmware are not shown.
 - The firmware compiler is for `fm1.h` programs in C, and for the firmwares of the gallery in the table of
   "The gallery's firmware on a real FM-1". The other firmwares of the gallery have their own builds in
-  their repositories: FIRMWARE and INSTALL are off for them, and their hints tell why. INSTALL installs
+  their repositories: DOWNLOAD and INSTALL are off for them, and their hints tell why. INSTALL installs
   the program of the project only, not other files such as M-VAVE's firmware. The package of an `fm1.h`
   program has no USB audio and no Bluetooth; USB MIDI in works.
 - The gallery's CS-1 and GR!MM are CS-1 0.3.4 and GR!MM 2.0.2 with a change for the newer flash chip (see
