@@ -240,6 +240,23 @@
   .buttons .file-buttons { margin-left: auto; }
   .push.github { display: grid; place-items: center; width: 26px; padding: 0; }  /* the GitHub logo, next to ABOUT */
   .push.github svg { width: 14px; height: 14px; fill: currentColor; }
+  .masthead .buttons { align-items: center; }
+  .arcade {  /* VIBE: a green arcade button, as SMART BOMB of GWAVE (complexity.zone/gwave), with its name on the cap */
+    --edge: #075b3d;
+    position: relative; flex: none; width: 40px; height: 40px; border-radius: 50%;
+    border: 2px solid var(--edge); background: #089d6c;
+    box-shadow: 0 0 0 2px #090909, 0 2px 4px #0009, inset 0 0 0 2px #35ca99;
+  }
+  .arcade span {  /* the cap: it stands up from the ring, and goes down when it is pressed */
+    position: absolute; left: 3px; top: 1px; width: 30px; height: 30px; border-radius: 50%;
+    display: grid; place-items: center; padding-left: 0.12em;  /* the letter spacing after the last letter */
+    border: 1px solid #3ac58e; background: radial-gradient(circle at 38% 30%, #5cd3a3, #089b66 62%, #09603f);
+    box-shadow: 0 3px 0 var(--edge), 0 4px 3px #000a;
+    font-family: var(--font-panel); font-size: 9px; font-weight: 700; letter-spacing: 0.12em;
+    color: #f2fff8; text-shadow: 0 1px 1px #0009;
+    transition: transform 0.06s, box-shadow 0.06s;
+  }
+  .arcade:active span { transform: translateY(2px); box-shadow: 0 1px 0 var(--edge), 0 1px 2px #000a; }
   /* The gallery: a tray with a card for each demo project of this page, then for each firmware on GitHub.
      The tray scrolls sideways: a part of the next card shows at the right edge. The lamp of a card shows
      the card that the project came from. */
@@ -639,7 +656,7 @@
         <button class="push" id="about-open" title="About FM-1 Studio" aria-haspopup="dialog">ABOUT</button>
         <a class="push github" href="https://github.com/TimSamshuijzen/fm1studiocom" target="_blank" rel="noopener"
           title="Open github.com/TimSamshuijzen/fm1studiocom in a new tab" aria-label="FM-1 Studio on GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg></a>
-        <button class="push" id="vibe-open" title="Vibe-code a synth, a piece or a game with an AI" aria-haspopup="dialog">VIBE</button>
+        <button class="arcade" id="vibe-open" title="Vibe-code a synth, a piece or a game with an AI" aria-haspopup="dialog"><span>VIBE</span></button>
       </div>
       <div class="stripes"><i></i><i></i><i></i><i></i></div>
       <div class="oled glass status-oled">
