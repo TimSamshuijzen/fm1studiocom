@@ -46,13 +46,11 @@ their hints.
 
 The simulator compiler compiles an `fm1.h` program as the firmware build does: C only, with the C library
 of the FM-1, and `float` only (see "Write a program"). A firmware of the gallery has its own FM-1 inside,
-and gets the C library of WASI: wasi-libc, from the sysroot of [wasm-clang](https://github.com/binji/wasm-clang)
-by Ben Smith (`src/wasm-clang/sysroot.tar`, 9.3 MB, loaded at the first compile of such a firmware).
+and gets web-libc: a small C library of FM-1 Studio, in the page (see "How it works").
 
 [src/fwsc/README.md](src/fwsc/README.md) lists all parts of the compiler, and
 [firmware/web/README.md](firmware/web/README.md) tells how to build it again and how to check its
-packages. [src/wasm-clang/README.md](src/wasm-clang/README.md) tells where the sysroot comes from. On a
-computer, `firmware/build.sh` builds the same kind of package with JieLi's own compiler (clang 4.0.1 for
+packages. On a computer, `firmware/build.sh` builds the same kind of package with JieLi's own compiler (clang 4.0.1 for
 pi32v2, a binary from JieLi's server, without source code): [firmware/README.md](firmware/README.md).
 
 ## Use
@@ -427,14 +425,14 @@ Three things that such a repository does not have come from this one:
 
 ## How it works
 
-The application is one file, `src/index.html`, the compiler in `src/fwsc`, the C library of the gallery's
-firmwares in `src/wasm-clang`, and the installer in `src/install`. The page has the styles, the page
-script, and these text blocks that the page script reads:
+The application is one file, `src/index.html`, the compiler in `src/fwsc`, and the installer in
+`src/install`. The page has the styles, the page script, and these text blocks that the page script reads:
 
 | Block | What |
 |---|---|
 | `fm1.h` | The API |
 | `fm1_runtime.c` | The simulator side of the API, linked into each program |
+| `web-libc/libc.c`, `web-libc/string.h` and five more headers | web-libc: the C library of a firmware of the gallery in the simulator, linked into each such program |
 | `fm1project.json`, `main.c` | The demo project |
 | `prog-1/fm1project.json`, `prog-1/main.c` | The demo project of the PROG-1 card, by Hans Dam |
 | `space-1/fm1project.json`, `space-1/main.c` | The demo project of the SPACE-1 card |
@@ -447,21 +445,21 @@ script, and these text blocks that the page script reads:
 1. The page starts the **compiler worker**. It loads the compiler from `src/fwsc` (clang 23.1.5 of
    [pi32v2-llvm](https://github.com/jvitkauskas/pi32v2-llvm), as WebAssembly), gives the compiled module
    to the page for the next workers, and compiles `fm1_runtime.c` and the adapter's `fm1_libc.c` one
-   time. A tool runs as a new instance of the module, with a file system in memory.
+   time, and web-libc's `libc.c` at the first firmware of the gallery. A tool runs as a new instance of
+   the module, with a file system in memory.
 2. For each compile, the worker writes the project files to that file system and compiles the sources
    for WebAssembly. For an `fm1.h` program it also compiles them for the FM-1 and links them as the
    firmware build does, for the check for `double`. Then it links the WebAssembly objects to `fm1.wasm`.
 3. The page sends the module to the **audio worklet**, which makes an instance of it. For each block of
-   256 frames it calls `loop()` and then `audio()`. An `fm1.h` program imports nothing. System calls
-   that wasi-libc imports for a firmware of the gallery all fail: an FM-1 has none.
+   256 frames it calls `loop()` and then `audio()`. The module imports nothing.
 4. The worklet sends the screen, the LEDs, the level and the memory size to the page. The page sends
    the keys, encoders, MASTER position and MIDI messages to the worklet.
 
 The page is made so that it also works when `index.html` is opened from disk: the worker and the worklet
 start from text in the page, and the extras are scripts. Such a page cannot fetch the files of its own
-folder: it loads the compiler from `https://www.fm1studio.com/fwsc/` and the sysroot from
-`https://www.fm1studio.com/wasm-clang/`, the same files (`src/staticwebapp.config.json` lets other pages
-fetch them). Only FIRMWARE and the installer need a web server.
+folder: it loads the compiler from `https://www.fm1studio.com/fwsc/`, the same files
+(`src/staticwebapp.config.json` lets other pages fetch them). Only FIRMWARE and the installer need a web
+server.
 
 ### The firmware worker
 
@@ -535,7 +533,6 @@ Then open `http://127.0.0.1:8765`. The page needs the internet only for the gall
 src/index.html                 the application
 src/extras/                    files for the firmware of the gallery
 src/fwsc/                      the compiler: clang for WebAssembly and for the FM-1, as WebAssembly, and the platform
-src/wasm-clang/                the C library of WASI, for the firmwares of the gallery in the simulator
 src/install/                   the installer of fm1-base
 src/error.html                 the page for an address that does not exist
 src/staticwebapp.config.json   configuration of the host
@@ -556,6 +553,13 @@ The firmware must have a C source that gives the `web_` interface: `web_boot`, `
 `web_lit_keys`). A repository that has its generated headers needs only the entry. One that makes them
 in its build also needs an extras file: a script that calls `fm1Extras({ path: text, ... })`.
 
+The firmware gets web-libc as its C library: the `web-libc/` blocks of `src/index.html`. Its headers
+(`string.h`, `stdlib.h`, `stdio.h`, `math.h`, `time.h`, `unistd.h`, `sys/types.h`; clang has `stdint.h`,
+`stddef.h`, `stdarg.h` and `stdbool.h`) declare the names that the firmwares of the gallery use, and
+`libc.c` has the functions that they call in the browser. A new firmware can need more: the LOG then
+tells of a missing header, an undeclared function, or an undefined symbol at the link. Add the
+declaration, and the function to `libc.c` when the firmware calls it in the browser.
+
 A demo project is an entry in `DEMO_PROJECTS` (`id`, `label` and `about`), and its files as text blocks
 of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/main.c`. Its card shows
 "demo" in place of a licence, and has no link.
@@ -566,7 +570,9 @@ of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/ma
   program whose main loop does not return cannot run as it is.
 - The simulator runs a program compiled at `-O2`; the firmware build, and the check for `double`, compile
   it at `-Os`.
-- The firmwares of the gallery are compiled with wasi-libc of 2019 (the sysroot of wasm-clang).
+- web-libc, the C library of the gallery's firmwares in the simulator, has what they use: no files, no
+  clock, no `printf` and no `malloc`. A firmware that is added can need more (see "Add a firmware to the
+  gallery").
 - A page that is opened from disk loads the compiler from fm1studio.com: COMPILE then needs that site.
 - A project holds text files only.
 - GitHub gives the list of files of a repository 60 times in an hour to one address. The first LOAD of
@@ -609,10 +615,6 @@ from that code, and their licences apply to them.
 
 The progressive rock band of the PROG-1 card (`prog-1/main.c` in `src/index.html`, and
 `src/examples/prog-1`) is by Hans Dam.
-
-The folder `src/wasm-clang` has the sysroot of [wasm-clang](https://github.com/binji/wasm-clang) by Ben
-Smith (Apache-2.0): wasi-libc (from musl, MIT), and libc++ and clang's headers of LLVM (Apache-2.0 with
-LLVM exceptions): [src/wasm-clang/README.md](src/wasm-clang/README.md).
 
 The folder `src/fwsc` has work of others, the compiler: LLVM with the pi32v2 target of Julius
 Vitkauskas (Apache-2.0 with LLVM exceptions), built with Emscripten; the sources of fm1-base and

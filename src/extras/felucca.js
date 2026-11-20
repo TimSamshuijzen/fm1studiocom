@@ -21,7 +21,7 @@ fm1Extras({
 "fm1studio/sys/wait.h": String.raw`/* Added for FM-1 Studio, not a file of Felucca.
  *
  * tests/hostsim.c includes <sys/wait.h> and calls fork, pipe and waitpid in its test functions.
- * The C library of the compiler in FM-1 Studio (WASI) has no processes, and the build for FM-1
+ * The C library of the compiler in FM-1 Studio has no processes, and the build for FM-1
  * Studio does not call these functions. Thus each one fails here. */
 #pragma once
 #include <sys/types.h>

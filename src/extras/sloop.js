@@ -21,7 +21,7 @@ fm1Extras({
 "fm1studio/pthread.h": String.raw`/* Added for FM-1 Studio, not a file of SLOOP.
  *
  * tests/cpu1_host.c, which tests/hostsim.c includes, can run the work of the second core of the
- * FM-1 on a thread (CORES=2). The C library of the compiler in FM-1 Studio (WASI) has no threads,
+ * FM-1 on a thread (CORES=2). The C library of the compiler in FM-1 Studio has no threads,
  * and the build for FM-1 Studio uses CORES=1: the work runs on the one thread there is. Thus the
  * thread functions do nothing here. The names are macros, so that they cannot be the same as a
  * name of the C library. */
@@ -450,7 +450,7 @@ EXPORT uint32_t web_now_ms(void) { return fm1_ms; }
 "fm1studio/sys/wait.h": String.raw`/* Added for FM-1 Studio, not a file of SLOOP.
  *
  * tests/hostsim.c includes <sys/wait.h> and calls fork, pipe and waitpid in its test functions.
- * The C library of the compiler in FM-1 Studio (WASI) has no processes, and the build for FM-1
+ * The C library of the compiler in FM-1 Studio has no processes, and the build for FM-1
  * Studio does not call these functions. Thus each one fails here. */
 #pragma once
 #include <sys/types.h>

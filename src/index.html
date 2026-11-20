@@ -856,7 +856,7 @@ void loop(void) { }                         /* again and again: controls and scr
           <kbd>Ctrl</kbd> + <kbd>V</kbd>, outside the editor.</li>
       </ul>
       <p>The screen and input functions have the names and signatures of felucca-bsp
-        <a class="ref" href="https://github.com/hugelton/felucca-bsp" target="_blank" rel="noopener" title="felucca-bsp">[4]</a>.</p>
+        <a class="ref" href="https://github.com/hugelton/felucca-bsp" target="_blank" rel="noopener" title="felucca-bsp">[3]</a>.</p>
 
       <h3>Vibe coding</h3>
       <p>You do not have to write the program yourself. VIBE, next to ABOUT, tells how an AI chat can
@@ -887,18 +887,18 @@ void loop(void) { }                         /* again and again: controls and scr
       <h3>Firmware for a real FM-1</h3>
       <p>The FIRMWARE button makes an installable <code>.fwsc</code> package of an <code>fm1.h</code> project
         and downloads it. It uses the compiler of COMPILE, for the processor of the FM-1: the JieLi pi32v2
-        <a class="ref" href="https://github.com/jvitkauskas/pi32v2-llvm" target="_blank" rel="noopener" title="pi32v2-llvm">[5]</a>.
+        <a class="ref" href="https://github.com/jvitkauskas/pi32v2-llvm" target="_blank" rel="noopener" title="pi32v2-llvm">[4]</a>.
         An adapter gives the program the functions of <code>fm1.h</code> on fm1-base
-        <a class="ref" href="https://github.com/charlesvestal/fm1-base" target="_blank" rel="noopener" title="fm1-base">[3]</a>,
+        <a class="ref" href="https://github.com/charlesvestal/fm1-base" target="_blank" rel="noopener" title="fm1-base">[2]</a>,
         the open platform for FM-1 firmware, and felucca-bsp
-        <a class="ref" href="https://github.com/hugelton/felucca-bsp" target="_blank" rel="noopener" title="felucca-bsp">[4]</a>.
+        <a class="ref" href="https://github.com/hugelton/felucca-bsp" target="_blank" rel="noopener" title="felucca-bsp">[3]</a>.
         For a firmware of the gallery with "yes" under "Real FM-1" in the table above, FIRMWARE does the
         steps of the firmware's own build instead, with the changes that you made in its files.</p>
       <p>The INSTALL button makes the same package and writes it to an FM-1 over USB. A dialog shows the
         steps: read, connect the FM-1, install. It uses Web MIDI, so it needs Chrome or Edge. The firmware
         on the FM-1 checks the package and starts the update loader of the package, and that loader writes
         the program. The code that talks to the FM-1 is the installer of fm1-base
-        <a class="ref" href="https://github.com/charlesvestal/fm1-base" target="_blank" rel="noopener" title="fm1-base">[3]</a>.
+        <a class="ref" href="https://github.com/charlesvestal/fm1-base" target="_blank" rel="noopener" title="fm1-base">[2]</a>.
         For a firmware of the gallery, the dialog also asks you to agree to keep to the licence of that
         firmware.</p>
       <p class="note"><strong>FM-1 Studio was tested on a real FM-1</strong>, with the newer flash chip (B36014) and
@@ -926,16 +926,14 @@ void loop(void) { }                         /* again and again: controls and scr
       <h3>How it works</h3>
       <ol>
         <li><strong>The compiler</strong> is pi32v2-llvm by Julius Vitkauskas
-          <a class="ref" href="https://github.com/jvitkauskas/pi32v2-llvm" target="_blank" rel="noopener" title="pi32v2-llvm">[5]</a>:
+          <a class="ref" href="https://github.com/jvitkauskas/pi32v2-llvm" target="_blank" rel="noopener" title="pi32v2-llvm">[4]</a>:
           clang 23.1.5, wasm-ld and ld.lld, built from its source as WebAssembly with Emscripten
-          <a class="ref" href="https://emscripten.org" target="_blank" rel="noopener" title="Emscripten">[7]</a>
+          <a class="ref" href="https://emscripten.org" target="_blank" rel="noopener" title="Emscripten">[6]</a>
           by FM-1 Studio, with two targets: WebAssembly and the FM-1's pi32v2. The page loads it one time
           (53 MB the first time).</li>
         <li><strong>The simulator compiler</strong> uses it in a Web Worker, for WebAssembly: the output is one
           WebAssembly module. It also compiles each file of an <code>fm1.h</code> program for the FM-1, to
-          check that it has no <code>double</code>. A firmware of the gallery gets the C library of WASI from
-          wasm-clang by Ben Smith
-          <a class="ref" href="https://github.com/binji/wasm-clang" target="_blank" rel="noopener" title="wasm-clang">[2]</a>.</li>
+          check that it has no <code>double</code>. A firmware of the gallery gets web-libc, a small C library in the page.</li>
         <li><strong>The simulator</strong> runs that module on the audio thread of the browser (an
           AudioWorklet). For each block of 256 frames it calls <code>loop()</code> and then
           <code>audio()</code>. The page shows the screen and the LEDs, and sends the keys, the encoders
@@ -980,8 +978,6 @@ void loop(void) { }                         /* again and again: controls and scr
           <td>The adapter for <code>fm1.h</code> on fm1-base, and a build on your own computer with JieLi's compiler</td></tr>
         <tr><td><a href="https://github.com/TimSamshuijzen/fm1studiocom/blob/main/src/fwsc/README.md" target="_blank" rel="noopener">src/fwsc/README.md</a></td>
           <td>The compiler for WebAssembly and for the FM-1, as WebAssembly: how another page can use it</td></tr>
-        <tr><td><a href="https://github.com/TimSamshuijzen/fm1studiocom/blob/main/src/wasm-clang/README.md" target="_blank" rel="noopener">src/wasm-clang/README.md</a></td>
-          <td>The C library of WASI for the firmwares of the gallery: where it comes from, and how to check it</td></tr>
         <tr><td><a href="https://github.com/TimSamshuijzen/fm1studiocom/blob/main/firmware/web/README.md" target="_blank" rel="noopener">firmware/web/README.md</a></td>
           <td>How that compiler is built, and how to check a package</td></tr>
         <tr><td><a href="https://github.com/TimSamshuijzen/fm1studiocom/blob/main/src/install/README.md" target="_blank" rel="noopener">src/install/README.md</a></td>
@@ -1000,9 +996,6 @@ void loop(void) { }                         /* again and again: controls and scr
       <ol>
         <li><a href="https://github.com/TimSamshuijzen/fm1studiocom" target="_blank" rel="noopener">FM-1 Studio</a>,
           Tim Samshuijzen. The source code and the documents of this application. GPL-3.0-only.</li>
-        <li><a href="https://github.com/binji/wasm-clang" target="_blank" rel="noopener">wasm-clang</a>,
-          Ben Smith. Its sysroot, from a fixed commit of its repository: the C library of WASI (wasi-libc) for
-          the firmwares of the gallery in the simulator. Apache-2.0; wasi-libc: MIT.</li>
         <li><a href="https://github.com/charlesvestal/fm1-base" target="_blank" rel="noopener">fm1-base</a>,
           Charles Vestal. The open platform for FM-1 firmware: screen, keys, LEDs, sound, USB MIDI, update
           entry, safe mode, the build tool, and the installer of this page (with work of Leo Kuroshita and
@@ -1605,6 +1598,217 @@ int fm1_midi_take(uint32_t *packet) {
   *packet = midi_queue[midi_taken++ % MIDI_QUEUE];
   return 1;
 }
+</script>
+
+<!-- ==== web-libc: the C library of a program with the web_ interface (a firmware of the gallery), in the
+     simulator. The compiler worker gets each block as a file of the folder web-libc. ==== -->
+<script type="text/plain" id="web-libc/libc.c">
+/* libc.c - web-libc: the C library of the simulator compiler for a program with the web_ interface (a
+ * firmware of the gallery, with its own FM-1 inside). It is linked into each such program.
+ *
+ * Such a firmware is code for the FM-1, which has no C library. Its browser build includes some headers
+ * of one, also for its tests on a computer and its tools (files, the clock, printf). The headers of
+ * web-libc declare the names of the C library that the firmwares of the gallery use: string.h,
+ * stdlib.h, stdio.h, math.h, time.h, unistd.h and sys/types.h (clang has stddef.h, stdint.h, stdarg.h,
+ * stdbool.h, limits.h and float.h). This file has the functions that the firmwares call in the
+ * browser. The other names are in code that the linker leaves out: a program that calls one stops at
+ * the link ("undefined symbol"). A firmware that is added to the gallery can need more here.
+ *
+ * Each function is weak, as from an archive: a firmware that has its own memcpy keeps it. Each one is
+ * hidden (-fvisibility=hidden): the program does not export it. */
+#include <stdlib.h>
+#include <string.h>
+
+#define WEAK __attribute__((weak))
+
+/* ---- string.h ---- */
+
+WEAK void *memcpy(void *to, const void *from, size_t n) {
+  unsigned char *d = to;
+  const unsigned char *s = from;
+  while (n--) *d++ = *s++;
+  return to;
+}
+
+WEAK void *memmove(void *to, const void *from, size_t n) {
+  unsigned char *d = to;
+  const unsigned char *s = from;
+  if (d < s) {
+    while (n--) *d++ = *s++;
+  } else {
+    d += n;
+    s += n;
+    while (n--) *--d = *--s;
+  }
+  return to;
+}
+
+WEAK void *memset(void *to, int value, size_t n) {
+  unsigned char *d = to;
+  while (n--) *d++ = (unsigned char)value;
+  return to;
+}
+
+WEAK int memcmp(const void *a, const void *b, size_t n) {
+  const unsigned char *x = a, *y = b;
+  for (; n; n--, x++, y++) if (*x != *y) return *x - *y;
+  return 0;
+}
+
+WEAK size_t strlen(const char *s) {
+  const char *end = s;
+  while (*end) end++;
+  return (size_t)(end - s);
+}
+
+/* ---- stdlib.h ---- */
+
+WEAK int abs(int value) { return value < 0 ? -value : value; }
+
+WEAK int atoi(const char *text) {
+  int n = 0, negative = 0;
+  while (*text == ' ' || (*text >= '\t' && *text <= '\r')) text++;
+  if (*text == '-' || *text == '+') negative = *text++ == '-';
+  while (*text >= '0' && *text <= '9') n = 10 * n - (*text++ - '0'); /* negative: INT_MIN fits */
+  return negative ? n : -n;
+}
+
+/* A program in the browser has no environment. */
+WEAK char *getenv(const char *name) {
+  (void)name;
+  return NULL;
+}
+
+/* Stops the program: the simulator shows that it stopped. */
+WEAK void abort(void) { __builtin_trap(); }
+</script>
+
+<script type="text/plain" id="web-libc/string.h">
+/* string.h of web-libc (see libc.c). */
+#ifndef FM1_WEB_STRING_H
+#define FM1_WEB_STRING_H
+
+#include <stddef.h>
+
+void *memcpy(void *to, const void *from, size_t n);
+void *memmove(void *to, const void *from, size_t n);
+void *memset(void *to, int value, size_t n);
+int memcmp(const void *a, const void *b, size_t n);
+size_t strlen(const char *s);
+
+#endif
+</script>
+
+<script type="text/plain" id="web-libc/stdlib.h">
+/* stdlib.h of web-libc (see libc.c). malloc, calloc and free are not there. */
+#ifndef FM1_WEB_STDLIB_H
+#define FM1_WEB_STDLIB_H
+
+#include <stddef.h>
+
+int abs(int value);
+int atoi(const char *text);
+char *getenv(const char *name);
+__attribute__((noreturn)) void abort(void);
+
+void *malloc(size_t size);
+void *calloc(size_t count, size_t size);
+void free(void *pointer);
+
+#endif
+</script>
+
+<script type="text/plain" id="web-libc/stdio.h">
+/* stdio.h of web-libc (see libc.c). A program in the browser has no files and no console: these
+ * functions are not there. */
+#ifndef FM1_WEB_STDIO_H
+#define FM1_WEB_STDIO_H
+
+#include <stddef.h>
+
+#define EOF (-1)
+
+typedef struct fm1_web_file FILE;
+extern FILE *const stdout;
+extern FILE *const stderr;
+
+FILE *fopen(const char *path, const char *mode);
+int fclose(FILE *file);
+int fflush(FILE *file);
+size_t fwrite(const void *data, size_t size, size_t count, FILE *file);
+int fprintf(FILE *file, const char *format, ...);
+int printf(const char *format, ...);
+int snprintf(char *text, size_t size, const char *format, ...);
+int sscanf(const char *text, const char *format, ...);
+int remove(const char *path);
+
+#endif
+</script>
+
+<script type="text/plain" id="web-libc/math.h">
+/* math.h of web-libc (see libc.c). The firmwares of the gallery have their own maths, for the FM-1,
+ * which has no C library: this header declares nothing. */
+#ifndef FM1_WEB_MATH_H
+#define FM1_WEB_MATH_H
+#endif
+</script>
+
+<script type="text/plain" id="web-libc/time.h">
+/* time.h of web-libc (see libc.c). A program in the browser has no clock of the computer: the
+ * functions are not there. */
+#ifndef FM1_WEB_TIME_H
+#define FM1_WEB_TIME_H
+
+#include <sys/types.h>
+
+#define CLOCKS_PER_SEC ((clock_t)1000000)
+
+typedef int clockid_t;
+#define CLOCK_REALTIME 0
+#define CLOCK_MONOTONIC 1
+
+struct timespec {
+  time_t tv_sec;
+  long tv_nsec;
+};
+
+clock_t clock(void);
+int clock_gettime(clockid_t clock, struct timespec *time);
+
+#endif
+</script>
+
+<script type="text/plain" id="web-libc/unistd.h">
+/* unistd.h of web-libc (see libc.c). A program in the browser has no files and no processes: the
+ * functions are not there. */
+#ifndef FM1_WEB_UNISTD_H
+#define FM1_WEB_UNISTD_H
+
+#include <sys/types.h>
+
+ssize_t read(int fd, void *data, size_t size);
+ssize_t write(int fd, const void *data, size_t size);
+int close(int fd);
+int usleep(unsigned microseconds);
+__attribute__((noreturn)) void _exit(int status);
+
+#endif
+</script>
+
+<script type="text/plain" id="web-libc/sys/types.h">
+/* sys/types.h of web-libc (see libc.c). */
+#ifndef FM1_WEB_SYS_TYPES_H
+#define FM1_WEB_SYS_TYPES_H
+
+#include <stddef.h>
+
+typedef long ssize_t;
+typedef int pid_t;
+typedef long long off_t;
+typedef long long time_t;
+typedef long long clock_t;
+
+#endif
 </script>
 
 <!-- ==== The project at startup: fm1project.json and main.c ==== -->
@@ -7900,11 +8104,11 @@ void loop(void) {
 // firmware/adapter/libc, the adapter's fm1_libc.c, and memcpy, memset and memcmp in fm1_runtime.c). Each
 // file of the program is also compiled for the FM-1, with the options of the firmware build: an object file
 // that needs a routine for double fails, as in the firmware build (the FM-1 has float only).
-// A program with the web_ interface (a firmware of the gallery) has its own FM-1 inside: it gets the C
-// library of WASI (wasi-libc, from the sysroot of wasm-clang: sysroot.tar), and no check for double.
+// A program with the web_ interface (a firmware of the gallery) has its own FM-1 inside: it gets web-libc,
+// the small C library of the web-libc blocks of the page (see libc.c there), and no check for double.
 //
-// The page puts three constants in front of this code: BASE (the address of fwsc/), SYSROOT (the address of
-// sysroot.tar) and FILES (the text of fm1.h and fm1_runtime.c). The first message of the page is
+// The page puts two constants in front of this code: BASE (the address of fwsc/) and FILES (the text of
+// fm1.h, fm1_runtime.c and the files of web-libc). The first message of the page is
 // { module }: llvm.wasm compiled, from an earlier worker, or null. The worker gives the module that it uses
 // to the page ({ type: 'module' }), for the next worker.
 
@@ -7922,8 +8126,8 @@ const C_FLAGS = ['-std=gnu11', '-ffunction-sections', '-fno-builtin', '-Wall', '
 const SIM_FLAGS = ['-target', 'wasm32-unknown-unknown', '-O2', ...C_FLAGS];
 // For the check: the FM-1, at the level of the firmware build, without warnings (the simulator's compile gave them).
 const FM1_FLAGS = ['-target', 'pi32v2', '-mcpu=r3', '-Os', ...C_FLAGS, '-w'];
-// A program with the web_ interface: WebAssembly at -O2, with the C library of WASI.
-const WEB_FLAGS = ['-target', 'wasm32-wasi', '-O2', '-Wall', '-nostdlibinc', '-isystem', '/sysroot/include', '-I/fm1'];
+// A program with the web_ interface: WebAssembly at -O2, with the headers of web-libc.
+const WEB_FLAGS = ['-target', 'wasm32-unknown-unknown', '-O2', '-Wall', '-nostdlibinc', '-isystem', '/web-libc', '-I/fm1'];
 // The C library of the FM-1: after the folders of the project, as in the firmware build.
 const FM1_LIBC = '-I/fm1/libc';
 
@@ -7955,7 +8159,7 @@ let llvmModule = null;     // llvm.wasm, compiled
 const base = new Map();    // the files of each compile: clang's C headers, fm1.h and the headers of the FM-1's C library
 const once = new Map();    // the objects that are compiled one time: fm1_runtime.o and fm1_libc.o
 const builtins = new Map(); // compiler-rt's builtins for the FM-1, for the check for double
-let sysroot = null;        // promise of the files of the C library of WASI
+let webLibc = null;        // promise of the files of web-libc: its headers and libc.o
 
 async function load(module) {
   const platform = await (await fetchOk(BASE + 'platform.json')).json();
@@ -7986,25 +8190,15 @@ async function load(module) {
   }
 }
 
-// The C library of WASI, from the sysroot of wasm-clang (a tar file): its headers without those of C++, the
-// library and compiler-rt's builtins.
-const SYSROOT_LIBS = {
-  'lib/wasm32-wasi/libc.a': '/sysroot/lib/libc.a',
-  'lib/clang/8.0.1/lib/wasi/libclang_rt.builtins-wasm32.a': '/sysroot/lib/libclang_rt.builtins-wasm32.a',
-};
-const loadSysroot = () => (sysroot ||= (async () => {
-  const tar = new Uint8Array(await (await fetchOk(SYSROOT)).arrayBuffer());
-  const files = new Map();
-  const field = (at, length) => new TextDecoder().decode(tar.subarray(at, at + length)).replace(/\0[\s\S]*$/, '');
-  for (let at = 0; at + 512 <= tar.length;) {
-    const path = field(at, 100);
-    if (!path) break;
-    const size = parseInt(field(at + 124, 12).trim() || '0', 8);
-    const data = tar.subarray(at + 512, at + 512 + size);
-    if (path.startsWith('include/') && !path.startsWith('include/c++/') && !path.endsWith('/')) files.set('/sysroot/' + path, data);
-    else if (SYSROOT_LIBS[path]) files.set(SYSROOT_LIBS[path], data);
-    at += 512 + Math.ceil(size / 512) * 512;
-  }
+// web-libc, the C library of a program with the web_ interface: its headers, and libc.c compiled one time,
+// at the first such program. Its functions are hidden: the program does not export them.
+const WEB_LIBC_OBJECT = '/obj/web_libc.o';
+const loadWebLibc = () => (webLibc ||= (async () => {
+  const files = new Map(Object.entries(FILES).filter(([path]) => path.startsWith('web-libc/'))
+    .map(([path, text]) => ['/' + path, encoder.encode(text)]));
+  await compileUnit([...WEB_FLAGS, '-std=gnu11', '-fno-builtin', '-fvisibility=hidden', '-c', 'libc.c', '-o', WEB_LIBC_OBJECT],
+    [base, files], '/web-libc');
+  files.delete('/web-libc/libc.c');
   return files;
 })());
 
@@ -8192,7 +8386,7 @@ async function build(files) {
     // A file that is not text (a picture, a sound) has NUL characters. The compiler cannot use it.
     if (!text.includes('\0')) work.set(`${CWD}/${path}`, encoder.encode(text));
   }
-  const maps = web ? [base, await loadSysroot(), work] : [base, work];
+  const maps = web ? [base, await loadWebLibc(), work] : [base, work];
   const options = [
     '-I.', ...(manifest.include ?? []).map((path) => '-I' + path), ...(web ? [] : [FM1_LIBC]),
     ...(manifest.define ?? []).map((define) => '-D' + define),
@@ -8208,7 +8402,7 @@ async function build(files) {
   log('link fm1.wasm\n');
   // A program with the web_ interface has its own FM-1: it gets no runtime, and exports all its functions.
   const link = web
-    ? ['--export-dynamic', '--export=__wasm_call_ctors', ...objects, ...Object.values(SYSROOT_LIBS)]
+    ? ['--export-dynamic', '--export=__wasm_call_ctors', ...objects, WEB_LIBC_OBJECT]
     : [...EXPORTS.map((name) => '--export=' + name), ...objects, ...once.keys()];
   if (manifest.stack) link.unshift('-z', 'stack-size=' + manifest.stack);
   const result = await run(['wasm-ld', '--no-entry', ...link, '-o', '/work/fm1.wasm'], [...maps, once], ['/work/fm1.wasm']);
@@ -10944,16 +11138,15 @@ function log(text) {
 // ---- Compiler ----
 
 // The compiler worker starts from inline code, because a page opened from disk cannot load
-// a worker from a file. It gets the address of the compiler (fwsc/) as the constant BASE, that of the
-// C library for a firmware with the web_ interface as SYSROOT, and fm1.h and the runtime as the
-// constant FILES, in front of its code.
-// The compiler is in the folder fwsc/ next to this page, the C library in wasm-clang/. A page opened
-// from disk cannot fetch a file of its own folder: it loads the same files from fm1studio.com.
+// a worker from a file. It gets the address of the compiler (fwsc/) as the constant BASE, and fm1.h,
+// the runtime and the files of web-libc (the web-libc/ blocks) as the constant FILES, in front of its code.
+// The compiler is in the folder fwsc/ next to this page. A page opened from disk cannot fetch a file of
+// its own folder: it loads the same files from fm1studio.com.
 const SITE = location.protocol === 'file:' ? 'https://www.fm1studio.com/' : location.href;
 const files = { 'fm1.h': text('fm1.h'), 'fm1_runtime.c': text('fm1_runtime.c') };
+for (const block of document.querySelectorAll('script[type="text/plain"][id^="web-libc/"]')) files[block.id] = text(block.id);
 const compilerUrl = URL.createObjectURL(new Blob(
   [`const BASE = ${JSON.stringify(new URL('fwsc/', SITE).href)};\n`,
-    `const SYSROOT = ${JSON.stringify(new URL('wasm-clang/sysroot.tar', SITE).href)};\n`,
     `const FILES = ${JSON.stringify(files)};\n`, text('compiler-worker.js')],
   { type: 'text/javascript' }));
 let compiler = null;      // the worker. stopCompile() replaces it with a new one.
