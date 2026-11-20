@@ -11083,29 +11083,75 @@ function highlight(source, json) {
   return html + escapeHtml(source.slice(last));
 }
 
+// The text box shows no text itself: #highlight, below it, shows the same text with colours. It has only
+// the lines in view, and PAINT_MARGIN lines above and below them. A large file, such as one with a table
+// of numbers, has hundreds of thousands of tokens: a span for each would take seconds to lay out, and
+// the page would show nothing in that time.
+const PAINT_MARGIN = 100;
+const LINE_HEIGHT = parseFloat(getComputedStyle($('source')).lineHeight);  // pixels, the same in #highlight
+let sourceText = '';    // the text in the editor (the text box gives a new copy each time it is asked)
+let lineStarts = [0];   // the offset of each line of the text in the editor
+let longComments = [];  // the comments of a C file that span lines: [start, end] offsets
+let painted = null;     // the lines in #highlight: { first, last } (last: the line after them), or null
+let gutterLines = 0;    // the count of numbers in the gutter
+
+// The text in the editor changed, or is another file.
 function showSource() {
-  const source = $('source').value;
+  const source = sourceText = $('source').value;
   const path = current ?? 'fm1.h';
-  const html = C_FILE.test(path) ? highlight(source, false) : JSON_FILE.test(path) ? highlight(source, true)
-    : escapeHtml(source);
-  // The line break at the end makes the last line as high as in the text box when it is empty.
-  $('highlight').innerHTML = html + '\n';
-  let numbers = '';
-  for (let line = 1, lines = source.split('\n').length; line <= lines; line++) numbers += line + '\n';
-  $('gutter').textContent = numbers;
+  lineStarts = [0];
+  for (let at = source.indexOf('\n'); at >= 0; at = source.indexOf('\n', at + 1)) lineStarts.push(at + 1);
+  // A line in view can be in a comment that starts above it: paintSource() needs to know.
+  longComments = [];
+  if (C_FILE.test(path)) {
+    for (const match of source.matchAll(TOKEN)) {
+      if (match[1]?.includes('\n')) longComments.push([match.index, match.index + match[0].length]);
+    }
+  }
+  if (gutterLines !== lineStarts.length) {
+    gutterLines = lineStarts.length;
+    let numbers = '';
+    for (let line = 1; line <= gutterLines; line++) numbers += line + '\n';
+    $('gutter').textContent = numbers;
+  }
   $('file-type').textContent = fileType(path);
   $('file-lock').hidden = current !== null;
+  painted = null;
   moveSource();
 }
 
+// Gives #highlight the lines in view, with colours, when it does not have them.
+function paintSource() {
+  const box = $('source');
+  const top = Math.floor(box.scrollTop / LINE_HEIGHT);
+  const bottom = Math.ceil((box.scrollTop + box.clientHeight) / LINE_HEIGHT);
+  if (painted && painted.first <= top && bottom <= painted.last) return;
+  const first = Math.max(0, top - PAINT_MARGIN), last = Math.min(lineStarts.length, bottom + PAINT_MARGIN);
+  const source = sourceText, path = current ?? 'fm1.h';
+  const from = lineStarts[first], to = last < lineStarts.length ? lineStarts[last] : source.length;
+  let html;
+  if (C_FILE.test(path)) {
+    const open = longComments.find(([start, end]) => start < from && from < end);  // a comment from above
+    const after = open ? Math.min(open[1], to) : from;
+    html = (open ? `<span class="c">${escapeHtml(source.slice(from, after))}</span>` : '') +
+      highlight(source.slice(after, to), false);
+  } else {
+    html = JSON_FILE.test(path) ? highlight(source.slice(from, to), true) : escapeHtml(source.slice(from, to));
+  }
+  // The line break at the end makes the last line as high as in the text box when it is empty.
+  $('highlight').innerHTML = html + '\n';
+  painted = { first, last };
+}
+
 function moveSource() {
+  paintSource();
   const { scrollLeft, scrollTop } = $('source');
-  $('highlight').style.transform = `translate(${-scrollLeft}px, ${-scrollTop}px)`;
+  $('highlight').style.transform = `translate(${-scrollLeft}px, ${painted.first * LINE_HEIGHT - scrollTop}px)`;
   $('gutter').style.transform = `translateY(${-scrollTop}px)`;
 }
 
 function showCursor() {
-  const before = $('source').value.slice(0, $('source').selectionStart);
+  const before = sourceText.slice(0, $('source').selectionStart);
   $('cursor').textContent = `LN ${before.split('\n').length} COL ${before.length - before.lastIndexOf('\n')}`;
 }
 
@@ -11208,20 +11254,32 @@ function showProgress(bar, seconds, full) {
   setProgress(bar, part < 1 ? 0.9 * part : 1 - 0.1 * Math.exp(1 - part));
 }
 
-const compileSeconds = new Map(); // project name -> the time of its last good compile on this computer
+// The characters of the files of the project whose paths match `pattern`.
+function sizeOf(pattern) {
+  let size = 0;
+  for (const [path, text] of project.files) if (pattern.test(path)) size += text.length;
+  return size;
+}
+
+// The time of the last good job (compile or build) of a project on this computer, from `times` (project
+// name -> { seconds, size }), when its C files have about the same size now: a main.c that is dropped or
+// pasted on the page keeps the name of the project, and can be a much larger program.
+function knownSeconds(times, name, size) {
+  const known = times.get(name);
+  return known && Math.abs(size - known.size) <= known.size / 4 ? known.seconds : undefined;
+}
+
+const compileSeconds = new Map(); // project name -> { seconds, size }: its last good compile on this computer
 let compileStart = 0;     // when the compile started (Date.now())
+let compileSize = 0;      // the characters of the C files that it compiles
 let compileEstimate = 1;  // the estimate of its full time, in seconds
 
 // The estimate: the time of the last compile of this project, or the measured time of a firmware
 // of the gallery, or a time from the size of the C files (2 seconds, and 9 seconds for
 // each million characters).
 function estimateCompile() {
-  const known = compileSeconds.get(compilingName) ??
-    GITHUB_PROJECTS.find((entry) => entry.id === project.gallery)?.seconds;
-  if (known) return known;
-  let size = 0;
-  for (const [path, text] of project.files) if (/\.(c|cc|cpp|cxx)$/i.test(path)) size += text.length;
-  return 2 + size * 9e-6;
+  return knownSeconds(compileSeconds, compilingName, compileSize) ??
+    GITHUB_PROJECTS.find((entry) => entry.id === project.gallery)?.seconds ?? 2 + compileSize * 9e-6;
 }
 
 // Compiles the project and runs the program. During a compile, it does nothing.
@@ -11233,6 +11291,7 @@ function compile() {
   $('log').textContent = '';
   compilingName = project.name || 'project';
   compileStart = Date.now();
+  compileSize = sizeOf(/\.(c|cc|cpp|cxx)$/i);
   compileEstimate = estimateCompile();
   const showTime = () => {
     const seconds = Math.round((Date.now() - compileStart) / 1000);
@@ -11277,7 +11336,7 @@ function compilerMessage(data) {
   clearInterval(compileTimer);
   setCompiling(false);
   if (!data.wasm) { setStatus('Compile failed'); return; }
-  compileSeconds.set(compilingName, Math.max(1, (Date.now() - compileStart) / 1000));
+  compileSeconds.set(compilingName, { seconds: Math.max(1, (Date.now() - compileStart) / 1000), size: compileSize });
   wasm = data.wasm;
   wasmWeb = data.web;
   wasmName = compilingName;
@@ -11307,8 +11366,9 @@ let firmwareTimer = 0;    // moves the progress bars during a build
 // INSTALL dialog.
 const firmwareBars = [$('firmware-progress'), $('install-package-progress')];
 let firmwareStart = 0;    // when the build started (Date.now())
+let firmwareSize = 0;     // the characters of the C files that it builds
 let firmwareDone = null;  // gives the result of the build to makeFirmware()'s promise
-const firmwareSeconds = new Map(); // project name -> the time of its last good build on this computer
+const firmwareSeconds = new Map(); // project name -> { seconds, size }: its last good build on this computer
 const DOWNLOAD_HINT = $('download').title;
 const FIRMWARE_LOAD_SECONDS = 10;   // the load of the compiler: a guess, it changes with the connection
 const FIRMWARE_BASE_SECONDS = 2.5;  // the build of a small program, measured on a fast computer
@@ -11360,11 +11420,8 @@ function showFirmware() {
 // a time from the size of the C files (9 seconds for each million characters, as for a compile).
 // The first build in the page also loads the compiler.
 function estimateFirmware() {
-  const known = firmwareSeconds.get(firmwareName);
-  if (known) return known;
-  let size = 0;
-  for (const [path, text] of project.files) if (/\.c$/i.test(path)) size += text.length;
-  return (firmwareMade ? 0 : FIRMWARE_LOAD_SECONDS) + FIRMWARE_BASE_SECONDS + size * 9e-6;
+  return knownSeconds(firmwareSeconds, firmwareName, firmwareSize) ??
+    (firmwareMade ? 0 : FIRMWARE_LOAD_SECONDS) + FIRMWARE_BASE_SECONDS + firmwareSize * 9e-6;
 }
 
 function firmwareMessage(data) {
@@ -11380,7 +11437,7 @@ function firmwareMessage(data) {
     return;
   }
   // The first build has the load of the compiler in its time: it is no estimate for the next one.
-  if (firmwareMade) firmwareSeconds.set(built, Math.max(1, (Date.now() - firmwareStart) / 1000));
+  if (firmwareMade) firmwareSeconds.set(built, { seconds: Math.max(1, (Date.now() - firmwareStart) / 1000), size: firmwareSize });
   firmwareMade = data;
   setStatus(`Firmware of ${built}: ${data.name}`);
   firmwareDone(data);
@@ -11409,6 +11466,7 @@ function makeFirmware(download = false) {
   firmwareDownload = download;
   showFirmware();
   firmwareStart = Date.now();
+  firmwareSize = sizeOf(/\.c$/i);
   const full = estimateFirmware();
   const showTime = () => {
     const seconds = Math.round((Date.now() - firmwareStart) / 1000);
