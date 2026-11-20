@@ -1,5 +1,7 @@
 # FM-1 Studio
 
+[![FM-1 Studio: the project with its files, the code editor, the FM-1 simulator playing a chord of the demo, the FM-1 API and the program](img/fm1studio.png)](https://fm1studio.com)
+
 A code workstation for the M-VAVE FM-1 synthesizer that runs in the browser: **[fm1studio.com](https://fm1studio.com)**.
 
 Write a program in C, press COMPILE, and play it on a simulated FM-1. The compiler, the program
@@ -539,6 +541,7 @@ src/staticwebapp.config.json   configuration of the host
 .github/workflows/             deployment
 firmware/                      fm1.h on a real FM-1: the adapter, and the build on a computer (not deployed)
 firmware/web/                  the scripts that make src/fwsc
+img/                           the screenshot at the top of this README (not deployed)
 ```
 
 A push to `main` deploys `src` to Azure Static Web Apps as it is.
