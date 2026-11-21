@@ -659,7 +659,7 @@
   .dialog-text .ports li { display: flex; align-items: center; gap: 12px; margin: 6px 0; }
   .dialog-text .ports .push { height: 24px; padding: 0 12px; font-size: 10px; }
 
-  /* ---- Save: for a firmware of the gallery, SAVE asks first. ---- */
+  /* ---- Save: for a firmware of the gallery, SAVE and DOWNLOAD ask first. ---- */
   .save { width: min(560px, 100vw - 24px); }
   .dialog-text .confirm { font-weight: 700; }  /* what the user confirms, as the boxes of INSTALL */
 
@@ -686,7 +686,7 @@
   .vibe :focus-visible { outline-color: var(--vlink); }
   .vibe-case {
     position: absolute; inset: 0 24px; padding: 12px 22px 12px;
-    display: grid; grid-template: 52px minmax(0, 1fr) 16px / 448px 26px minmax(0, 1fr); row-gap: 18px;
+    display: grid; grid-template: 52px minmax(0, 1fr) auto / 448px 26px minmax(0, 1fr); row-gap: 18px;
     color: var(--vink); color-scheme: light;
     background:
       linear-gradient(180deg, #ffffffa0, #0000 3px),
@@ -712,6 +712,8 @@
   .vibe-legend::before { content: ""; width: 10px; height: 10px; border-radius: 1px; background: var(--accent); box-shadow: 0 0 0 1px #0002; }
   .vibe-row { display: flex; align-items: center; gap: 9px; margin: 0; }
   .vibe-caption, .vibe-hint { margin: 0; align-self: center; font: 14px/1.4 var(--font-label); color: var(--vink-dim); }
+  .vibe-caption { line-height: 17px; }  /* two lines in the height of the keys of the examples */
+  .vibe-caption strong { color: var(--vink); }
   /* The keys of the examples: dark caps, as on the FM-1. The legend of the example that the display shows is lit. */
   .vibe-key {
     flex: none; height: 34px; padding: 0 12px 0 13px; border-radius: 6px; white-space: nowrap;  /* DRUM-1: no break at the hyphen */
@@ -764,6 +766,8 @@
   .vibe-copy.failed { color: #fff; background: linear-gradient(#d12a1c, #b01a10 60%, #8e110a); box-shadow: 0 0 0 1px #3a0703, 0 4px 0 #5a0c06, 0 5px 7px #0005, inset 0 1px 0 #ffffff40; }
   .vibe-steps ol { flex: 1 1 0; min-width: 0; display: flex; margin: 0; padding: 0; list-style: none; }
   .vibe-steps li { flex: 1 1 0; display: flex; align-items: center; gap: 10px; font: 14px/1.35 var(--font-label); color: var(--vink); }
+  .vibe-steps li:nth-child(2) { flex-grow: 0.8; }  /* widths that give each step two lines */
+  .vibe-steps li:nth-child(3) { flex-grow: 1.2; }
   .vibe-steps li::before {
     content: ""; flex: none; margin-left: 12px;
     border-style: solid; border-width: 6px 0 6px 8px; border-color: transparent transparent transparent var(--vink-dim);
@@ -772,9 +776,9 @@
     padding: 0 5px; border: 1px solid #a39b8c; border-bottom-width: 2px; border-radius: 4px; background: #fbf9f4;
     font: 12px/1.35 var(--font-mono); white-space: nowrap;
   }
-  .vibe-foot {  /* printed on the panel, below the two panels */
-    grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 24px;
-    font: 13px/1 var(--font-label); color: var(--vink-dim); white-space: nowrap;
+  .vibe-foot {  /* printed on the panel, below the two panels, at the right */
+    grid-column: 1 / -1; display: flex; flex-direction: column; align-items: flex-end; gap: 3px;
+    font: 11px/13px var(--font-label); color: var(--vink-dim); text-align: right; white-space: nowrap;
   }
   .vibe-foot a { color: var(--vlink); text-underline-offset: 2px; }
 </style>
@@ -1013,8 +1017,8 @@ void loop(void) { }                         /* again and again: controls and scr
           the project is built: <code>sources</code>, <code>include</code>, <code>define</code> and
           <code>flags</code>.</li>
         <li>The page keeps nothing between visits. SAVE downloads the project as a zip file, and LOAD reads
-          it back. For a firmware of the gallery, SAVE first asks you to confirm that it is the work of its
-          authors, and that you keep to its licence. You can also drop a project zip file on the page. A file
+          it back. For a firmware of the gallery, SAVE and DOWNLOAD first ask you to confirm that it is the
+          work of its authors, and that you keep to its licence. You can also drop a project zip file on the page. A file
           <code>main.c</code> that you drop on the page makes a new project with it, and so does C code that you
           paste on the page with <kbd>Ctrl</kbd> + <kbd>V</kbd>, outside the editor.</li>
       </ul>
@@ -1026,9 +1030,10 @@ void loop(void) { }                         /* again and again: controls and scr
         write it: describe a synth, a piece or a game, copy the prompt, and give it to the AI. The prompt
         has your idea, the rules for a program on the FM-1, and all of <code>fm1.h</code>.</p>
       <ul>
+        <li>Use a strong AI model: a weaker one makes more mistakes.</li>
         <li>Paste the code of the answer on this page with <kbd>Ctrl</kbd> + <kbd>V</kbd>, outside the
           editor: the page makes a new project of it, compiles it and runs it. A copy of the whole answer
-          also works.</li>
+          also works, and so does a file <code>main.c</code> that you drop on the page.</li>
         <li>Tell the AI what to change. When a compile fails, copy the text of the LOG panel to the
           AI.</li>
         <li>An AI makes mistakes. Test the program in the simulator before you install it on a real FM-1.</li>
@@ -1228,7 +1233,8 @@ void loop(void) { }                         /* again and again: controls and scr
 
       <section class="vibe-panel" style="--accent: var(--stripe-3)" aria-labelledby="vibe-prompt-title">
         <h3 class="vibe-legend" id="vibe-prompt-title">PROMPT</h3>
-        <p class="vibe-caption">Your idea, the rules of the FM-1 and all of fm1.h: what the AI needs to know.</p>
+        <p class="vibe-caption">Your idea, the rules of the FM-1 and all of fm1.h: what the AI needs to know.<br>
+          <strong>Use a strong AI model</strong>: a weaker one makes more mistakes.</p>
         <div class="vibe-screen">
 <pre id="vibe-prompt" tabindex="0" aria-label="The prompt">Write a program for the M-VAVE FM-1 that does my idea, for FM-1 Studio (<span data-fill="site"></span>). I test it there.
 
@@ -1252,7 +1258,7 @@ Here is fm1.h:
           <ol>
             <li><span>Paste it in a new AI chat, and send it.</span></li>
             <li><span>Copy the code of the answer.</span></li>
-            <li><span>Press <kbd>Ctrl</kbd>+<kbd>V</kbd> on this page to play it.</span></li>
+            <li><span>Press <kbd>Ctrl</kbd>+<kbd>V</kbd> or drop main.c here to play it.</span></li>
           </ol>
         </div>
       </section>
@@ -1415,14 +1421,14 @@ PLAY: BACK</pre>
     </div>
   </dialog>
 
-  <!-- SAVE: for a firmware of the gallery, the dialog that the SAVE button opens before the download. The user
-       confirms that the firmware is the work of its authors, and keeps to its licence, as in the INSTALL dialog.
-       The page script fills in its name, licence and repository. -->
+  <!-- SAVE: for a firmware of the gallery, the dialog that the SAVE and DOWNLOAD buttons open before the download.
+       The user confirms that the firmware is the work of its authors, and keeps to its licence, as in the INSTALL
+       dialog. The page script fills in the button, what downloads, and the name, licence and repository. -->
   <dialog class="dialog save" id="save" aria-labelledby="save-title">
     <header class="dialog-head">
       <h2 class="logo" id="save-title">SAVE</h2>
       <p class="brand-text">
-        <span class="model">PROJECT FILE</span>
+        <span class="model" id="save-model">PROJECT FILE</span>
         <span class="tagline">work of others</span>
       </p>
       <div class="stripes"><i></i><i></i><i></i><i></i></div>
@@ -10663,19 +10669,28 @@ function saveZip() {
   setChanged(false);
 }
 
-// SAVE downloads the project. For a firmware of the gallery (galleryEntry()) it first opens the SAVE dialog:
-// CONFIRM, that the firmware is the work of its authors and that the user keeps to its licence, downloads it.
-// CANCEL and Esc close the dialog, and nothing is saved.
+// SAVE downloads the project, and DOWNLOAD (downloadFirmware()) its package. For a firmware of the gallery
+// (galleryEntry()) each first opens the SAVE dialog: CONFIRM, that the firmware is the work of its authors and
+// that the user keeps to its licence, does the download. CANCEL and Esc close the dialog, and nothing downloads.
 const save = $('save');
-$('project-save').onclick = () => {
+let saveConfirmed = null;  // what CONFIRM does: saveZip or downloadFirmware
+// Does `download`, or for a firmware of the gallery first asks in the SAVE dialog. `title` is the name of the
+// button, `model` and `what` tell what downloads, and `shared` is what the user can share (see workOfOthers()).
+function askDownload(download, title, model, what, shared) {
   const entry = galleryEntry();
-  if (!entry) { saveZip(); return; }
-  $('save-what').textContent = `This downloads the project as a zip file: ${entry.label} ${entry.version} from ` +
+  if (!entry) { download(); return; }
+  $('save-title').textContent = title;
+  $('save-model').textContent = model;
+  $('save-what').textContent = `${what}: ${entry.label} ${entry.version} from ` +
     `github.com/${entry.sources[0].repo}, with the files that FM-1 Studio added or changed, and your changes.`;
-  $('save-licence-text').replaceChildren(...workOfOthers(entry, 'the zip file'));
+  $('save-licence-text').replaceChildren(...workOfOthers(entry, shared));
+  $('save-cancel').title = `Do not ${title.toLowerCase()} (Esc)`;
+  saveConfirmed = download;
   save.showModal();
-};
-$('save-confirm').onclick = () => { save.close(); saveZip(); };
+}
+$('project-save').onclick = () =>
+  askDownload(saveZip, 'SAVE', 'PROJECT FILE', 'This downloads the project as a zip file', 'the zip file');
+$('save-confirm').onclick = () => { save.close(); saveConfirmed(); };
 $('save-cancel').onclick = () => save.close();
 
 $('project-load').onclick = () => { if (canReplace()) $('project-file').click(); };
@@ -11406,8 +11421,9 @@ function galleryEntry() {
   return (product && GITHUB_PROJECTS.find(({ manifest }) => manifest.device?.product === product)) || null;
 }
 
-// What the user confirms for a firmware of the gallery, in the INSTALL and SAVE dialogs: it is the work of its
-// authors, and the user keeps to its licence. `shared` is what the user can share: the package, or the zip file.
+// What the user confirms for a firmware of the gallery, in the INSTALL and SAVE dialogs (SAVE, DOWNLOAD): it is
+// the work of its authors, and the user keeps to its licence. `shared` is what the user can share: the package,
+// or the zip file.
 // Gives the parts of the text, with a link to the repository.
 function workOfOthers(entry, shared) {
   const { repo, ref } = entry.sources[0];
@@ -11876,8 +11892,11 @@ function makeFirmware(download = false) {
   return new Promise((resolve) => { firmwareDone = resolve; });
 }
 
-// DOWNLOAD makes the package and downloads it.
-$('download').onclick = async () => {
+// DOWNLOAD makes the package and downloads it. For a firmware of the gallery, the SAVE dialog asks first
+// (askDownload()).
+$('download').onclick = () => askDownload(downloadFirmware, 'DOWNLOAD', 'FIRMWARE PACKAGE',
+  'This makes the package of the project and downloads it', 'the package');
+async function downloadFirmware() {
   const made = await makeFirmware(true);
   if (!made) return;
   const link = document.createElement('a');
@@ -11887,7 +11906,7 @@ $('download').onclick = async () => {
   setTimeout(() => URL.revokeObjectURL(link.href), 10000);
   log('Before you install this package, read "If it goes wrong" in README.md of\n' +
     'github.com/TimSamshuijzen/fm1studiocom, and keep M-VAVE\'s FM-1.fwsc.\n');
-};
+}
 
 // ---- Install: writes the package of the project to a real FM-1, over USB MIDI ----
 //

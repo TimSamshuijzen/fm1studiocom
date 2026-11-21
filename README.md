@@ -73,8 +73,8 @@ and runs it. Browsers block sound until a click or a key press, so click the pag
 
 A project is a name and a set of text files. SAVE downloads it as a zip file and LOAD reads one back.
 For a firmware of the gallery, SAVE first opens a dialog: CONFIRM that the firmware is the work of its
-authors and that you keep to its licence, and the zip file downloads; CANCEL saves nothing. INSTALL asks
-the same.
+authors and that you keep to its licence, and the zip file downloads; CANCEL saves nothing. DOWNLOAD and
+INSTALL ask the same.
 A project zip file that is dropped on the page loads too. A file `main.c` that is dropped on the page
 makes a new project with the name "no name": that `main.c`, and the `fm1project.json` of the demo
 project. C code with `#include "fm1.h"` that is pasted on the page with `Ctrl`+`V`, outside the editor
@@ -133,11 +133,11 @@ You do not have to write the program yourself. The VIBE button tells how an AI c
 write it: you describe a synth, a piece or a game, and the AI writes `main.c`.
 
 1. Write the idea in the dialog, or start from one of its examples: DRUM-1, STRING-1, PIECE-1 or GAME-1.
-2. COPY the prompt, and give it to an AI chat.
+2. COPY the prompt, and give it to an AI chat. Use a strong AI model: a weaker one makes more mistakes.
    The prompt has the idea, the rules for a program on the FM-1, and all of `fm1.h`.
 3. Copy the code of the answer, and paste it on the page with `Ctrl`+`V`, outside the editor. The page
    makes a new project of it, compiles it and runs it. A copy of the whole answer also works: the page
-   takes its longest code block.
+   takes its longest code block. When the AI gives the file `main.c`, drop it on the page.
 4. Tell the AI what to change. When a compile fails, copy the text of the LOG panel to the AI.
 
 The rules in the prompt are those of a real FM-1: C, `float` and no `double`, no `malloc` and no
