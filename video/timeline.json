@@ -15,8 +15,8 @@
     "logo": {"font": "logo", "size": 150, "color": "#f6b31b", "x": "center", "y": 360, "shadow": true},
     "model": {"font": "bold", "size": 46, "color": "#ede4cc", "x": "center", "y": 590},
     "tagline": {"font": "text", "size": 34, "color": "#a89f8b", "x": "center", "y": 662},
-    "step": {"font": "logo", "size": 52, "color": "#100f0e", "x": 96, "y": 940, "box": "#f6b31b", "boxPad": 22},
-    "caption": {"font": "bold", "size": 52, "color": "#ede4cc", "x": 182, "y": 940, "box": "#100f0ee6", "boxPad": 22},
+    "site": {"font": "logo", "size": 64, "color": "#f6b31b", "x": "center", "y": 770},
+    "caption": {"font": "bold", "size": 52, "color": "#ede4cc", "x": 96, "y": 940, "box": "#100f0ee6", "boxPad": 22},
     "speed": {"font": "bold", "size": 40, "color": "#020304", "x": -72, "y": 60, "box": "#cdf2ff", "boxPad": 12},
     "pipLabel": {"font": "bold", "size": 26, "color": "#100f0e", "box": "#f2801f", "boxPad": 8, "fade": 0.3},
     "url": {"font": "logo", "size": 132, "color": "#f6b31b", "x": "center", "y": 360, "shadow": true},
@@ -55,7 +55,7 @@
     {
       "id": "title",
       "beats": 8,
-      "note": "Title card",
+      "note": "Title card, with the address of the site",
       "main": {"color": "#171615"},
       "audio": {"music": 1},
       "boxes": [
@@ -67,7 +67,8 @@
       "texts": [
         {"text": "FM-1 STUDIO", "style": "logo"},
         {"text": "CODE  ·  SIMULATE  ·  INSTALL", "style": "model", "from": 0.4},
-        {"text": "for the M-VAVE FM-1, in your browser", "style": "tagline", "from": 0.8}
+        {"text": "for the M-VAVE FM-1, in your browser", "style": "tagline", "from": 0.8},
+        {"text": "fm1studio.com", "style": "site", "from": 1.2}
       ],
       "fadeIn": 0.6
     },
@@ -82,7 +83,7 @@
         "viewTo": [21, 0, 1878, 1056],
         "ease": "linear"
       },
-      "texts": [{"text": "Code, compile and play. All in the browser.", "style": "caption", "x": 96, "from": 0.4}],
+      "texts": [{"text": "Code, compile and play. All in the browser.", "style": "caption", "from": 0.4}],
       "audio": {"main": 4.5},
       "audioFade": [0.03, 0.15],
       "musicFade": 2.5
@@ -98,7 +99,7 @@
         "viewTo": [38, 0, 1844, 1038],
         "ease": "linear"
       },
-      "texts": [{"text": "Load a band from the gallery", "style": "caption", "x": 96}],
+      "texts": [{"text": "Load a band from the gallery", "style": "caption"}],
       "audio": {"main": 1.0},
       "audioFade": [0.03, 0.15]
     },
@@ -113,7 +114,7 @@
         "viewTo": [58, 0, 1804, 1014],
         "ease": "linear"
       },
-      "texts": [{"text": "…or a game", "style": "caption", "x": 96}],
+      "texts": [{"text": "…or a game", "style": "caption"}],
       "audio": {"main": 2.8},
       "audioFade": [0.03, 0.03]
     },
@@ -129,7 +130,7 @@
         "ease": "linear"
       },
       "audio": {"main": 2.8},
-      "texts": [{"text": "…or open-source FM-1 firmware, from GitHub", "style": "caption", "x": 96}],
+      "texts": [{"text": "…or open-source FM-1 firmware, from GitHub", "style": "caption"}],
       "audioFade": [0.03, 0.15]
     },
     {
@@ -145,10 +146,7 @@
         "ease": "linear"
       },
       "audio": {"music": 1},
-      "texts": [
-        {"text": "It compiles in your browser…", "style": "caption", "x": 96},
-        {"text": "×4.7", "style": "speed"}
-      ]
+      "texts": [{"text": "It compiles in your browser…", "style": "caption"}, {"text": "×4.7", "style": "speed"}]
     },
     {
       "id": "gallery-start",
@@ -162,7 +160,7 @@
         "ease": "linear"
       },
       "audio": {"main": 0, "music": 1},
-      "texts": [{"text": "It compiles in your browser…", "style": "caption", "x": 96}]
+      "texts": [{"text": "It compiles in your browser…", "style": "caption"}]
     },
     {
       "id": "gallery-firmware",
@@ -175,7 +173,7 @@
         "viewTo": [96, 0, 1728, 972],
         "ease": "linear"
       },
-      "texts": [{"text": "…and plays in the simulator", "style": "caption", "x": 96}],
+      "texts": [{"text": "…and plays in the simulator", "style": "caption"}],
       "audio": {"main": 0.8},
       "audioFade": [0.03, 0.3],
       "musicFade": 1.0
@@ -186,7 +184,7 @@
       "note": "The cursor goes to VIBE, a click, the VIBE dialog opens",
       "main": {"source": "screen", "in": "vibe-1.7", "view": "near-top"},
       "audio": {"main": 0, "music": 1},
-      "texts": [{"text": "Or make your own, with VIBE", "style": "caption", "x": 96}]
+      "texts": [{"text": "Or make your own, with VIBE", "style": "caption"}]
     },
     {
       "id": "idea",
@@ -194,11 +192,7 @@
       "note": "Step 1: CLEAR, and the idea is typed in the VIBE dialog",
       "main": {"source": "screen", "in": "typing-0.6", "speed": 3.4, "view": "near-top"},
       "audio": {"music": 1},
-      "texts": [
-        {"text": "1", "style": "step", "box": "#f6b31b"},
-        {"text": "Describe your idea", "style": "caption"},
-        {"text": "×3.4", "style": "speed"}
-      ]
+      "texts": [{"text": "Describe your idea", "style": "caption"}, {"text": "×3.4", "style": "speed"}]
     },
     {
       "id": "prompt",
@@ -206,10 +200,7 @@
       "note": "COPY: the prompt has the idea, the rules and fm1.h",
       "main": {"source": "screen", "in": "copy-1.8", "view": "near-top"},
       "audio": {"main": 0, "music": 1},
-      "texts": [
-        {"text": "1", "style": "step", "box": "#f6b31b", "y": 56},
-        {"text": "Copy the prompt: your idea and the rules of the FM-1", "style": "caption", "y": 56}
-      ]
+      "texts": [{"text": "Copy the prompt: your idea and the rules of the FM-1", "style": "caption", "y": 56}]
     },
     {
       "id": "ai-prompt",
@@ -217,10 +208,7 @@
       "note": "Step 2: an AI chat, in another tab: the prompt is pasted, a click on SEND, the AI thinks, the answer starts",
       "main": {"source": "screen", "in": "chat+0.1"},
       "audio": {"main": 0, "music": 1},
-      "texts": [
-        {"text": "2", "style": "step", "box": "#f2801f", "y": 100},
-        {"text": "Paste it in an AI chat", "style": "caption", "y": 100}
-      ]
+      "texts": [{"text": "Paste it in an AI chat", "style": "caption", "y": 100}]
     },
     {
       "id": "ai",
@@ -229,7 +217,6 @@
       "main": {"source": "screen", "in": "chat+8.83", "speed": 10},
       "audio": {"music": 1},
       "texts": [
-        {"text": "2", "style": "step", "box": "#f2801f", "y": 100},
         {"text": "The AI writes the code", "style": "caption", "y": 100},
         {"text": "×10", "style": "speed", "y": 100}
       ]
@@ -240,10 +227,7 @@
       "note": "The answer is complete: copy it",
       "main": {"source": "screen", "in": "copy_answer-2.3"},
       "audio": {"main": 0, "music": 1},
-      "texts": [
-        {"text": "2", "style": "step", "box": "#f2801f", "y": 100},
-        {"text": "Copy the answer", "style": "caption", "y": 100}
-      ]
+      "texts": [{"text": "Copy the answer", "style": "caption", "y": 100}]
     },
     {
       "id": "paste",
@@ -257,10 +241,7 @@
         "ease": "linear"
       },
       "audio": {"main": 1},
-      "texts": [
-        {"text": "3", "style": "step", "box": "#e2492a"},
-        {"text": "Paste it: it compiles and runs", "style": "caption"}
-      ],
+      "texts": [{"text": "Paste it: it compiles and runs", "style": "caption"}],
       "musicFade": 1.5
     },
     {
@@ -276,10 +257,7 @@
       },
       "audio": {"main": 0.7},
       "audioFade": [0.03, 0.2],
-      "texts": [
-        {"text": "3", "style": "step", "box": "#e2492a"},
-        {"text": "Play it in the FM-1 simulator", "style": "caption"}
-      ]
+      "texts": [{"text": "Play it in the FM-1 simulator", "style": "caption"}]
     },
     {
       "id": "edit",
@@ -287,10 +265,7 @@
       "note": "A change in the code: 50 becomes 62 (the radius of the sun), Ctrl+Enter",
       "main": {"source": "screen", "in": "edit-0.6", "view": "near"},
       "audio": {"main": 0, "music": 0.5},
-      "texts": [
-        {"text": "3", "style": "step", "box": "#e2492a"},
-        {"text": "Want a bigger sun? Change the code", "style": "caption"}
-      ]
+      "texts": [{"text": "Want a bigger sun? Change the code", "style": "caption"}]
     },
     {
       "id": "edit-play",
@@ -299,7 +274,7 @@
       "main": {"source": "screen", "in": "install-4.2", "view": "near"},
       "audio": {"main": 1.0},
       "audioFade": [0.03, 0.2],
-      "texts": [{"text": "3", "style": "step", "box": "#e2492a"}, {"text": "…and play it again", "style": "caption"}],
+      "texts": [{"text": "…and play it again", "style": "caption"}],
       "musicFade": 1.0
     },
     {
@@ -310,8 +285,7 @@
       "audio": {"music": 1},
       "pip": {"source": "fm1-install", "in": 6.3, "view": [240, 124, 1440, 810]},
       "texts": [
-        {"text": "4", "style": "step", "box": "#b8282d", "x": 1440, "y": 64},
-        {"text": "Install it\nover USB", "style": "caption", "x": 1526, "y": 64, "lineSpacing": 10},
+        {"text": "Install it\nover USB", "style": "caption", "x": 1440, "y": 64, "lineSpacing": 10},
         {"text": "×1.2", "style": "speed", "x": 1440, "y": 250}
       ]
     },
@@ -323,8 +297,7 @@
       "audio": {"music": 1},
       "pip": {"source": "fm1-install", "in": 17.2, "speed": 1.25, "view": [240, 124, 1440, 810]},
       "texts": [
-        {"text": "4", "style": "step", "box": "#b8282d", "x": 1440, "y": 64},
-        {"text": "Install it\nover USB", "style": "caption", "x": 1526, "y": 64, "lineSpacing": 10},
+        {"text": "Install it\nover USB", "style": "caption", "x": 1440, "y": 64, "lineSpacing": 10},
         {"text": "×7.8", "style": "speed", "x": 1440, "y": 250}
       ]
     },
@@ -335,10 +308,7 @@
       "main": {"source": "screen", "in": "done+0.4", "view": "near"},
       "audio": {"main": 0, "music": 1},
       "pip": {"source": "fm1-install", "in": 26.74, "view": [240, 124, 1440, 810]},
-      "texts": [
-        {"text": "4", "style": "step", "box": "#b8282d", "x": 1440, "y": 64},
-        {"text": "Install it\nover USB", "style": "caption", "x": 1526, "y": 64, "lineSpacing": 10}
-      ]
+      "texts": [{"text": "Install it\nover USB", "style": "caption", "x": 1440, "y": 64, "lineSpacing": 10}]
     },
     {
       "id": "end",

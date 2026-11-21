@@ -25,7 +25,7 @@ The video has three parts:
 2. **What is there already** (24 s). The gallery: a band, a game, and open-source firmware from GitHub. A click
    on LOAD, and each plays in the browser. For the firmware, the video shows the load too: the files come from
    GitHub, and the page compiles them.
-3. **Make your own** (81 s). The four steps, with the colours of the four stripes of the app:
+3. **Make your own** (81 s). Four steps. The captions tell them without a number:
    1. **Describe your idea** (VIBE), and copy the prompt
    2. **An AI chat writes the code**
    3. **Paste it: it compiles and runs** (the simulator). Play it, change the code, play again
@@ -68,7 +68,7 @@ view is the same before and after it.
 
 | # | Time | Scene (`id`) | Picture | View | Words on the screen | Sound |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 0:00 | `title`, 8 beats | Title card: FM-1 STUDIO, the four stripes. Fade in from black | | CODE · SIMULATE · INSTALL / for the M-VAVE FM-1, in your browser | Music: the arpeggio alone |
+| 1 | 0:00 | `title`, 8 beats | Title card: FM-1 STUDIO, the four stripes. Fade in from black | | CODE · SIMULATE · INSTALL / for the M-VAVE FM-1, in your browser / fm1studio.com | Music: the arpeggio alone |
 | 2 | 0:04 | `app`, 12 beats | FM-1 Studio, the demo is played: chords, ARP, a knob. At the end, a click on LOAD of PROG-1 in the gallery | A slow push in starts at the full screen. It keeps the top of the page in view | "Code, compile and play. All in the browser." | The demo. The music fades away before it |
 | 3 | 0:11 | `gallery-band`, 10 beats | PROG-1: the band plays. At the end, a click on LOAD of GAME-1 | The push in goes on | "Load a band from the gallery" | PROG-1 |
 | 4 | 0:16 | `gallery-game`, 12 beats | GAME-1 (NEON REEF) is played. At the end, the gallery scrolls, and a click on LOAD of FMINI-1 | The push in goes on | "…or a game" | The game |
@@ -77,18 +77,18 @@ view is the same before and after it.
 | 7 | 0:28 | `gallery-start`, 6 beats | At the real speed: the last seconds of the compile, then FMINI-1 runs and shows its start picture | The push in goes on | "It compiles in your browser…" | Music |
 | 8 | 0:32 | `gallery-firmware`, 6 beats | FMINI-1 (a Minimoog) is played: a line of notes, and KNOB 1 closes and opens the filter | The push in ends: 1.11 times | "…and plays in the simulator" | FMINI-1. The music fades away before it |
 | 9 | 0:35 | `vibe`, 6 beats | The cursor goes to the VIBE button, a click, the VIBE dialog opens | Still | "Or make your own, with VIBE" | Music: the beat comes in |
-| 10 | 0:38 | `idea`, 10 beats | CLEAR, the idea is typed (3.4x) | Still | **1** Describe your idea; **×3.4** | Music |
-| 11 | 0:44 | `prompt`, 6 beats | The cursor goes to the PROMPT, COPY, the check mark | Still | **1** Copy the prompt: your idea and the rules of the FM-1 (at the top) | Music |
-| 12 | 0:47 | `ai-prompt`, 16 beats | An AI chat, as another tab, at the real speed: a click in its field, Ctrl+V (the keys show), the prompt is there, a click on SEND, the AI thinks, the answer starts | The full screen | **2** Paste it in an AI chat (at the top) | Music |
-| 13 | 0:56 | `ai`, 12 beats | The AI writes the answer: some words, then main.c (10x) | The full screen | **2** The AI writes the code; **×10** (at the top) | Music: the filter closes |
-| 14 | 1:02 | `ai-copy`, 6 beats | The end of the answer, COPY | The full screen | **2** Copy the answer (at the top) | Music |
-| 15 | 1:05 | `paste`, 8 beats | Back in FM-1 Studio: Ctrl+V (the keys show), the compile, it runs | A new slow push in starts at the full screen | **3** Paste it: it compiles and runs | The music fades away: the simulator |
-| 16 | 1:10 | `play`, 18 beats | After NAME: NIGHT DRIVE and COMPILE: the cursor goes to PLAY, a click, the beat. Then chords: the arpeggio | The push in ends: 1.11 times | **3** Play it in the FM-1 simulator | The simulator |
-| 17 | 1:20 | `edit`, 8 beats | In the editor, 50 becomes 62 (the radius of the sun), Ctrl+Enter (the keys show) | Still | **3** Want a bigger sun? Change the code | Music, low, the filter closed |
-| 18 | 1:24 | `edit-play`, 8 beats | The bigger sun, two chords. At the end, a click on INSTALL: the dialog opens | Still | **3** …and play it again | The simulator |
-| 19 | 1:28 | `install-steps`, 20 beats | The steps of the INSTALL dialog, near the real speed (1.2x): the package is there, the box, NEXT, CONNECT, the FM-1 is found, NEXT, a click on INSTALL NOW. PiP: F2, the FM-1 with the program that it had | Still | **4** Install it over USB; **×1.2** (at the top right) | Music: the filter opens |
-| 20 | 1:39 | `install-write`, 14 beats | The install: the FM-1 checks the package, goes to update mode, the bar, the FM-1 starts again (7.8x). PiP: F2, UPDATE PACKAGE, the white screen UPDATING with its bar, dark (1.25x) | Still | **4** Install it over USB; **×7.8** | Music: more echo and drive |
-| 21 | 1:47 | `install-done`, 4 beats | The dialog says that the install is done. PiP: F2, NIGHT DRIVE runs | Still | **4** Install it over USB | Music |
+| 10 | 0:38 | `idea`, 10 beats | CLEAR, the idea is typed (3.4x) | Still | Describe your idea; **×3.4** | Music |
+| 11 | 0:44 | `prompt`, 6 beats | The cursor goes to the PROMPT, COPY, the check mark | Still | Copy the prompt: your idea and the rules of the FM-1 (at the top) | Music |
+| 12 | 0:47 | `ai-prompt`, 16 beats | An AI chat, as another tab, at the real speed: a click in its field, Ctrl+V (the keys show), the prompt is there, a click on SEND, the AI thinks, the answer starts | The full screen | Paste it in an AI chat (at the top) | Music |
+| 13 | 0:56 | `ai`, 12 beats | The AI writes the answer: some words, then main.c (10x) | The full screen | The AI writes the code; **×10** (at the top) | Music: the filter closes |
+| 14 | 1:02 | `ai-copy`, 6 beats | The end of the answer, COPY | The full screen | Copy the answer (at the top) | Music |
+| 15 | 1:05 | `paste`, 8 beats | Back in FM-1 Studio: Ctrl+V (the keys show), the compile, it runs | A new slow push in starts at the full screen | Paste it: it compiles and runs | The music fades away: the simulator |
+| 16 | 1:10 | `play`, 18 beats | After NAME: NIGHT DRIVE and COMPILE: the cursor goes to PLAY, a click, the beat. Then chords: the arpeggio | The push in ends: 1.11 times | Play it in the FM-1 simulator | The simulator |
+| 17 | 1:20 | `edit`, 8 beats | In the editor, 50 becomes 62 (the radius of the sun), Ctrl+Enter (the keys show) | Still | Want a bigger sun? Change the code | Music, low, the filter closed |
+| 18 | 1:24 | `edit-play`, 8 beats | The bigger sun, two chords. At the end, a click on INSTALL: the dialog opens | Still | …and play it again | The simulator |
+| 19 | 1:28 | `install-steps`, 20 beats | The steps of the INSTALL dialog, near the real speed (1.2x): the package is there, the box, NEXT, CONNECT, the FM-1 is found, NEXT, a click on INSTALL NOW. PiP: F2, the FM-1 with the program that it had | Still | Install it over USB; **×1.2** (at the top right) | Music: the filter opens |
+| 20 | 1:39 | `install-write`, 14 beats | The install: the FM-1 checks the package, goes to update mode, the bar, the FM-1 starts again (7.8x). PiP: F2, UPDATE PACKAGE, the white screen UPDATING with its bar, dark (1.25x) | Still | Install it over USB; **×7.8** | Music: more echo and drive |
+| 21 | 1:47 | `install-done`, 4 beats | The dialog says that the install is done. PiP: F2, NIGHT DRIVE runs | Still | Install it over USB | Music |
 | 22 | 1:49 | `end`, 12 beats | End card: fm1studio.com, the stripes. Fade to black |  | Free and open source. It runs in your browser. / own risk, not affiliated | Music: the beat stops, the last chord rings |
 
 **The view.** The take is shown as it is: the full screen. Two times, the view goes in slowly and at one
