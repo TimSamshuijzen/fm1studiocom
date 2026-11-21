@@ -2,13 +2,13 @@
 
 [![FM-1 Studio: the project with its files, the code editor, the FM-1 simulator playing a chord of the demo, the FM-1 API and the program](img/fm1studio.png)](https://fm1studio.com)
 
-A code workstation for the M-VAVE FM-1 synthesizer that runs in the browser: **[fm1studio.com](https://fm1studio.com)**.
+A code editor, compiler, simulator and installer for the M-VAVE FM-1 synthesizer that runs in the browser: **[fm1studio.com](https://fm1studio.com)**.
 
-Write a program in C, press COMPILE, and play it on a simulated FM-1. The compiler, the program
-and the simulator all run in the page. There is no server side and nothing to install. It is a simulation
-of the FM-1 API, not an emulation of the CPUs. The same compiler, for the FM-1's processor, makes an
-installable package for a real FM-1 from a project (DOWNLOAD), and an installer writes it to an FM-1 over
-USB (INSTALL). Code that works in this simulator does not guarantee it will work on a real FM-1.
+Write a program in C (or ask your AI to write it), press COMPILE, and play it on a simulated FM-1. 
+The compiler, the program and the simulator all run in the page. There is no server side and nothing to install. 
+It is a simulation of the FM-1 API, not an emulation of the CPUs. The same compiler, for the FM-1's processor, 
+makes an installable package for a real FM-1 from a project (DOWNLOAD), and an installer writes it to an FM-1 
+over USB (INSTALL). Code that works in this simulator does not guarantee it will work on a real FM-1.
 
 - **Code editor** with a file list, syntax colours and projects of more than one file.
 - **Vibe coding**: prompts with which an AI chat writes a program from your idea. C code that is pasted
