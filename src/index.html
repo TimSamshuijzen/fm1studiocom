@@ -611,7 +611,7 @@
   .install [data-step="read"] code { font-size: 13px; }
   .install .optional { display: block; margin-top: 2px; font-size: 14px; line-height: 1.5; }  /* step 'connect': MIDI mode */
   .install .optional::after { content: ""; display: block; clear: both; }  /* the item holds the screens */
-  .install .screens { float: right; display: flex; align-items: center; gap: 6px; margin: 3px 0 4px 14px; }
+  .install .screens { float: right; display: flex; align-items: center; gap: 6px; margin: 2px 0 4px 14px; }
   /* A screen of m-bootloader: 20 x 15 cells of 12 x 16 pixels, thus 1.33ch for each row; black, as its panel */
   .dialog-text pre.lcd {
     width: 20ch; height: 20ch; margin: 0; padding: 0; border-radius: 3px; overflow: hidden; background: #000;
@@ -1201,11 +1201,12 @@ Rules for the program:
       <section data-step="connect" hidden>
         <ol>
           <li>Connect the FM-1 to this computer with the USB cable, without a hub between them.</li>
-          <li>
-            <!-- The screen of m-bootloader 2.4 (src/boot.c of github.com/jvitkauskas/m-bootloader): 15 rows of 20
-                 characters. Its menu with MIDI MODE selected, and its MIDI mode. -->
-            <div class="screens">
-              <pre class="lcd" role="img" aria-label="The screen of m-bootloader's menu, with MIDI MODE selected"><b class="lcd-y">FM-1 M-BOOTLOADER</b>
+          <li>Switch the FM-1 on and let it start.
+            <div class="optional">
+              <!-- The screen of m-bootloader 2.4 (src/boot.c of github.com/jvitkauskas/m-bootloader): 15 rows of 20
+                   characters. Its menu with MIDI MODE selected, and its MIDI mode. -->
+              <div class="screens">
+                <pre class="lcd" role="img" aria-label="The screen of m-bootloader's menu, with MIDI MODE selected"><b class="lcd-y">FM-1 M-BOOTLOADER</b>
 <b class="lcd-g">2.4-395E6CC</b>
 
 <b class="lcd-gn">APP OK</b>
@@ -1220,8 +1221,8 @@ FLASH B36014 1024K
 
 
 <b class="lcd-g">OCT-/+ MOVE PLAY OK</b></pre>
-              <span class="lcd-arrow" aria-hidden="true">PLAY<br>&#8594;</span>
-              <pre class="lcd" role="img" aria-label="The screen of m-bootloader's MIDI mode"><b class="lcd-y">FM-1 M-BOOTLOADER</b>
+                <span class="lcd-arrow" aria-hidden="true">PLAY<br>&#8594;</span>
+                <pre class="lcd" role="img" aria-label="The screen of m-bootloader's MIDI mode"><b class="lcd-y">FM-1 M-BOOTLOADER</b>
 <b class="lcd-g">2.4-395E6CC</b>
 
 <b class="lcd-gn">MIDI MODE</b>
@@ -1230,12 +1231,12 @@ CONNECT USB AND
 OPEN AN INSTALLER.
 
 PLAY: BACK</pre>
+              </div>
+              Optional: To let this page show the boot loader and the flash chip of the FM-1,
+              start it in m-bootloader's MIDI mode: hold PLAY while you switch it on, then choose MIDI MODE in the
+              menu (press OCT+ twice to select MIDI MODE, then press PLAY). Do not put it in another update
+              mode.
             </div>
-            Switch the FM-1 on and let it start.
-            <span class="optional">Optional: To let this page show the boot loader and the flash chip of the FM-1,
-            start it in m-bootloader's MIDI mode: hold PLAY while you switch it on, then choose MIDI MODE in the
-            menu (press OCT+ twice to select MIDI MODE, then press PLAY). Do not put it in another update
-            mode.</span>
           </li>
           <li>Close other programs (such as M-Flasher) and browser tabs that use MIDI.</li>
           <li>Click CONNECT. The browser asks to let this page use MIDI devices: allow it.</li>
