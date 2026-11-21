@@ -1,0 +1,233 @@
+{
+  "about": "The promotional video of FM-1 Studio. STORYBOARD.md tells the story, README.md how to work with this file.",
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "loudness": -16,
+  "fonts": {
+    "logo": "C:/Windows/Fonts/ARIALNBI.TTF",
+    "bold": "C:/Windows/Fonts/ARIALNB.TTF",
+    "text": "C:/Windows/Fonts/arial.ttf",
+    "mono": "C:/Windows/Fonts/consola.ttf"
+  },
+  "styles": {
+    "logo": {"font": "logo", "size": 150, "color": "#f6b31b", "x": "center", "y": 360, "shadow": true},
+    "model": {"font": "bold", "size": 46, "color": "#ede4cc", "x": "center", "y": 590},
+    "tagline": {"font": "text", "size": 34, "color": "#a89f8b", "x": "center", "y": 662},
+    "hook": {"font": "bold", "size": 76, "color": "#ede4cc", "x": "center", "y": 880, "shadow": true, "fade": 0.4},
+    "step": {"font": "logo", "size": 52, "color": "#100f0e", "x": 96, "y": 940, "box": "#f6b31b", "boxPad": 22},
+    "caption": {"font": "bold", "size": 52, "color": "#ede4cc", "x": 182, "y": 940, "box": "#100f0ee6", "boxPad": 22},
+    "speed": {"font": "bold", "size": 40, "color": "#020304", "x": -72, "y": 60, "box": "#cdf2ff", "boxPad": 12},
+    "pipLabel": {"font": "bold", "size": 26, "color": "#100f0e", "box": "#f2801f", "boxPad": 8, "fade": 0.3},
+    "url": {"font": "logo", "size": 132, "color": "#f6b31b", "x": "center", "y": 360, "shadow": true},
+    "line": {"font": "bold", "size": 46, "color": "#ede4cc", "x": "center", "y": 590},
+    "small": {
+      "font": "text",
+      "size": 28,
+      "color": "#a89f8b",
+      "x": "center",
+      "y": 900,
+      "align": "center",
+      "lineSpacing": 12
+    }
+  },
+  "views": {
+    "full": [0, 0, 1920, 1080],
+    "app-near": [96, 54, 1728, 972],
+    "simulator": [850, 83, 1067, 600],
+    "lcd": [986, 110, 569, 320],
+    "project": [0, 60, 960, 540],
+    "editor": [0, 311, 1067, 600],
+    "firmware": [60, 560, 924, 520],
+    "program": [916, 554, 935, 526],
+    "vibe": [118, 67, 1684, 947],
+    "vibe-idea": [0, 259, 1067, 600],
+    "vibe-prompt": [498, 165, 1422, 800],
+    "install": [430, 140, 1422, 800]
+  },
+  "pip": {"width": 576, "margin": 48, "border": 4, "borderColor": "#f2801f", "label": "REAL FM-1"},
+  "music": {
+    "file": "footage/audio/a1-night-drive.wav",
+    "in": 0,
+    "volume": 0.7,
+    "fadeOut": 2,
+    "note": "A1: a jam of NIGHT DRIVE of about 80 s, from the FM-1 output (or the simulator)"
+  },
+  "sources": {
+    "fm1-hero": {
+      "file": "footage/fm1/f1-hero.mp4",
+      "note": "F1: the real FM-1 plays NIGHT DRIVE: close, a slow move, the screen and the LEDs on the beat"
+    },
+    "screen-app": {
+      "file": "footage/screen/s1-app.mkv",
+      "note": "S1: FM-1 Studio opens, the demo compiles and plays; play some notes, turn a knob"
+    },
+    "screen-vibe": {"file": "footage/screen/s2-vibe.mkv", "note": "S2: click VIBE, CLEAR, type the idea, COPY"},
+    "screen-ai": {
+      "file": "footage/screen/s3-ai.mkv",
+      "note": "S3: an AI chat: paste the prompt, send, the answer comes, copy main.c"
+    },
+    "screen-paste": {
+      "file": "footage/screen/s4-paste.mkv",
+      "note": "S4: Ctrl+V on FM-1 Studio, NAME: NIGHT DRIVE, it compiles and plays; play keys and knobs"
+    },
+    "screen-install": {
+      "file": "footage/screen/s5-install.mkv",
+      "syncTrack": 1,
+      "note": "S5: INSTALL: READ, CONNECT, INSTALL NOW, done. A clap at the start (microphone on track 2)"
+    },
+    "fm1-install": {
+      "file": "footage/fm1/f2-install.mp4",
+      "sync": {"to": "screen-install", "offset": 0.0},
+      "note": "F2: the FM-1 during S5: UPDATING, the restart, NIGHT DRIVE starts. The same clap at the start"
+    },
+    "fm1-play": {
+      "file": "footage/fm1/f3-play.mp4",
+      "note": "F3: hands play NIGHT DRIVE on the real FM-1, with its sound"
+    }
+  },
+  "scenes": [
+    {
+      "id": "cold-open",
+      "duration": 5,
+      "note": "The payoff first: a synth that an AI wrote, on a real FM-1",
+      "main": {"source": "fm1-hero", "in": 0},
+      "fadeIn": 0.6,
+      "texts": [{"text": "What if you could just describe a synth?", "style": "hook", "from": 1.0, "to": 4.6}]
+    },
+    {
+      "id": "title",
+      "duration": 4,
+      "note": "Title card",
+      "main": {"color": "#171615"},
+      "audio": {"music": 1},
+      "boxes": [
+        [510, 530, 900, 6, "#f6b31b"],
+        [510, 540, 900, 6, "#f2801f"],
+        [510, 550, 900, 6, "#e2492a"],
+        [510, 560, 900, 6, "#b8282d"]
+      ],
+      "texts": [
+        {"text": "FM-1 STUDIO", "style": "logo"},
+        {"text": "CODE  ·  SIMULATE  ·  INSTALL", "style": "model", "from": 0.4},
+        {"text": "for the M-VAVE FM-1, in your browser", "style": "tagline", "from": 0.8}
+      ]
+    },
+    {
+      "id": "app",
+      "duration": 6,
+      "note": "The app: editor, compiler, simulator",
+      "main": {"source": "screen-app", "in": 0, "view": "full", "viewTo": "app-near"},
+      "texts": [{"text": "Code, compile and play. All in the browser.", "style": "caption", "x": 96, "from": 0.5}]
+    },
+    {
+      "id": "idea",
+      "duration": 8,
+      "note": "Step 1: the idea in the VIBE dialog",
+      "main": {"source": "screen-vibe", "in": 0, "speed": 2, "view": "vibe-idea"},
+      "audio": {"music": 1},
+      "texts": [{"text": "1", "style": "step", "box": "#f6b31b"}, {"text": "Describe your idea", "style": "caption"}]
+    },
+    {
+      "id": "prompt",
+      "duration": 3,
+      "note": "COPY: the prompt has the idea, the rules and fm1.h",
+      "main": {"source": "screen-vibe", "in": 16, "view": "vibe-prompt"},
+      "audio": {"main": 0, "music": 1},
+      "texts": [
+        {"text": "1", "style": "step", "box": "#f6b31b"},
+        {"text": "Copy the prompt: your idea and the rules of the FM-1", "style": "caption"}
+      ]
+    },
+    {
+      "id": "ai",
+      "duration": 8,
+      "note": "Step 2: an AI chat writes main.c",
+      "main": {"source": "screen-ai", "in": 0, "speed": 6},
+      "audio": {"music": 1},
+      "texts": [
+        {"text": "2", "style": "step", "box": "#f2801f"},
+        {"text": "An AI chat writes the code", "style": "caption"},
+        {"text": "×6", "style": "speed"}
+      ]
+    },
+    {
+      "id": "paste",
+      "duration": 5,
+      "note": "Step 3: paste on the page: it compiles and runs",
+      "main": {"source": "screen-paste", "in": 0},
+      "audio": {"main": 1, "music": 0.4},
+      "texts": [
+        {"text": "3", "style": "step", "box": "#e2492a"},
+        {"text": "Paste it: it compiles and plays", "style": "caption"}
+      ]
+    },
+    {
+      "id": "play",
+      "duration": 10,
+      "note": "Play NIGHT DRIVE in the simulator, closer",
+      "main": {"source": "screen-paste", "in": 5, "view": "full", "viewTo": "simulator", "move": [0, 1.5]},
+      "audio": {"main": 1},
+      "texts": [
+        {"text": "3", "style": "step", "box": "#e2492a"},
+        {"text": "Play it in the FM-1 simulator", "style": "caption", "from": 0, "to": 9.5}
+      ]
+    },
+    {
+      "id": "install-steps",
+      "duration": 5,
+      "note": "Step 4: INSTALL: read, connect; the real FM-1 in the PiP",
+      "main": {"source": "screen-install", "in": 0, "speed": 1.5, "view": "install"},
+      "audio": {"music": 1},
+      "pip": {"source": "fm1-install", "width": 600},
+      "texts": [
+        {"text": "4", "style": "step", "box": "#b8282d", "x": 1286, "y": 64},
+        {"text": "Install it on\nyour FM-1", "style": "caption", "x": 1372, "y": 64, "lineSpacing": 10}
+      ]
+    },
+    {
+      "id": "install-write",
+      "duration": 6,
+      "note": "INSTALL NOW, faster; the FM-1 updates and starts NIGHT DRIVE",
+      "main": {"source": "screen-install", "in": 20, "speed": 8, "view": "install"},
+      "audio": {"music": 1},
+      "pip": {"source": "fm1-install", "width": 600},
+      "texts": [
+        {"text": "4", "style": "step", "box": "#b8282d", "x": 1286, "y": 64},
+        {"text": "Install it on\nyour FM-1", "style": "caption", "x": 1372, "y": 64, "lineSpacing": 10},
+        {"text": "×8", "style": "speed", "x": 1286, "y": 250}
+      ]
+    },
+    {
+      "id": "payoff",
+      "duration": 9,
+      "note": "The real FM-1 plays it",
+      "main": {"source": "fm1-play", "in": 0},
+      "audio": {"main": 1},
+      "texts": [{"text": "Your idea. Your synth. On a real FM-1.", "style": "hook", "from": 1.0, "to": 8.6}]
+    },
+    {
+      "id": "end",
+      "duration": 6,
+      "note": "End card",
+      "main": {"color": "#171615"},
+      "audio": {"music": 1},
+      "fadeOut": 1.0,
+      "boxes": [
+        [510, 530, 900, 6, "#f6b31b"],
+        [510, 540, 900, 6, "#f2801f"],
+        [510, 550, 900, 6, "#e2492a"],
+        [510, 560, 900, 6, "#b8282d"]
+      ],
+      "texts": [
+        {"text": "fm1studio.com", "style": "url"},
+        {"text": "Free and open source. It runs in your browser.", "style": "line", "from": 0.4},
+        {
+          "text": "Installing a firmware is at your own risk: read \"On a real FM-1\" first.\nNot affiliated with M-VAVE or JieLi.",
+          "style": "small",
+          "from": 0.8
+        }
+      ]
+    }
+  ]
+}

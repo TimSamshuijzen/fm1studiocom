@@ -1,0 +1,4 @@
+# The recordings and the renders are large files: they stay out of Git.
+/footage/
+/out/
+__pycache__/

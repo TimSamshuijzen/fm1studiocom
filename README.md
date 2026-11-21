@@ -553,6 +553,7 @@ firmware/                      fm1.h on a real FM-1: the adapter, and the build 
 firmware/web/                  the scripts that make src/fwsc
 examples/                      example projects, each with its zip file: PROG-1, NEON REEF, GLOAMING, GWAVE (not deployed)
 vibe-examples/                 a program for three example ideas of VIBE: STRING-1, PIECE-1, GAME-1 (SWOOPERS) (not deployed)
+video/                         the promotional video: storyboard, timeline, and the scripts that render it (not deployed)
 img/                           the screenshot at the top of this README (not deployed)
 ```
 
