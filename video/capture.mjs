@@ -316,10 +316,11 @@ class Take {
     return [x, y];
   }
 
-  async click(target, { seconds = 0.6, hold = 0.09, pause = 0.25 } = {}) {
+  // A click. `ring: false` is a click that the video does not point at (one that only gives the page the keyboard).
+  async click(target, { seconds = 0.6, hold = 0.09, pause = 0.25, ring = true } = {}) {
     const [x, y] = await this.move(target, seconds);
     await this.wait(0.08);
-    await this.b.eval('cap.ring()');
+    if (ring) await this.b.eval('cap.ring()');
     await this.b.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1 });
     await this.wait(hold);
     await this.b.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', buttons: 0, clickCount: 1 });
@@ -361,9 +362,9 @@ class Take {
     }
   }
 
-  // Turns the mouse wheel over `target`: + is down. One step each `seconds`.
-  async wheel(target, steps, seconds = 0.09) {
-    const [x, y] = await this.move(target, 0.6);
+  // Turns the mouse wheel over `target`: + is down. One step each `seconds`. The cursor goes there in `glide` seconds.
+  async wheel(target, steps, seconds = 0.09, glide = 0.6) {
+    const [x, y] = await this.move(target, glide);
     for (let i = 0; i < Math.abs(steps); i++) {
       await this.b.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY: steps > 0 ? 100 : -100 });
       await this.wait(seconds);
@@ -406,6 +407,14 @@ class Take {
   async mark(name) {
     if (!/^[a-z][a-z0-9_]*$/.test(name)) throw new Error(`a mark is lower case, digits and _: ${name}`);
     this.marks[name] = Math.round((await this.b.eval('cap.mark()')) * 1000) / 1000;
+  }
+
+  // Waits until `seconds` after the mark `name`: what comes next is then at a fixed time after the mark, also
+  // when the page took more or less time for the things between (a compile). When it is too late, it tells that.
+  async until(name, seconds) {
+    const left = this.marks[name] + seconds - await this.b.eval('cap.mark()');
+    if (left < 0) console.log(`  note: ${seconds} s after the mark ${name} was ${(-left).toFixed(2)} s ago: look at the scene that ends there`);
+    else await this.wait(left);
   }
 }
 
@@ -456,7 +465,7 @@ const TAKES = {
       const code = readFileSync(NIGHT_DRIVE, 'utf8');
       const loaded = (name) => t.b.waitFor(`running && wasmName === '${name}' && !compiling`, 180, `${name} runs`);
       const card = (id) => `.card[data-id="${id}"] button`;
-      const am = ['KeyA', 'KeyD', 'KeyH'], f = ['KeyA', 'KeyF', 'KeyH'], c = ['KeyA', 'KeyD', 'KeyG'], g = ['KeyS', 'KeyG', 'KeyJ'];
+      const am = ['KeyA', 'KeyD', 'KeyH'], f = ['KeyA', 'KeyF', 'KeyH'], c = ['KeyA', 'KeyD', 'KeyG'];
 
       // Before all: the stand-in FM-1 for the install at the end. The take stops when it is not there: the page
       // must never get the MIDI devices of this computer, where a real FM-1 can be.
@@ -466,52 +475,80 @@ const TAKES = {
 
       // ---- The app: the demo, played with the computer keys ----
       await t.wait(1.0);
-      await t.click(PANEL.body, { seconds: 1.0 });  // the page has the keyboard now (not the editor)
+      await t.click(PANEL.body, { seconds: 1.0, ring: false });  // the page has the keyboard now (not the editor)
       await t.mark('play');
-      for (const chord of [c, ['KeyS', 'KeyF', 'KeyH'], ['KeyD', 'KeyG', 'KeyJ'], ['KeyF', 'KeyH', 'KeyK']]) await t.hold(chord, 0.75);
-      await t.click(PANEL.key(10), { seconds: 0.7 });  // ARP on
+      await t.wait(0.7);
+      for (const chord of [c, ['KeyD', 'KeyG', 'KeyJ']]) await t.hold(chord, 0.65);
+      await t.click(PANEL.key(10), { seconds: 0.6 });  // ARP on
       await t.mark('arp');
-      const arp = t.hold(['KeyA', 'KeyD', 'KeyG', 'KeyK'], 4.5);
-      await t.wait(0.4);
-      await t.turn(PANEL.knob(4), 6, 0.12);  // KNOB 1: the ratio
-      await t.turn(PANEL.knob(5), 5, 0.12);  // KNOB 2: brighter
-      await arp;
-      await t.click(PANEL.key(10), { seconds: 0.6 });  // ARP off
-      await t.wait(0.6);
+      const arp = ['KeyA', 'KeyD', 'KeyG', 'KeyK'];  // held until the click on LOAD: the demo sounds until then
+      for (const code of arp) await t.keyDown(code);
+      await t.wait(0.2);
+      await t.turn(PANEL.knob(5), 4, 0.1);  // KNOB 2: brighter
 
-      // ---- The gallery: PROG-1 (the band starts at once), GAME-1 (NEON REEF), AURORA from GitHub ----
+      // ---- The gallery: PROG-1 (the band starts at once), GAME-1 (NEON REEF), FMINI-1 from GitHub ----
+      // Each click on LOAD is in the video. A scene of timeline.json ends just after the click on the next LOAD
+      // and the cut goes over the load (no picture and no sound of the wait), so that click is at a fixed time
+      // after the start of the scene (until).
+      await t.until('play', 5.25);  // the scene "app": 12 beats, from about 0.5 s after this mark
       await t.click(card('prog-1'), { seconds: 1.0 });
       await t.mark('band_load');
+      for (const code of arp) await t.keyUp(code);
       await loaded('prog-1');
       await t.mark('band');
       await t.move(PANEL.body, 0.9);
-      await t.wait(6.0);
+      await t.until('band_load', 6.9);  // the scene "gallery-band": 10 beats, from 3.0 s after this mark (the load takes 1.5 to 2.4 s)
       await t.click(card('game-1'), { seconds: 0.9 });
       await t.mark('game_load');
       await loaded('game-1');
       await t.wait(0.5);
       await t.click(PANEL.key(12), { seconds: 0.8 });  // PLAY: the game starts
       await t.mark('game');
-      await t.keyDown('KeyJ');  // J fires; A, D, W and S fly
-      for (const [key, seconds] of [['KeyA', 0.7], ['KeyD', 1.1], ['KeyW', 0.5], ['KeyA', 0.8], ['KeyD', 0.9], ['KeyS', 0.4],
-        ['KeyA', 1.0], ['KeyD', 1.0]]) {
-        await t.hold([key], seconds);
-        await t.wait(0.12);
-      }
-      await t.keyUp('KeyJ');
-      await t.wheel('#gallery', 5);  // the card of AURORA is more to the right
-      await t.wait(0.4);
-      await t.click(card('aurora'), { seconds: 0.8 });
+      let flying = true;
+      const flight = (async () => {  // J fires; A, D, W and S fly, until the click on the next LOAD
+        const moves = [['KeyA', 0.7], ['KeyD', 1.1], ['KeyW', 0.5], ['KeyA', 0.8], ['KeyD', 0.9], ['KeyS', 0.4], ['KeyA', 1.0], ['KeyD', 1.0]];
+        await t.keyDown('KeyJ');
+        for (let i = 0; flying; i++) {
+          await t.hold([moves[i % moves.length][0]], moves[i % moves.length][1]);
+          await t.wait(0.12);
+        }
+        await t.keyUp('KeyJ');
+      })();
+      await t.until('game', 5.3);  // the scene "gallery-game": 12 beats, from 1.5 s after this mark
+      await t.wheel('#gallery', 5);  // the card of FMINI-1 is more to the right
+      await t.wait(0.3);
+      await t.click(card('fmini-1'), { seconds: 0.8 });
       await t.mark('firmware_load');
-      await loaded('aurora');
+      // The video shows the load: the files come from GitHub (about 5 s), then the compile (about 25 s). The game
+      // runs and is played until FMINI-1 starts.
+      await t.b.waitFor('compiling', 120, 'the files of FMINI-1 are there');
+      await t.mark('firmware_compile');
+      await loaded('fmini-1');
       await t.mark('firmware');
-      await t.wait(0.6);
-      await t.click(PANEL.body, { seconds: 0.7 });
+      flying = false;
+      await flight;
+      await t.wait(5.5);  // its start picture goes, the page of the filter comes
+      await t.move(PANEL.knob(4), 0.8);
+      await t.wait(0.3);
+      // FMINI-1 is a Minimoog: one note at a time. A line in A minor, and KNOB 1, the CUTOFF, closes and opens.
       await t.mark('firmware_play');
-      for (const chord of [am, f, c, g]) {
-        await t.hold(chord, 1.7);
-        await t.wait(0.15);
-      }
+      let playing = true;
+      const line = (async () => {
+        const notes = [['KeyH', 1], ['KeyH', 1], ['KeyK', 1], ['KeyH', 1], ['KeyG', 1], ['KeyD', 1], ['KeyG', 1], ['KeyH', 2],
+          ['KeyF', 1], ['KeyF', 1], ['KeyH', 1], ['KeyF', 1], ['KeyD', 1], ['KeyA', 1], ['KeyD', 1], ['KeyF', 2]];
+        for (let i = 0; playing; i++) {
+          const [key, length] = notes[i % notes.length];
+          await t.hold([key], length * 0.2);
+          await t.wait(length * 0.05);
+        }
+      })();
+      await t.wait(0.4);
+      await t.turn(PANEL.knob(4), -20, 0.03);
+      await t.wait(0.2);
+      await t.turn(PANEL.knob(4), 20, 0.03);
+      await t.wait(0.8);
+      playing = false;
+      await line;
       await t.wait(1.2);
 
       // ---- VIBE: the dialog opens, the idea is typed, COPY ----
@@ -535,7 +572,7 @@ const TAKES = {
       // ---- The AI chat, as another tab: the prompt goes in, the answer comes, COPY ----
       await t.b.eval(CHAT.open);
       await t.mark('chat');
-      await t.wait(1.0);
+      await t.wait(0.8);
       await t.click(CHAT.part('#input'), { seconds: 0.9 });
       await t.b.eval(`cap.keys(['Ctrl', 'V'], 900)`);
       await t.wait(0.25);
@@ -545,10 +582,10 @@ const TAKES = {
         ${CHAT.frame}.contentDocument.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
       })()`);
       await t.mark('prompt');
-      await t.wait(1.4);
+      await t.wait(1.3);
       await t.click(CHAT.part('#send'), { seconds: 0.7 });
       await t.mark('send');
-      await t.wait(1.6);  // the AI "thinks"
+      await t.until('chat', 7.5);  // the AI "thinks", for about 2.5 s; the scene "ai-prompt" is from "chat" to 1.3 s of the answer
       await t.mark('answer');
       // 400 characters a second, the speed of a fast AI chat: the answer takes more than a minute
       t.b.eval(`${CHAT.frame}.contentWindow.chat.answer(${JSON.stringify(answer)}, 400)`).catch(() => {});
@@ -578,7 +615,7 @@ const TAKES = {
       await t.click('#compile', { seconds: 1.0 });
       await loaded('NIGHT DRIVE');
       await t.mark('compiled');
-      await t.click(PANEL.body, { seconds: 0.8 });  // the keyboard to the page
+      await t.wait(0.3);
       await t.mark('perform');
       await STORY.perform(t);
       await t.mark('performed');
@@ -613,10 +650,10 @@ const TAKES = {
       await loaded('NIGHT DRIVE');
       await t.mark('changed');
       await t.wait(0.5);
-      await t.click(PANEL.body, { seconds: 0.8 });
+      await t.click(PANEL.body, { seconds: 0.8, ring: false });  // the keyboard from the editor to the page
       await t.hold(am, 2.2);
-      await t.hold(f, 2.2);
-      await t.wait(1.0);
+      for (const code of f) await t.keyDown(code);  // held until the click on INSTALL
+      await t.until('changed', 4.2);  // the scene "edit-play": 8 beats, from 1.5 s after this mark
 
       // ---- INSTALL, on the stand-in FM-1: READ, CONNECT, INSTALL NOW, done ----
       // A control of the dialog can be below the part that shows: the wheel moves the text until it is there.
@@ -628,32 +665,34 @@ const TAKES = {
             return box.bottom > view.bottom - 12;
           })()`);
           if (!below) return;
-          await t.wheel('#install-text', 1, 0.12);
+          await t.wheel('#install-text', 1, 0.12, i ? 0.03 : 0.5);
         }
       };
-      await t.mark('install');
       await t.click('#install-open', { seconds: 1.0 });
+      await t.mark('install');
+      for (const code of f) await t.keyUp(code);
       await t.b.waitFor('installer.package', 120, 'the package is made');
       await t.mark('package');
-      await t.wait(1.5);
+      // The steps of the dialog: the video shows them from here to the click on INSTALL NOW, a bit faster
+      await t.wait(1.2);
       await reach('#install-agree');
-      await t.wait(0.4);
+      await t.wait(0.3);
       await t.click('#install-agree', { seconds: 0.8 });
       await t.mark('agree');
       await reach('#install-next');
       await t.click('#install-next', { seconds: 0.8 });
       await t.mark('connect_step');
-      await t.wait(1.2);
+      await t.wait(1.0);
       await reach('#install-connect');
       await t.click('#install-connect', { seconds: 0.8 });
       await t.mark('connect');
       await t.b.waitFor('installer.device', 30, 'the stand-in FM-1 is found');
       await t.mark('found');
-      await t.wait(1.8);
+      await t.wait(1.5);
       await reach('#install-ready');
       await t.click('#install-ready', { seconds: 0.8 });
       await t.mark('write_step');
-      await t.wait(1.5);
+      await t.wait(1.2);
       await reach('#install-go');
       await t.click('#install-go', { seconds: 0.9 });
       await t.mark('go');
@@ -726,13 +765,14 @@ const STORY = {
     'KNOB 4 the drive. The screen shows a neon sun over a grid road that moves with the tempo; the held notes ' +
     'are stars in the sky. The LEDs of the held keys pulse on the beat.',
   edit: ['50', '62'],  // the change in the code that the take makes: the radius of the sun, #define SUN_R
-  // The playing of NIGHT DRIVE in the take: chords held with the computer keys, PLAY, the knobs. The keys A W S E D F
-  // T G Y H U J K are C4 C#4 D4 D#4 E4 F4 F#4 G4 G#4 A4 A#4 B4 C5.
+  // The playing of NIGHT DRIVE in the take: a click on PLAY, chords held with the computer keys, the knobs. The
+  // keys A W S E D F T G Y H U J K are C4 C#4 D4 D#4 E4 F4 F#4 G4 G#4 A4 A#4 B4 C5. (The click before was on
+  // COMPILE, a button: the page has the keyboard.)
   async perform(t) {
     const am = ['KeyA', 'KeyD', 'KeyH'], f = ['KeyA', 'KeyF', 'KeyH'], c = ['KeyA', 'KeyD', 'KeyG'], g = ['KeyS', 'KeyG', 'KeyJ'];
-    await t.hold(am, 2.6);
-    await t.click(PANEL.key(12), { seconds: 0.7 });  // PLAY: the beat
+    await t.click(PANEL.key(12), { seconds: 0.9 });  // PLAY: the beat
     await t.mark('beat');
+    await t.wait(0.3);
     for (const chord of [am, f, c, g]) await t.hold(chord, 2.2);
     await t.mark('knobs');
     const holding = t.hold(am, 5.5);
@@ -745,17 +785,33 @@ const STORY = {
 
   // The music A1: NIGHT DRIVE as events for the program (fm1.h ids: note key n is 14 + n, PLAY is 12; encoders 2
   // to 5 are KNOB 1 to 4). Note key 0 is F3: A3 is 4, C4 7, E4 11, F4 12, G4 14, A4 16, B4 18, C5 19, D5 21.
-  // It is written to the bars of timeline.json, where the music starts at the scene "title" (bar 0) and each cut
+  // It is written to the scenes of timeline.json, where the music starts at the scene "title" (bar 0) and each cut
   // is on a beat of 110 BPM, the tempo at which NIGHT DRIVE starts:
-  //   0 title       the arpeggio alone                 19 paste, play, edit   (the simulator sounds; low under edit)
-  //   2 app, the gallery   (their own sound)           29 install             the filter opens, then echo and drive
-  //   9 vibe, idea  PLAY: the beat comes in            36 payoff              (the real FM-1 sounds)
-  //  14.5 ai        the filter closes                  40 end                 the beat stops at 42, the last chord rings
+  //   title              the arpeggio alone            paste, play, edit   (the simulator sounds; low under edit)
+  //   app, the gallery   (their own sound)             install-steps       the filter opens, then echo and drive
+  //   vibe, idea         PLAY: the beat comes in       end                 the beat stops in the last bar
+  //   ai                 the filter closes
+  // The bars come from the lengths of the scenes there: after a change of a length, make the music again.
   master: 768,  // the MASTER of the page at its start
-  bars: 43,
+  // The bar at which each scene starts, from the scene "title"; `end` is the end of the last scene.
+  get at() {
+    const at = {};
+    let beats = null;
+    for (const scene of JSON.parse(readFileSync(join(HERE, 'timeline.json'), 'utf8')).scenes) {
+      if (scene.id === 'title') beats = 0;
+      if (beats === null) continue;
+      if (!Number.isInteger(scene.beats)) throw new Error(`the scene ${scene.id} has no length in beats: the music needs it`);
+      at[scene.id] = beats / 4;
+      beats += scene.beats;
+    }
+    at.end = beats / 4;
+    for (const id of ['vibe', 'end']) if (!Number.isInteger(at[id])) throw new Error(`"${id}" must be at a whole bar: it is at bar ${at[id]}`);
+    return at;
+  },
+  get bars() { return this.at.end; },
   get musicSeconds() { return Math.ceil(this.bars * 240 / 110 + 3); },
   music() {
-    const events = [];
+    const events = [], at = this.at;
     const am = [4, 11, 16, 19], chords = [am, [0, 7, 12, 16], [7, 14, 19, 23], [2, 9, 14, 18]];  // Am, F, C, G
     const bar = 240 / 110;
     const hold = (keys, from, to) => keys.forEach((n) => { events.push([from, 'fm1_sim_key', 14 + n, 1], [to, 'fm1_sim_key', 14 + n, 0]); });
@@ -763,17 +819,18 @@ const STORY = {
     const turn = (enc, steps, fromBar, bars) => {
       for (let i = 0; i < Math.abs(steps); i++) events.push([(fromBar + bars * i / Math.abs(steps)) * bar, 'fm1_sim_enc', enc, Math.sign(steps)]);
     };
-    // One chord a bar. Am in the first two and the last two bars, and where the beat comes in (bar 9).
-    for (let n = 0; n < this.bars; n++) {
-      const chord = n < 2 || n >= this.bars - 2 ? am : chords[(n - 9 + 400) % 4];
-      hold(chord, n * bar, (n + 1) * bar - (n === this.bars - 1 ? 0 : 0.02));
+    // One chord a bar. Am in the first two and the last two bars, and where the beat comes in ("vibe").
+    for (let n = 0; n < at.end; n++) {
+      const chord = n < 2 || n >= at.end - 2 ? am : chords[(n - at.vibe + 400) % 4];
+      hold(chord, n * bar, (n + 1) * bar - (n === at.end - 1 ? 0 : 0.02));
     }
-    press(12, 9 * bar);                // PLAY: the beat starts on its first kick, at the cut to "vibe"
-    turn(3, -8, 15, 2.5);              // KNOB 2: the filter closes while the AI writes
-    turn(3, 10, 29, 4);                // and opens over the first steps of the install
-    turn(4, 3, 33, 1.5);               // KNOB 3: more echo
-    turn(5, 3, 34.5, 1.5);             // KNOB 4: more drive
-    press(12, (this.bars - 1) * bar);  // the beat stops: the last bar is the arpeggio alone
+    const install = at['install-steps'];
+    press(12, at.vibe * bar);          // PLAY: the beat starts on its first kick, at the cut to "vibe"
+    turn(3, -8, at.ai + 0.5, 2.5);     // KNOB 2: the filter closes while the AI writes
+    turn(3, 10, install, 4);           // and opens over the first steps of the install
+    turn(4, 3, install + 4, 1.5);      // KNOB 3: more echo
+    turn(5, 3, install + 5.5, 1.5);    // KNOB 4: more drive
+    press(12, (at.end - 1) * bar);     // the beat stops: the last bar is the arpeggio alone
     return events.sort((x, y) => x[0] - y[0]);
   },
 };

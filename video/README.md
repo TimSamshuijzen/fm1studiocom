@@ -1,13 +1,14 @@
 # video: the promotional video of FM-1 Studio
 
-This directory makes the promotional video of FM-1 Studio: a screen recording of the app, with videos of
+This directory makes the promotional video of FM-1 Studio: a screen recording of the app, with a video of
 a real FM-1 as picture-in-picture (PiP). The video is not edited by hand. A script makes it from a
 timeline file and the recordings, so each change is an edit of the timeline and a new render.
 
-The state now: NIGHT DRIVE, the program of the video, is made (`night-drive/`). The story has 20 scenes in 99
+The state now: NIGHT DRIVE, the program of the video, is made (`night-drive/`). The story has 22 scenes in 116
 seconds (`STORYBOARD.md`). The screen of the video is one take, recorded by `capture.mjs`, as is the music A1,
 and the preview uses them. In that take, the AI chat is a replay of the real answer, and the install runs on a
-simulated FM-1. Not there yet, and placeholders in the render: the videos of the real FM-1 (F1, F2, F3).
+simulated FM-1. The picture-in-picture at the install is a video of a real install on an FM-1 (F2), fitted to the
+scenes by hand: it is not the install of the screen.
 
 ## Contents
 
@@ -43,8 +44,10 @@ simulated FM-1. Not there yet, and placeholders in the render: the videos of the
    that is not there is a placeholder with its name, its note and the time.
 3. **Record.** `node video/capture.mjs --all` records the screen take, which a script plays, and the music. Make
    the other shots of the shot list by hand (see "Record"). Put each file at its path of `"sources"`.
-4. **Sync.** `python video/sync.py find screen-install fm1-install --write` puts the offset of the FM-1's video
-   in the timeline. `python video/sync.py check screen-install fm1-install --at 12` makes a clip to see it.
+4. **Sync.** Only for a video of the FM-1 that was recorded at the same time as its screen recording:
+   `python video/sync.py find A B --write` puts the offset of B (the FM-1's video) to A (the screen) in the
+   timeline, and `python video/sync.py check A B --at 12` makes a clip to see it. The timeline of now has no
+   such pair: the install scenes give the PiP its own `"in"` and `"speed"`.
 5. **Edit.** Set `"in"` (the time in the recording where a scene starts), `"duration"`, `"speed"`, the views
    and the texts. Look at one scene with `--scene ID`, or at one picture with `--frame SECONDS`.
 6. **Make the video.** `python video/render.py --final` makes `out/fm1studio-promo.mp4`.
@@ -76,12 +79,16 @@ node video/capture.mjs --list             the takes
   simulator from its audio node. Nothing plays on the speakers, and the clipboard of the computer is not used
   (COPY works as usual, and Ctrl+V gives the page a paste with the text). The VIBE prompt names
   `https://fm1studio.com/`, as on the site.
-- **The network:** the take loads AURORA from GitHub, as the page does. Its other parts need no network.
+- **The network:** the take loads FMINI-1 from GitHub, as the page does. Its other parts need no network.
 - **The result:** `footage/screen/screen.mkv` (1920 x 1080, 30 frames a second, H.264 CRF 14, FLAC) and
   `screen.marks.json`: the times of the moments of the take, as `{"typing": 64.873, "copy": 85.607}`. In the
   timeline, `"in": "typing-1.0"` is one second before the mark `typing`, so that a new recording of the take
-  needs no change in the timeline. (Only the speeds of the scenes `idea`, `install-steps` and `install-write`
-  were set to the lengths of those parts in this recording.)
+  needs no change in the timeline. (Only the speeds of the scenes `gallery-compile`, `idea`, `install-steps` and `install-write`
+  were set to the lengths of those parts in this recording: set them again after a new take.)
+- **The clicks:** the cursor shows a ring at a click. A click that only gives the page the keyboard has none
+  (`ring: false`). Where a scene must end just after a click (LOAD in the gallery), the take makes that click at
+  a fixed time after a mark (`until`), also when a compile before it took more or less time. The cut after such
+  a click goes over the wait for the load.
 - **The AI chat:** the take puts `ai-chat.html` in front of the page, as another tab of the browser (the script's
   web server gives this folder as `/video/`), pastes `night-drive/prompt.txt`, and the chat page writes
   `night-drive/answer-1.md` at 400 characters a second. It is a replay, and its top line says so.
@@ -92,9 +99,10 @@ node video/capture.mjs --list             the takes
   nothing.
 - **The music:** `a1-night-drive` compiles NIGHT DRIVE in the page, then runs the program in Node, as the audio
   worklet runs it, with a script of chords, PLAY and knobs (`STORY.music` in `capture.mjs`):
-  `footage/audio/a1-night-drive.wav`, exactly in time, without a capture. The script is written to the bars of
-  the timeline (the beat comes in at the scene `vibe`, and so on): when the lengths of the scenes change, change
-  the bars in `STORY.music` and make the music again.
+  `footage/audio/a1-night-drive.wav`, exactly in time, without a capture. The script is written to the scenes of
+  the timeline (the beat comes in at the scene `vibe`, and so on) and reads their lengths from `timeline.json`:
+  when the lengths of the scenes change, make the music again. The scenes `vibe` and `end` must start at a whole
+  bar (4 beats) after the start of `title`.
 
 ### The screen, by hand
 
@@ -121,7 +129,7 @@ of such a take, clap one time where the phone and the computer's microphone hear
 finds the offset to 1 ms.
 
 Without a clap, find the offset by eye: a moment that both show (INSTALL NOW on the screen, and UPDATING on
-the FM-1). Put `"sync": {"to": "screen-install", "offset": T_FM1 - T_SCREEN}` in the FM-1's source, and check
+the FM-1). Put `"sync": {"to": "A", "offset": T_FM1 - T_SCREEN}` in the FM-1's source (A is the source of the screen), and check
 it with `sync.py check`.
 
 ## The timeline file
@@ -154,9 +162,10 @@ The keys of a scene:
 | `duration` or `beats` | The length: seconds, or beats of `bpm`. Each cut is at the frame nearest to its time, so a row of scenes in beats stays on the beat of the music |
 | `main` | The picture: `{"source", "in", "speed", "view", "viewTo", "move", "ease"}`, or `{"color": "#171615"}` for a card. `in` is seconds, or a mark of the recording with seconds to add (`"copy-1.8"`). With `viewTo`, the view moves from `view` to `viewTo` during `move` `[from, to]` (default: the whole scene). It starts and stops softly; with `"ease": "linear"` it has one speed, for a move that goes on in the next scene |
 | `pip` | `{"source", "view", "width", "corner", "x", "y", "from", "to", "label", ...}`; `"in"` and `"speed"` only for a PiP without sync |
-| `sound` | `{"source", "level"}`: one more recording of sound, in sync with the main picture (for example the FM-1's audio output with F3) |
+| `sound` | `{"source", "level"}`: one more recording of sound, in sync with the main picture (for example the FM-1's audio output with a video of the real FM-1) |
 | `audio` | The levels: `main` (default 1, and 0 when `speed` is not 1), `pip` (default 0), `music` (default 0) |
 | `audioFade` | `[in, out]`: the fades of the scene's own sound at its start and end, in seconds (default `[0.03, 0.03]`, so that a cut does not click) |
+| `musicFade` | The time in which the music goes to the `music` level of this scene, in seconds (default 0.5). The change ends 0.25 s after the cut: with 2.5, the music fades away in the last seconds of the scene before |
 | `texts` | `[{"text", "style", "from", "to", ...}]`; other keys change the style for this text. A text fades in and out inside its scene, and cuts at the start and end of the scene |
 | `boxes` | `[[x, y, w, h, "#colour"], ...]`, for example the four stripes of the cards |
 | `fadeIn`, `fadeOut` | A fade from and to black, picture and sound (s) |
@@ -191,8 +200,8 @@ A segment renders again when its scene, its recordings, the styles, the views or
 ## Limits
 
 - The PiP in sync and `sync.py` were tested with synthetic recordings only (a screenshot of the app with a
-  clock, a test picture, a clap), at 1x and 8x. The screen takes of `capture.mjs` are in the preview; no video
-  of a real FM-1 was used yet.
+  clock, a test picture, a clap), at 1x and 8x. The video of the real FM-1 in the preview is a PiP without sync
+  (`"in"`, `"speed"`).
 - The cuts are on the beat of the music, but the sound of the screen take is not: the simulator is played in real
   time by the script, and starts where the take starts.
 - `capture.mjs` records in real time: a slow computer can drop frames of the tab capture (the footage then
@@ -200,5 +209,5 @@ A segment renders again when its scene, its recordings, the styles, the views or
 - Cuts and fades to black only, no cross-fade between scenes.
 - A moving view moves by whole pixels. For a move, the recording is made 3 times larger first, so a step is a
   third of a pixel of the recording: a slow push in does not shake. Such a scene renders more slowly.
-- The music level changes in 0.5 s at a cut. The loudness is one pass of ffmpeg's `loudnorm`.
+- The music level changes in 0.5 s at a cut, or in the `musicFade` of the scene. The loudness is one pass of ffmpeg's `loudnorm`.
 - The cache does not see a change in a font file.

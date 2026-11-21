@@ -360,8 +360,10 @@ class Project:
         path = self.cache / f'{index:02d}-{scene["id"]}-{key}.mkv'
         if path.exists():
             return path
+        # The older segments of this scene go. (Not those of a scene whose id starts with this id: "ai", "ai-prompt".)
         for old in self.cache.glob(f'*-{scene["id"]}-*.mkv'):
-            old.unlink()
+            if re.fullmatch(rf'\d+-{re.escape(scene["id"])}-[0-9a-f]+\.mkv', old.name):
+                old.unlink()
         print(f'  render {scene["id"]} ({scene["_dur"]:.2f} s)', flush=True)
         args, graph = self.scene_graph(scene)
         graph_path = self.cache / f'{scene["id"]}.graph.txt'
@@ -610,13 +612,16 @@ class Project:
     # -- the whole video --
 
     def music_level_expression(self):
-        """The level of the music over the timeline: the "music" level of each scene, with a short ramp at a cut."""
+        """The level of the music over the timeline: the "music" level of each scene, with a ramp at a cut.
+
+        The ramp ends RAMP after the cut. It takes 2 * RAMP, or the "musicFade" of the scene after the cut, in
+        seconds: a longer time lets the music fade away before the scene, or come up to it."""
         levels = [float(scene.get('audio', {}).get('music', 0)) for scene in self.scenes]
         expr = f'{levels[0]}'
         for scene, before, after in zip(self.scenes[1:], levels, levels[1:]):
             if after != before:
-                cut = scene['_start']
-                expr += f'+({after - before})*clip((t-{cut - RAMP:.4f})/{2 * RAMP},0,1)'
+                ramp = float(scene.get('musicFade', 2 * RAMP))
+                expr += f'+({after - before})*clip((t-{scene["_start"] + RAMP - ramp:.4f})/{ramp},0,1)'
         return expr
 
     def music_start(self):
@@ -661,6 +666,11 @@ class Project:
         run([self.ffmpeg, '-hide_banner', '-loglevel', 'error', '-y', *args, '-/filter_complex',
              graph.relative_to(HERE).as_posix(), '-map', '0:v', '-c:v', 'copy', '-map', '[a]', '-c:a', 'aac', '-b:a', '192k',
              '-ar', RATE, '-movflags', '+faststart', '-t', f'{self.total:.4f}', out_path], 'the assembly of the video')
+        # ffmpeg joins the segments that it can read and stops at one that it cannot, without an error
+        length = float(run([self.ffprobe, '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', out_path],
+                           'ffprobe of the result'))
+        if length < self.total - 0.5:
+            raise Stop(f'the video stops at {length:.2f} s of {self.total:.2f} s: a segment in {self.cache.name}/ is not there or not good')
 
     def missing(self):
         used = {name for scene in self.scenes for name in self.scene_sources(scene)}

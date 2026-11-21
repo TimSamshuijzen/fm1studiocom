@@ -15,7 +15,6 @@
     "logo": {"font": "logo", "size": 150, "color": "#f6b31b", "x": "center", "y": 360, "shadow": true},
     "model": {"font": "bold", "size": 46, "color": "#ede4cc", "x": "center", "y": 590},
     "tagline": {"font": "text", "size": 34, "color": "#a89f8b", "x": "center", "y": 662},
-    "hook": {"font": "bold", "size": 76, "color": "#ede4cc", "x": "center", "y": 880, "shadow": true, "fade": 0.4},
     "step": {"font": "logo", "size": 52, "color": "#100f0e", "x": 96, "y": 940, "box": "#f6b31b", "boxPad": 22},
     "caption": {"font": "bold", "size": 52, "color": "#ede4cc", "x": 182, "y": 940, "box": "#100f0ee6", "boxPad": 22},
     "speed": {"font": "bold", "size": 40, "color": "#020304", "x": -72, "y": 60, "box": "#cdf2ff", "boxPad": 12},
@@ -42,34 +41,17 @@
     "note": "A1: NIGHT DRIVE, written to the bars of this timeline (STORY.music in capture.mjs): bar 0 is the start of the scene title"
   },
   "sources": {
-    "fm1-hero": {
-      "file": "footage/fm1/f1-hero.mp4",
-      "note": "F1: the real FM-1 plays NIGHT DRIVE: close, a slow move, the screen and the LEDs on the beat"
-    },
     "screen": {
       "file": "footage/screen/screen.mkv",
       "syncTrack": 1,
       "note": "The screen, in one take (capture.mjs screen): the app, the gallery, VIBE, the AI chat, paste, play, a change, INSTALL. The AI chat is a replay of the real answer, and the install runs on a stand-in FM-1"
     },
     "fm1-install": {
-      "file": "footage/fm1/f2-install.mp4",
-      "sync": {"to": "screen", "offset": 0.0},
-      "note": "F2: the real FM-1 during an install: UPDATING, the restart, NIGHT DRIVE starts. In sync only with a real install on the screen"
-    },
-    "fm1-play": {
-      "file": "footage/fm1/f3-play.mp4",
-      "note": "F3: hands play NIGHT DRIVE on the real FM-1, with its sound"
+      "file": "footage/fm1/20261121_230955.mp4",
+      "note": "F2: the real FM-1 during a real install of NIGHT DRIVE, from above: its program before (to 17.3 s), UPDATE PACKAGE, LOADER, RESTART, the screen UPDATING with its bar (20.7 to 25 s), dark, NIGHT DRIVE (from 26.75 s). Not the install of the screen take: the scenes pick its parts. Its sound is not used"
     }
   },
   "scenes": [
-    {
-      "id": "cold-open",
-      "duration": 5,
-      "note": "The payoff first: a synth that an AI wrote, on a real FM-1",
-      "main": {"source": "fm1-hero", "in": 0},
-      "fadeIn": 0.6,
-      "texts": [{"text": "What if you could just describe a synth?", "style": "hook", "from": 1.0, "to": 4.6}]
-    },
     {
       "id": "title",
       "beats": 8,
@@ -86,66 +68,117 @@
         {"text": "FM-1 STUDIO", "style": "logo"},
         {"text": "CODE  ·  SIMULATE  ·  INSTALL", "style": "model", "from": 0.4},
         {"text": "for the M-VAVE FM-1, in your browser", "style": "tagline", "from": 0.8}
-      ]
+      ],
+      "fadeIn": 0.6
     },
     {
       "id": "app",
-      "beats": 8,
-      "note": "The app: editor, compiler, simulator. The demo is played. The slow push in starts",
+      "beats": 12,
+      "note": "The app: editor, compiler, simulator. The demo is played. The slow push in starts. At the end, the click on LOAD of PROG-1",
       "main": {
         "source": "screen",
-        "in": "play-0.4",
+        "in": "band_load-6.45",
         "view": [0, 0, 1920, 1080],
-        "viewTo": [27, 0, 1866, 1050],
+        "viewTo": [21, 0, 1878, 1056],
         "ease": "linear"
       },
       "texts": [{"text": "Code, compile and play. All in the browser.", "style": "caption", "x": 96, "from": 0.4}],
       "audio": {"main": 4.5},
-      "audioFade": [0.03, 0.25]
+      "audioFade": [0.03, 0.15],
+      "musicFade": 2.5
     },
     {
       "id": "gallery-band",
-      "beats": 8,
-      "note": "The gallery: LOAD of PROG-1, the band plays",
+      "beats": 10,
+      "note": "The gallery: PROG-1, the band plays. At the end, the click on LOAD of GAME-1",
       "main": {
         "source": "screen",
-        "in": "band_load-0.9",
-        "view": [27, 0, 1866, 1050],
-        "viewTo": [55, 0, 1810, 1018],
+        "in": "game_load-5.31",
+        "view": [21, 0, 1878, 1056],
+        "viewTo": [38, 0, 1844, 1038],
         "ease": "linear"
       },
       "texts": [{"text": "Load a band from the gallery", "style": "caption", "x": 96}],
-      "audio": {"main": 1.5},
-      "audioFade": [0.5, 0.03]
+      "audio": {"main": 1.0},
+      "audioFade": [0.03, 0.15]
     },
     {
       "id": "gallery-game",
-      "beats": 6,
-      "note": "The gallery: GAME-1, NEON REEF, is played",
+      "beats": 12,
+      "note": "The gallery: GAME-1, NEON REEF, is played. Then the gallery scrolls, and the click on LOAD of FMINI-1",
       "main": {
         "source": "screen",
-        "in": "game+1.5",
-        "view": [55, 0, 1810, 1018],
-        "viewTo": [75, 0, 1770, 996],
+        "in": "firmware_load-6.4",
+        "view": [38, 0, 1844, 1038],
+        "viewTo": [58, 0, 1804, 1014],
         "ease": "linear"
       },
       "texts": [{"text": "…or a game", "style": "caption", "x": 96}],
-      "audio": {"main": 2.8}
+      "audio": {"main": 2.8},
+      "audioFade": [0.03, 0.03]
+    },
+    {
+      "id": "gallery-fetch",
+      "beats": 4,
+      "note": "After the click on LOAD of FMINI-1, at the real speed: its files come from GitHub (the status line counts them), the compile starts. The game is played on",
+      "main": {
+        "source": "screen",
+        "in": "firmware_load+0.14",
+        "view": [58, 0, 1804, 1014],
+        "viewTo": [65, 0, 1790, 1006],
+        "ease": "linear"
+      },
+      "audio": {"main": 2.8},
+      "texts": [{"text": "…or open-source FM-1 firmware, from GitHub", "style": "caption", "x": 96}],
+      "audioFade": [0.03, 0.15]
+    },
+    {
+      "id": "gallery-compile",
+      "beats": 6,
+      "note": "FMINI-1 compiles in the page (the status line counts the seconds), faster, to 1.5 s before its end",
+      "main": {
+        "source": "screen",
+        "in": "firmware_load+2.32",
+        "speed": 4.7,
+        "view": [65, 0, 1790, 1006],
+        "viewTo": [75, 0, 1770, 996],
+        "ease": "linear"
+      },
+      "audio": {"music": 1},
+      "texts": [
+        {"text": "It compiles in your browser…", "style": "caption", "x": 96},
+        {"text": "×4.7", "style": "speed"}
+      ]
+    },
+    {
+      "id": "gallery-start",
+      "beats": 6,
+      "note": "At the real speed: the last seconds of the compile, then FMINI-1 runs and shows its start picture",
+      "main": {
+        "source": "screen",
+        "in": "firmware_load+17.67",
+        "view": [75, 0, 1770, 996],
+        "viewTo": [86, 0, 1748, 984],
+        "ease": "linear"
+      },
+      "audio": {"main": 0, "music": 1},
+      "texts": [{"text": "It compiles in your browser…", "style": "caption", "x": 96}]
     },
     {
       "id": "gallery-firmware",
       "beats": 6,
-      "note": "The gallery: AURORA, a firmware from GitHub, plays",
+      "note": "The gallery: FMINI-1, a firmware from GitHub (a Minimoog), plays: a line of notes, and the CUTOFF closes and opens",
       "main": {
         "source": "screen",
-        "in": "firmware_play+0.2",
-        "view": [75, 0, 1770, 996],
+        "in": "firmware_play+0.1",
+        "view": [86, 0, 1748, 984],
         "viewTo": [96, 0, 1728, 972],
         "ease": "linear"
       },
-      "texts": [{"text": "…or open-source FM-1 firmware, from GitHub", "style": "caption", "x": 96}],
-      "audio": {"main": 0.4},
-      "audioFade": [0.03, 0.3]
+      "texts": [{"text": "…and plays in the simulator", "style": "caption", "x": 96}],
+      "audio": {"main": 0.8},
+      "audioFade": [0.03, 0.3],
+      "musicFade": 1.0
     },
     {
       "id": "vibe",
@@ -159,12 +192,12 @@
       "id": "idea",
       "beats": 10,
       "note": "Step 1: CLEAR, and the idea is typed in the VIBE dialog",
-      "main": {"source": "screen", "in": "typing-0.6", "speed": 3.3, "view": "near-top"},
+      "main": {"source": "screen", "in": "typing-0.6", "speed": 3.4, "view": "near-top"},
       "audio": {"music": 1},
       "texts": [
         {"text": "1", "style": "step", "box": "#f6b31b"},
         {"text": "Describe your idea", "style": "caption"},
-        {"text": "×3.3", "style": "speed"}
+        {"text": "×3.4", "style": "speed"}
       ]
     },
     {
@@ -179,15 +212,26 @@
       ]
     },
     {
+      "id": "ai-prompt",
+      "beats": 16,
+      "note": "Step 2: an AI chat, in another tab: the prompt is pasted, a click on SEND, the AI thinks, the answer starts",
+      "main": {"source": "screen", "in": "chat+0.1"},
+      "audio": {"main": 0, "music": 1},
+      "texts": [
+        {"text": "2", "style": "step", "box": "#f2801f", "y": 100},
+        {"text": "Paste it in an AI chat", "style": "caption", "y": 100}
+      ]
+    },
+    {
       "id": "ai",
       "beats": 12,
-      "note": "Step 2: an AI chat, in another tab, gets the prompt and writes main.c",
-      "main": {"source": "screen", "in": "chat+0.1", "speed": 6},
+      "note": "The AI writes main.c, faster",
+      "main": {"source": "screen", "in": "chat+8.83", "speed": 10},
       "audio": {"music": 1},
       "texts": [
         {"text": "2", "style": "step", "box": "#f2801f", "y": 100},
-        {"text": "An AI chat writes the code", "style": "caption", "y": 100},
-        {"text": "×6", "style": "speed", "y": 100}
+        {"text": "The AI writes the code", "style": "caption", "y": 100},
+        {"text": "×10", "style": "speed", "y": 100}
       ]
     },
     {
@@ -216,20 +260,21 @@
       "texts": [
         {"text": "3", "style": "step", "box": "#e2492a"},
         {"text": "Paste it: it compiles and runs", "style": "caption"}
-      ]
+      ],
+      "musicFade": 1.5
     },
     {
       "id": "play",
       "beats": 18,
-      "note": "NIGHT DRIVE is played in the simulator: a chord, PLAY, the beat",
+      "note": "NIGHT DRIVE is played in the simulator: a click on PLAY starts the beat, then chords",
       "main": {
         "source": "screen",
-        "in": "compiled+0.3",
+        "in": "beat-1.5",
         "view": [30, 17, 1860, 1046],
         "viewTo": [96, 54, 1728, 972],
         "ease": "linear"
       },
-      "audio": {"main": 1.0},
+      "audio": {"main": 0.7},
       "audioFade": [0.03, 0.2],
       "texts": [
         {"text": "3", "style": "step", "box": "#e2492a"},
@@ -249,37 +294,38 @@
     },
     {
       "id": "edit-play",
-      "beats": 6,
-      "note": "The changed program runs: a bigger sun, a chord",
-      "main": {"source": "screen", "in": "changed+1.2", "view": "near"},
+      "beats": 8,
+      "note": "The changed program runs: a bigger sun, two chords. At the end, the click on INSTALL",
+      "main": {"source": "screen", "in": "install-4.2", "view": "near"},
       "audio": {"main": 1.0},
       "audioFade": [0.03, 0.2],
-      "texts": [{"text": "3", "style": "step", "box": "#e2492a"}, {"text": "…and play it again", "style": "caption"}]
+      "texts": [{"text": "3", "style": "step", "box": "#e2492a"}, {"text": "…and play it again", "style": "caption"}],
+      "musicFade": 1.0
     },
     {
       "id": "install-steps",
-      "beats": 10,
-      "note": "Step 4: INSTALL: the package is made, read, connect, the FM-1 is found; the real FM-1 in the PiP",
-      "main": {"source": "screen", "in": "install-0.6", "speed": 3.5, "view": "near"},
+      "beats": 20,
+      "note": "Step 4: the steps of the INSTALL dialog, a bit faster: the box, NEXT, CONNECT, the FM-1 is found, NEXT, INSTALL NOW; the real FM-1 in the PiP",
+      "main": {"source": "screen", "in": "package+0.1", "speed": 1.2, "view": "near"},
       "audio": {"music": 1},
-      "pip": {"source": "fm1-install"},
+      "pip": {"source": "fm1-install", "in": 6.3, "view": [240, 124, 1440, 810]},
       "texts": [
         {"text": "4", "style": "step", "box": "#b8282d", "x": 1440, "y": 64},
         {"text": "Install it\nover USB", "style": "caption", "x": 1526, "y": 64, "lineSpacing": 10},
-        {"text": "×3.5", "style": "speed", "x": 1440, "y": 250}
+        {"text": "×1.2", "style": "speed", "x": 1440, "y": 250}
       ]
     },
     {
       "id": "install-write",
       "beats": 14,
-      "note": "INSTALL NOW, faster: the FM-1 checks the package, goes to update mode, is written, starts again",
-      "main": {"source": "screen", "in": "go-0.5", "speed": 7.3, "view": "near"},
+      "note": "The install, much faster: the FM-1 checks the package, goes to update mode, is written, starts again",
+      "main": {"source": "screen", "in": "go+0.15", "speed": 7.8, "view": "near"},
       "audio": {"music": 1},
-      "pip": {"source": "fm1-install"},
+      "pip": {"source": "fm1-install", "in": 17.2, "speed": 1.25, "view": [240, 124, 1440, 810]},
       "texts": [
         {"text": "4", "style": "step", "box": "#b8282d", "x": 1440, "y": 64},
         {"text": "Install it\nover USB", "style": "caption", "x": 1526, "y": 64, "lineSpacing": 10},
-        {"text": "×7.3", "style": "speed", "x": 1440, "y": 250}
+        {"text": "×7.8", "style": "speed", "x": 1440, "y": 250}
       ]
     },
     {
@@ -288,19 +334,11 @@
       "note": "The dialog says that the install is done",
       "main": {"source": "screen", "in": "done+0.4", "view": "near"},
       "audio": {"main": 0, "music": 1},
-      "pip": {"source": "fm1-install"},
+      "pip": {"source": "fm1-install", "in": 26.74, "view": [240, 124, 1440, 810]},
       "texts": [
         {"text": "4", "style": "step", "box": "#b8282d", "x": 1440, "y": 64},
         {"text": "Install it\nover USB", "style": "caption", "x": 1526, "y": 64, "lineSpacing": 10}
       ]
-    },
-    {
-      "id": "payoff",
-      "beats": 16,
-      "note": "The real FM-1 plays it",
-      "main": {"source": "fm1-play", "in": 0},
-      "audio": {"main": 1},
-      "texts": [{"text": "Your idea. Your synth. On a real FM-1.", "style": "hook", "from": 1.0, "to": 8.3}]
     },
     {
       "id": "end",
