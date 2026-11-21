@@ -1175,8 +1175,7 @@ Rules for the program:
         <p class="state" id="install-package" role="status"></p>
         <div class="progress" id="install-package-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
           aria-label="Package progress, an estimate" title="Package progress (an estimate)"><i></i></div>
-        <p class="note"><strong>This page was tested on one FM-1:</strong> the newer flash chip (B36014), with
-          m-bootloader 2.4-395e6cc. You install at your own risk. An install that goes wrong can give an FM-1
+        <p class="note">You install at your own risk. An install that goes wrong can give an FM-1
           that does not start.</p>
         <ul>
           <li><strong>Work with M-Flasher first, and install m-bootloader.</strong>
@@ -10415,16 +10414,14 @@ async function loadZip(file) {
   }
 }
 
-// Replaces the project with a new project of `code`: main.c, and the fm1project.json of the demo
-// project. The project keeps its name, so that a new version of main.c from an AI keeps it too, but
-// not the name of a card of the gallery.
+// Replaces the project with a new project of `code` (pasted, or a dropped main.c) that has no name yet:
+// main.c, and the fm1project.json of the demo project.
 function loadMainCode(code) {
-  const name = project.gallery ? 'main' : project.name || 'main';
-  setProject(name, new Map([[MANIFEST, text(MANIFEST)], ['main.c', code]]));
+  setProject('no name', new Map([[MANIFEST, text(MANIFEST)], ['main.c', code]]));
   compileNew();
 }
 
-// The same for a file main.c (a File).
+// The same for a file main.c (a File) that is dropped on the page.
 async function loadMain(file) {
   try {
     loadMainCode(await file.text());
@@ -11339,8 +11336,8 @@ function sizeOf(pattern) {
 }
 
 // The time of the last good job (compile or build) of a project on this computer, from `times` (project
-// name -> { seconds, size }), when its C files have about the same size now: a main.c that is dropped or
-// pasted on the page keeps the name of the project, and can be a much larger program.
+// name -> { seconds, size }), when its C files have about the same size now: each main.c that is dropped
+// or pasted on the page is "no name", and can be a much larger program.
 function knownSeconds(times, name, size) {
   const known = times.get(name);
   return known && Math.abs(size - known.size) <= known.size / 4 ? known.seconds : undefined;
