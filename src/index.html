@@ -239,6 +239,9 @@
   .buttons { display: flex; gap: 7px; }
   .buttons .file-buttons { margin-left: auto; }
   .push.github { display: grid; place-items: center; width: 26px; padding: 0; }  /* the GitHub logo, next to ABOUT */
+  /* SAVE: a download, with the symbol of DOWNLOAD (an arrow down to a line) before its name */
+  .push.down { display: inline-flex; align-items: center; gap: 5px; }
+  .push.down svg { flex: none; width: 10px; height: 10px; fill: currentColor; }
   .push.github svg { width: 14px; height: 14px; fill: currentColor; }
   .masthead .buttons { align-items: center; }
   .arcade {  /* VIBE: a green arcade button, as SMART BOMB of GWAVE (complexity.zone/gwave), with its name on the cap */
@@ -817,7 +820,7 @@
             <div class="buttons">
               <button class="push" id="project-new" title="Start again with the startup demo project">NEW</button>
               <button class="push" id="project-load" title="Load a project from a zip file (or drop the zip file, or a file main.c, on the page)">LOAD</button>
-              <button class="push" id="project-save" title="Download the project as a zip file">SAVE</button>
+              <button class="push down" id="project-save" title="Download the project as a zip file"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2h8L6 7z"/><rect x="1" y="9" width="10" height="1.8"/></svg>SAVE</button>
               <button class="push file-buttons" id="file-new" title="Add a file to the project">+ FILE</button>
               <button class="push" id="file-delete" title="Delete the file in the editor from the project">DELETE</button>
             </div>
