@@ -541,7 +541,7 @@
     color: var(--stripe-1); font-size: 22px; font-weight: 700; letter-spacing: 0.12em;
   }
 
-  /* ---- Dialogs (ABOUT, VIBE, INSTALL and SAVE): a modal dialog, in the middle of the window. It is in the
+  /* ---- Dialogs (ABOUT, INSTALL and SAVE; VIBE is a device of its own, see below): a modal dialog, in the middle of the window. It is in the
      device, so that it gets --scale. On a large window it grows with the device. On a small window
      it does not get smaller than its own size, so that its text stays easy to read: then it takes
      the room that the window has. Its head is a part of the device. The text below the head is a
@@ -659,23 +659,121 @@
   .save { width: min(560px, 100vw - 24px); }
   .dialog-text .confirm { font-weight: 700; }  /* what the user confirms, as the boxes of INSTALL */
 
-  /* ---- Vibe: prompts for an AI. Each prompt has a COPY button in its top right corner. ---- */
-  .dialog-text .choices { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
-  .dialog-text .choices .push[aria-pressed="true"] {  /* the choice that shows now: orange, as LOAD on a card */
-    color: #241000; background: linear-gradient(#f79a3e, var(--stripe-2) 45%, #cc6410);
-    box-shadow: 0 0 0 1px #000, 0 2px 0 #000, inset 0 1px 0 #ffffff59;
+  /* ---- Vibe: a device of its own in front of the FM-1 Studio device, with cheeks of orange plastic and a
+     light panel between them. It has a fixed size, and it scales with the device: 1200 x 675 at 1.2 times the
+     scale of the device (--scale) is 1440 x 810, 90 % of the width and the height of the device (1600 x 900).
+     Thus the arrangement never changes. Two panels: YOUR IDEA, and PROMPT. In the prompt the idea has an amber
+     marker, and an amber arrow between the panels shows that it goes into the prompt. ---- */
+  .vibe {
+    --vpanel: #e9e4da; --vink: #2b2824; --vink-dim: #6c6559; --vrule: #b4ac9d; --vlink: #0b55a8;
+    --vamber: #ffc95e;
+    width: 1200px; height: 675px; max-height: none; border: 0; border-radius: 18px; background: none;
+    transform: translate(-50%, -50%) scale(calc(1.2 * var(--scale, 1)));
+    box-shadow: 0 30px 70px #000d, 0 10px 24px #000a;
   }
-  .dialog-text .idea {
-    display: block; width: 100%; min-height: 180px; margin: 0 0 8px; padding: 10px 12px; resize: vertical;
-    border: 1px solid var(--paper-rule); border-radius: 6px; background: #fff; color: var(--ink); font: 15px/1.5 var(--font-label);
+  .vibe[open] { display: block; }
+  .vibe .cheek {  /* orange plastic: a rounded edge, with the light on its middle */
+    background:
+      linear-gradient(90deg, #8a3300b0 0%, #0000 22%, #ffffff3d 40%, #ffffff70 47%, #ffffff26 55%, #0000 72%, #7a2c00c0 100%),
+      linear-gradient(180deg, #ffffff40, #0000 25%, #0000 80%, #0000002e),
+      #f07c1c;
+    box-shadow: inset 0 2px 0 #ffffffa0, inset 0 -3px 0 #00000040;
   }
-  .dialog-text .idea:focus-visible { outline-color: var(--link); outline-offset: 0; }
-  .dialog-text .prompt { position: relative; margin: 0 0 12px; }
-  .dialog-text .prompt pre { margin: 0; padding-right: 104px; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .dialog-text .prompt .copy { position: absolute; top: 8px; right: 8px; min-width: 88px; height: 28px; padding: 0 12px; font-size: 11px; }
-  .dialog-text .prompt mark { padding: 0 2px; border-radius: 3px; background: #fbd78a; color: inherit; }  /* the idea */
-  .dialog-text .prompt [data-copy] { color: var(--ink-dim); font-style: italic; }  /* COPY puts a text here */
-  @media (max-width: 620px) { .dialog-text .prompt pre { padding: 46px 12px 12px; } }
+  .vibe :focus-visible { outline-color: var(--vlink); }
+  .vibe-case {
+    position: absolute; inset: 0 24px; padding: 12px 22px 12px;
+    display: grid; grid-template: 52px minmax(0, 1fr) 16px / 448px 26px minmax(0, 1fr); row-gap: 18px;
+    color: var(--vink); color-scheme: light;
+    background:
+      linear-gradient(180deg, #ffffffa0, #0000 3px),
+      repeating-linear-gradient(90deg, #ffffff1f 0 1px, #0000 1px 3px),
+      var(--vpanel);
+    border-top: 2px solid #fbf8f2; border-bottom: 2px solid #a8a091;
+  }
+  .vibe-head { grid-column: 1 / -1; display: flex; align-items: center; gap: 20px; }
+  .vibe-head h2, .vibe-head p { margin: 0; }
+  .vibe .logo { font-size: 34px; filter: drop-shadow(0 1px 0 #5a3a0a80); }
+  .vibe .model { color: var(--vink); }
+  .vibe .tagline { color: var(--vink-dim); }
+  .vibe-panel {  /* a panel: a printed frame, with its name on the frame */
+    position: relative; min-width: 0; min-height: 0; margin: 0; padding: 24px 18px 14px;
+    display: grid; grid-template-rows: 34px minmax(0, 1fr) 52px; row-gap: 18px;
+    border: 1.5px solid var(--vrule); border-radius: 9px;
+  }
+  .vibe-legend {
+    position: absolute; top: -9px; left: 14px; margin: 0; padding: 0 8px;
+    display: flex; align-items: center; gap: 8px; background: var(--vpanel);
+    font: 700 14px/16px var(--font-panel); letter-spacing: 0.22em; color: var(--vink); white-space: nowrap;
+  }
+  .vibe-legend::before { content: ""; width: 10px; height: 10px; border-radius: 1px; background: var(--accent); box-shadow: 0 0 0 1px #0002; }
+  .vibe-row { display: flex; align-items: center; gap: 9px; margin: 0; }
+  .vibe-print { margin-right: 4px; font: 700 10px/1 var(--font-panel); letter-spacing: 0.16em; color: var(--vink-dim); }
+  .vibe-caption, .vibe-hint { margin: 0; align-self: center; font: 14px/1.4 var(--font-label); color: var(--vink-dim); }
+  /* The keys of the examples: dark caps, as on the FM-1. The legend of the example that the display shows is lit. */
+  .vibe-key {
+    height: 34px; padding: 0 14px 0 15px; border-radius: 6px;
+    background: linear-gradient(#3c3f41, #26292a);
+    box-shadow: 0 0 0 1px #121314, 0 3px 0 #121314, 0 4px 5px #0004, inset 0 1px 0 #ffffff2a;
+    font: 700 11px/34px var(--font-panel); letter-spacing: 0.14em; color: #b4b7b9;
+    transition: color 0.1s, text-shadow 0.1s;
+  }
+  .vibe-key:active { transform: translateY(2px); box-shadow: 0 0 0 1px #121314, 0 1px 0 #121314, 0 1px 2px #0004, inset 0 1px 0 #ffffff2a; }
+  .vibe-key[aria-pressed="true"] { color: #ffe9b8; text-shadow: 0 0 3px var(--vamber), 0 0 10px #ffad3a; }
+  .vibe-key.clear { margin-left: auto; }
+  /* A white field, set into the panel. The field of the idea has an amber edge while the user writes in it. */
+  .vibe-screen {
+    position: relative; min-height: 0; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+    border-radius: 6px; background: #fff;
+    box-shadow: 0 0 0 1px #9b9384, 0 1px 0 1px #fffc, inset 0 2px 4px #00000024;
+  }
+  .vibe-screen:has(textarea:focus) { box-shadow: 0 0 0 1px #9b9384, 0 0 0 3px var(--stripe-1), inset 0 2px 4px #00000024; }
+  .vibe-screen textarea, .vibe-screen pre {
+    margin: 0; padding: 14px 18px; border: 0; border-radius: inherit; overflow-y: auto; resize: none; background: none;
+    white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text;
+    scrollbar-color: #bdb5a6 transparent;
+  }
+  .vibe-screen textarea:focus-visible { outline: none; }  /* the amber edge shows where the text goes */
+  .vibe-screen pre:focus-visible { outline: 2px solid var(--vlink); outline-offset: -4px; }
+  #vibe-idea { font: 13px/1.6 var(--font-mono); color: var(--vink); caret-color: var(--vink); }
+  #vibe-idea::placeholder { color: #9d9587; }
+  #vibe-prompt { font: 12.5px/1.6 var(--font-mono); color: #3a3631; }
+  #vibe-prompt mark { padding: 1px 0; border-radius: 2px; background: #ffdc8c; color: var(--vink); }  /* the idea */
+  #vibe-prompt [data-copy] { color: var(--vink-dim); font-style: italic; }  /* COPY puts a text here */
+  .vibe-flow { position: relative; }
+  .vibe-flow::before {  /* an arrow from the idea to the prompt, at the height of the displays */
+    content: ""; position: absolute; left: 50%; top: 50%; translate: -40% -50%;
+    border-style: solid; border-width: 10px 0 10px 13px; border-color: transparent transparent transparent var(--stripe-1);
+    filter: drop-shadow(0 1px 0 #fff9);
+  }
+  /* COPY, then the steps that follow it, each after an arrow */
+  .vibe-steps { display: flex; align-items: center; min-width: 0; }
+  .vibe-copy {
+    flex: none; width: 118px; height: 46px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    color: #e6ffe9; background: linear-gradient(#33aa56, #22863e 60%, #17692c);
+    box-shadow: 0 0 0 1px #0b2a14, 0 4px 0 #0e3b1b, 0 5px 7px #0005, inset 0 1px 0 #ffffff5c;
+    font: 700 13px/1 var(--font-panel); letter-spacing: 0.16em; text-shadow: 0 1px 1px #0007;
+  }
+  .vibe-copy:active { transform: translateY(3px); box-shadow: 0 0 0 1px #0b2a14, 0 1px 0 #0e3b1b, 0 1px 2px #0005, inset 0 1px 0 #ffffff5c; }
+  .vibe-copy svg { flex: none; width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .vibe-copy .done, .vibe-copy.copied .copy { display: none; }
+  .vibe-copy.copied .done { display: inline; }
+  .vibe-copy.failed { color: #fff; background: linear-gradient(#d12a1c, #b01a10 60%, #8e110a); box-shadow: 0 0 0 1px #3a0703, 0 4px 0 #5a0c06, 0 5px 7px #0005, inset 0 1px 0 #ffffff40; }
+  .vibe-steps ol { flex: 1 1 0; min-width: 0; display: flex; margin: 0; padding: 0; list-style: none; }
+  .vibe-steps li { flex: 1 1 0; display: flex; align-items: center; gap: 10px; font: 14px/1.35 var(--font-label); color: var(--vink); }
+  .vibe-steps li::before {
+    content: ""; flex: none; margin-left: 12px;
+    border-style: solid; border-width: 6px 0 6px 8px; border-color: transparent transparent transparent var(--vink-dim);
+  }
+  .vibe kbd {  /* a key of the computer keyboard */
+    padding: 0 5px; border: 1px solid #a39b8c; border-bottom-width: 2px; border-radius: 4px; background: #fbf9f4;
+    font: 12px/1.35 var(--font-mono); white-space: nowrap;
+  }
+  .vibe-foot {  /* printed on the panel, below the two panels */
+    grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 24px;
+    font: 13px/1 var(--font-label); color: var(--vink-dim); white-space: nowrap;
+  }
+  .vibe-foot a { color: var(--vlink); text-underline-offset: 2px; }
 </style>
 </head>
 <body>
@@ -1083,59 +1181,53 @@ void loop(void) { }                         /* again and again: controls and scr
     </div>
   </dialog>
 
-  <!-- VIBE: the dialog that the VIBE button opens. It tells how an AI can write a program, and gives
-       a prompt for it, with a COPY button. The page script fills in the parts of the prompt:
-       data-fill="idea" gets the text of the idea, data-fill="site" the address of this page, and
-       data-text the text block with that id. A data-copy part shows a note here, and COPY puts a
-       text in its place: all of fm1.h. -->
-  <dialog class="dialog" id="vibe" aria-labelledby="vibe-title">
-    <header class="dialog-head">
-      <h2 class="logo" id="vibe-title">VIBE</h2>
-      <p class="brand-text">
-        <span class="model">CODE WITH AI</span>
-        <span class="tagline">a synth, a piece or a game</span>
-      </p>
-      <div class="stripes"><i></i><i></i><i></i><i></i></div>
-      <button class="push" id="vibe-close" title="Close (Esc)">CLOSE</button>
-    </header>
+  <!-- VIBE: the dialog that the VIBE button opens. It is a device of its own, with a light panel, in front of
+       the FM-1 Studio device. It has a fixed size, and it scales with the device: 90 % of its width and height
+       (the styles of .vibe). Its two panels:
+         YOUR IDEA  examples to start from, and a display on which the user writes the idea
+         PROMPT     the prompt for an AI chat, with the idea in it, and COPY; then what to do with it
+       The page script fills in the parts of the prompt: data-fill="idea" gets the text of the idea,
+       data-fill="site" the address of this page, and data-text the text block with that id. A data-copy
+       part shows a note here, and COPY puts a text in its place: all of fm1.h. -->
+  <dialog class="dialog vibe" id="vibe" aria-labelledby="vibe-title">
+    <div class="cheek left"></div>
+    <div class="cheek right"></div>
+    <div class="vibe-case">
+      <header class="vibe-head">
+        <h2 class="logo" id="vibe-title">VIBE</h2>
+        <p class="brand-text">
+          <span class="model">CODE WITH AI</span>
+          <span class="tagline">a synth, a piece or a game</span>
+        </p>
+        <div class="stripes"><i></i><i></i><i></i><i></i></div>
+        <button class="push" id="vibe-close" title="Close (Esc)">CLOSE</button>
+      </header>
 
-    <div class="dialog-text" id="vibe-text" tabindex="0">
-      <p class="lead">Tell an AI what to make, the AI writes the code, and you play the
-        result. You do not have to know C. The AI writes a program against <code>fm1.h</code>, the API of
-        this page, and the FM-1 simulator runs it.</p>
-      <ol>
-        <li>Write your idea below, or start from an example.</li>
-        <li>Copy the prompt, and give it to an AI chat.</li>
-        <li>The AI writes <code>main.c</code>. Copy it, and paste it on this page with <kbd>Ctrl</kbd> +
-          <kbd>V</kbd>. Or drag the file <code>main.c</code> to this page, and drop it there. The page compiles
-          it and runs it in the simulator. Play it.</li>
-        <li>Tell the AI what to change. When a compile fails, give the AI the log.</li>
-      </ol>
+      <section class="vibe-panel" style="--accent: var(--stripe-1)" aria-labelledby="vibe-idea-title">
+        <h3 class="vibe-legend" id="vibe-idea-title">YOUR IDEA</h3>
+        <!-- The keys of the examples: the key of the example that the display shows is lit. -->
+        <div class="vibe-row" id="vibe-ideas" role="group" aria-label="Examples of an idea">
+          <span class="vibe-print">EXAMPLES</span>
+          <button class="vibe-key" data-idea="synth" aria-pressed="true" title="An example: a synth">SYNTH</button>
+          <button class="vibe-key" data-idea="piece" aria-pressed="false" title="An example: a piece of music">PIECE</button>
+          <button class="vibe-key" data-idea="game" aria-pressed="false" title="An example: a game">GAME</button>
+          <button class="vibe-key clear" id="vibe-clear" title="Empty the display, to write your own idea">CLEAR</button>
+        </div>
+        <div class="vibe-screen idea-screen">
+          <textarea id="vibe-idea" aria-labelledby="vibe-idea-title" placeholder="Write your idea here." spellcheck="false"></textarea>
+        </div>
+        <p class="vibe-hint">Tell what it plays or does, which note keys, buttons and encoders do what, and what the
+          screen shows.</p>
+      </section>
 
-      <h3>1. Your idea</h3>
-      <div class="choices" id="vibe-ideas" role="group" aria-label="Examples of an idea">
-        <button class="push" data-idea="synth" aria-pressed="true">SYNTH</button>
-        <button class="push" data-idea="piece" aria-pressed="false">PIECE</button>
-        <button class="push" data-idea="game" aria-pressed="false">GAME</button>
-      </div>
-      <textarea class="idea" id="vibe-idea" aria-label="Your idea" placeholder="What does the program do?"></textarea>
-      <p class="small">Tell what it plays or does, which note keys, buttons and encoders control what, and
-        what the screen shows. The prompt below takes this text.</p>
+      <!-- The idea goes into the prompt -->
+      <div class="vibe-flow" aria-hidden="true"></div>
 
-      <h3>2. Prompt</h3>
-      <p>An AI chat writes the program. You bring the code from the chat to this page.</p>
-      <ol>
-        <li>Open a new chat. Paste the prompt and send it. COPY also copies <code>fm1.h</code>, so that
-          the AI knows the API.</li>
-        <li>Copy the code of the answer, and paste it on this page with <kbd>Ctrl</kbd> + <kbd>V</kbd>,
-          outside the editor: the page makes a new project of it, and compiles it. A copy of the whole
-          answer also works: the page takes its code. Or save the code as the file <code>main.c</code>,
-          and drop the file on this page. SAVE your project first if you want to keep it.</li>
-        <li>Tell the AI what to change, and bring the new <code>main.c</code> to this page in the same way.
-          When a compile fails, copy the text of the LOG panel to the AI.</li>
-      </ol>
-      <div class="prompt">
-<pre>Write a program for the M-VAVE FM-1 that does my idea, for FM-1 Studio (<span data-fill="site"></span>). I test it there.
+      <section class="vibe-panel" style="--accent: var(--stripe-3)" aria-labelledby="vibe-prompt-title">
+        <h3 class="vibe-legend" id="vibe-prompt-title">PROMPT</h3>
+        <p class="vibe-caption">Your idea, the rules of the FM-1 and all of fm1.h: what the AI needs to know.</p>
+        <div class="vibe-screen">
+<pre id="vibe-prompt" tabindex="0" aria-label="The prompt">Write a program for the M-VAVE FM-1 that does my idea, for FM-1 Studio (<span data-fill="site"></span>). I test it there.
 
 My idea: <mark data-fill="idea"></mark>
 
@@ -1148,16 +1240,26 @@ Give me all of main.c in one code block, and tell me how to play it. I put it in
 Here is fm1.h:
 
 <span data-copy="fm1.h">[COPY puts all of fm1.h here]</span></pre>
-        <button class="push copy" title="Copy the prompt, with fm1.h">COPY</button>
-      </div>
+        </div>
+        <!-- COPY, then the steps that follow it -->
+        <div class="vibe-steps">
+          <button class="vibe-copy" id="vibe-copy" title="Copy the prompt, with fm1.h"><svg viewBox="0 0 16 16" aria-hidden="true">
+            <g class="copy"><rect x="5.5" y="5.5" width="8.5" height="8.5" rx="1.5"/><path d="M3 10.5V3.5A1.5 1.5 0 0 1 4.5 2H11"/></g>
+            <path class="done" d="M2.5 8.5l3.5 3.5 7.5-8"/></svg><span>COPY</span></button>
+          <ol>
+            <li><span>Paste it in a new AI chat, and send it.</span></li>
+            <li><span>Copy the code of the answer.</span></li>
+            <li><span>Press <kbd>Ctrl</kbd>+<kbd>V</kbd> on this page to play it.</span></li>
+          </ol>
+        </div>
+      </section>
 
-      <h3>Good to know</h3>
-      <ul>
-        <li>An AI makes mistakes. A program that works in the simulator can fail on a real FM-1. You
-          install a program at your own risk: read ABOUT, and
+      <footer class="vibe-foot">
+        <span>To change the program, tell the AI. When a compile fails, give it the text of the LOG.</span>
+        <span>An AI makes mistakes: read
           <a href="https://github.com/TimSamshuijzen/fm1studiocom#on-a-real-fm-1" target="_blank" rel="noopener">"On a real FM-1"</a>
-          in the README, before you use INSTALL.</li>
-      </ul>
+          before you install a program.</span>
+      </footer>
     </div>
   </dialog>
 
@@ -10210,20 +10312,28 @@ function showIdea() {
   for (const part of vibe.querySelectorAll('[data-fill="idea"]')) part.textContent = idea;
 }
 
-// Presses `button` (or none) of the buttons of `group`.
-function pressChoice(group, button) {
-  for (const other of group.querySelectorAll('button')) other.setAttribute('aria-pressed', other === button);
+// Lights the key of the example `button` (or none: the idea is the user's own).
+function pressChoice(button) {
+  for (const key of $('vibe-ideas').querySelectorAll('[data-idea]')) key.setAttribute('aria-pressed', key === button);
 }
 
+// The key of an example puts that example on the display. CLEAR empties the display, for the user's own idea.
 $('vibe-ideas').onclick = (event) => {
-  const button = event.target.closest('button');
+  const button = event.target.closest('[data-idea]');
   if (!button) return;
-  pressChoice($('vibe-ideas'), button);
+  pressChoice(button);
   $('vibe-idea').value = VIBE_IDEAS[button.dataset.idea];
+  $('vibe-idea').scrollTop = 0;
   showIdea();
 };
+$('vibe-clear').onclick = () => {
+  pressChoice(null);
+  $('vibe-idea').value = '';
+  showIdea();
+  $('vibe-idea').focus();
+};
 $('vibe-idea').oninput = () => {
-  pressChoice($('vibe-ideas'), null);  // it is the user's own idea now
+  pressChoice(null);  // it is the user's own idea now
   showIdea();
 };
 $('vibe-idea').value = VIBE_IDEAS.synth;
@@ -10245,22 +10355,25 @@ async function copyText(value) {
   }
 }
 
-// COPY: the text of its prompt, with the data-copy parts filled in.
-vibe.addEventListener('click', async (event) => {
-  const button = event.target.closest('.copy');
-  if (!button) return;
-  const prompt = button.parentElement.querySelector('pre').cloneNode(true);
+// COPY: the text of the prompt, with the data-copy parts filled in. The key tells for a moment if that worked.
+const vibeCopy = $('vibe-copy');
+vibeCopy.onclick = async () => {
+  const prompt = $('vibe-prompt').cloneNode(true);
   for (const part of prompt.querySelectorAll('[data-copy]')) part.textContent = VIBE_COPY[part.dataset.copy]();
   const done = await copyText(prompt.textContent);
-  button.textContent = done ? 'COPIED' : 'NOT COPIED';
-  button.classList.toggle('ok', done);  // green
-  clearTimeout(button.timer);
-  button.timer = setTimeout(() => { button.textContent = 'COPY'; button.classList.remove('ok'); }, 1500);
-});
+  vibeCopy.lastElementChild.textContent = done ? 'COPIED' : 'FAILED';
+  vibeCopy.classList.toggle('copied', done);
+  vibeCopy.classList.toggle('failed', !done);  // red
+  clearTimeout(vibeCopy.timer);
+  vibeCopy.timer = setTimeout(() => {
+    vibeCopy.lastElementChild.textContent = 'COPY';
+    vibeCopy.classList.remove('copied', 'failed');
+  }, 2000);
+};
 
 $('vibe-open').onclick = () => {
   vibe.showModal();
-  $('vibe-text').scrollTop = 0;
+  $('vibe-prompt').scrollTop = 0;
 };
 $('vibe-close').onclick = () => vibe.close();
 vibe.onpointerdown = (event) => { if (event.target === vibe) vibe.close(); };
