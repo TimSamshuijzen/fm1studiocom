@@ -82,8 +82,8 @@ Two more facts:
 ### The full build
 
 ```
-firmware\build.cmd src\examples\neonreef\neonreef.zip          (Windows: it starts the build in WSL)
-firmware/build.sh src/examples/neonreef/neonreef.zip           (Linux, or inside WSL)
+firmware\build.cmd examples\neonreef\neonreef.zip          (Windows: it starts the build in WSL)
+firmware/build.sh examples/neonreef/neonreef.zip           (Linux, or inside WSL)
 ```
 
 A second argument gives the name on the FM-1's start screen: `firmware\build.cmd my.zip "MY SYNTH"`.

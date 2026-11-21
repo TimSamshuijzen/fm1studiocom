@@ -448,8 +448,8 @@ The application is one file, `src/index.html`, the compiler in `src/fwsc`, and t
 | `fm1project.json`, `main.c` | The demo project |
 | `prog-1/fm1project.json`, `prog-1/main.c` | The demo project of the PROG-1 card, by Hans Dam |
 | `space-1/fm1project.json`, `space-1/main.c` | The demo project of the SPACE-1 card |
-| `game-1/fm1project.json`, `game-1/main.c` | The demo project of the GAME-1 card: NEON REEF (`src/examples/neonreef`) |
-| `game-2/fm1project.json`, `game-2/main.c` | The demo project of the GAME-2 card: SWOOPERS (`src/vibe-examples/game`) |
+| `game-1/fm1project.json`, `game-1/main.c` | The demo project of the GAME-1 card: NEON REEF (`examples/neonreef`) |
+| `game-2/fm1project.json`, `game-2/main.c` | The demo project of the GAME-2 card: SWOOPERS (`vibe-examples/game`) |
 | `compiler-worker.js` | The compiler worker: the simulator compiler |
 | `fm1-worklet.js` | The audio worklet that runs the program |
 | `firmware-worker.js` | The firmware worker: the firmware compiler and the build of a package |
@@ -551,6 +551,8 @@ src/staticwebapp.config.json   configuration of the host
 .github/workflows/             deployment
 firmware/                      fm1.h on a real FM-1: the adapter, and the build on a computer (not deployed)
 firmware/web/                  the scripts that make src/fwsc
+examples/                      example projects, each with its zip file: PROG-1, NEON REEF, GLOAMING, GWAVE (not deployed)
+vibe-examples/                 a program for each example idea of VIBE: SYNTH, PIECE, GAME (SWOOPERS) (not deployed)
 img/                           the screenshot at the top of this README (not deployed)
 ```
 
@@ -637,7 +639,7 @@ page takes their code from their repositories when you press LOAD. The files in 
 from that code, and their licences apply to them.
 
 The progressive rock band of the PROG-1 card (`prog-1/main.c` in `src/index.html`, and
-`src/examples/prog-1`) is by Hans Dam.
+`examples/prog-1`) is by Hans Dam.
 
 The folder `src/fwsc` has work of others, the compiler: LLVM with the pi32v2 target of Julius
 Vitkauskas (Apache-2.0 with LLVM exceptions), built with Emscripten; the sources of fm1-base and

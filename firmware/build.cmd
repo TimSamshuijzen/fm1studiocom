@@ -5,7 +5,7 @@ rem
 rem build.cmd - on Windows: a project zip of FM-1 Studio to a .fwsc package
 rem for a real M-VAVE FM-1. It starts firmware/build.sh in WSL.
 rem
-rem   firmware\build.cmd src\examples\neonreef\neonreef.zip [NAME]
+rem   firmware\build.cmd examples\neonreef\neonreef.zip [NAME]
 rem
 rem The zip is a path in this repository, or a full path. See firmware\README.md.
 setlocal
