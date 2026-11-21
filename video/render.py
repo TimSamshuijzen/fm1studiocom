@@ -199,14 +199,27 @@ class Project:
         self.sources = {name: Source(name, spec, self) for name, spec in self.tl.get('sources', {}).items()}
         self.offsets = self.sync_offsets()
         self.scenes = self.tl['scenes']
-        seen, frame = set(), 0
+        # A scene has "duration" (seconds) or "beats" (beats of the timeline's "bpm"). Each cut is at the frame
+        # nearest to its time, so that a row of scenes in beats stays on the beat of the music.
+        seen, time, frame = set(), 0.0, 0
+        beat = 60 / float(self.tl['bpm']) if self.tl.get('bpm') else None
         for scene in self.scenes:
             if scene.get('id') in seen or not scene.get('id'):
                 raise Stop(f'each scene needs an id of its own: {scene.get("id")!r}')
             seen.add(scene['id'])
-            scene['_frames'] = max(1, round(scene['duration'] * self.fps))
+            if 'beats' in scene:
+                if not beat:
+                    raise Stop(f'scene {scene["id"]} has "beats": the timeline needs "bpm"')
+                time += scene['beats'] * beat
+            elif 'duration' in scene:
+                time += scene['duration']
+            else:
+                raise Stop(f'scene {scene["id"]} needs "duration" or "beats"')
+            end = max(frame + 1, round(time * self.fps))
+            scene['_frames'] = end - frame
             scene['_start'] = frame / self.fps
-            frame += scene['_frames']
+            scene['_dur'] = scene['_frames'] / self.fps
+            frame = end
         self.total = frame / self.fps
 
     # -- sync --
@@ -339,7 +352,7 @@ class Project:
         used = {name: self.sources[name].stamp() + [self.offsets[name][1]] for name in self.scene_sources(scene)}
         clean = {key: value for key, value in scene.items() if not key.startswith('_')}
         key = hashlib.sha1(json.dumps({
-            'code': CODE, 'scene': clean, 'mode': self.mode, 'size': [self.width, self.height], 'fps': self.fps,
+            'code': CODE, 'scene': clean, 'frames': scene['_frames'], 'mode': self.mode, 'size': [self.width, self.height], 'fps': self.fps,
             'styles': self.tl.get('styles'), 'fonts': self.tl.get('fonts'), 'views': self.tl.get('views'),
             'pip': self.tl.get('pip'), 'sources': used,
         }, sort_keys=True).encode('utf-8')).hexdigest()[:10]
@@ -349,7 +362,7 @@ class Project:
             return path
         for old in self.cache.glob(f'*-{scene["id"]}-*.mkv'):
             old.unlink()
-        print(f'  render {scene["id"]} ({scene["duration"]} s)', flush=True)
+        print(f'  render {scene["id"]} ({scene["_dur"]:.2f} s)', flush=True)
         args, graph = self.scene_graph(scene)
         graph_path = self.cache / f'{scene["id"]}.graph.txt'
         graph_path.write_text(graph, encoding='utf-8')
@@ -420,8 +433,14 @@ class Project:
                 view, view_to = main.get('view'), main.get('viewTo')
                 rect = self.view(view, src)
                 if view_to is not None:
-                    chain += f',sendcmd=f={opt(self.move_commands(scene, rect, self.view(view_to, src), dur))}'
-                    chain += f',crop={rect[2]}:{rect[3]}:{rect[0]}:{rect[1]}:exact=1,scale={W}:{H}:flags=lanczos,format=gbrp'
+                    # The crop moves by whole pixels. The recording is made larger first (3 times), so that a step
+                    # is a third of a pixel: a slow zoom then does not shake.
+                    fine = 3 if src.width <= 1920 else 1
+                    first = [value * fine for value in rect]
+                    if fine > 1:
+                        chain += f',scale={src.width * fine}:{src.height * fine}:flags=bicubic'
+                    chain += f',sendcmd=f={opt(self.move_commands(scene, first, [v * fine for v in self.view(view_to, src)], dur))}'
+                    chain += f',crop={first[2]}:{first[3]}:{first[0]}:{first[1]}:exact=1,scale={W}:{H}:flags=lanczos,format=gbrp'
                 else:
                     if rect != [0, 0, src.width, src.height]:
                         chain += f',crop={rect[2]}:{rect[3]}:{rect[0]}:{rect[1]}:exact=1'
@@ -480,6 +499,12 @@ class Project:
         else:
             mix = f'anullsrc=r={RATE}:cl=stereo'
         mix += f',apad,atrim=end_sample={samples}'
+        # A short fade at each end of the scene's own sound, so that a cut does not click ("audioFade": [in, out])
+        edge_in, edge_out = scene.get('audioFade', [0.03, 0.03])
+        if tails and edge_in:
+            mix += f',afade=t=in:st=0:d={edge_in}'
+        if tails and edge_out:
+            mix += f',afade=t=out:st={dur - edge_out:.4f}:d={edge_out}'
         if fade_in:
             mix += f',afade=t=in:st=0:d={fade_in}'
         if fade_out:
@@ -567,13 +592,15 @@ class Project:
         return chain
 
     def move_commands(self, scene, rect_from, rect_to, dur):
-        """The sendcmd file of a view that moves: a crop for each frame, eased (smoothstep) over "move"."""
+        """The sendcmd file of a view that moves: a crop for each frame, eased (smoothstep) over "move", or at one
+        speed with "ease": "linear"."""
         t0, t1 = scene['main'].get('move', [0, dur])
         lines = []
         for n in range(scene['_frames']):
             t = n / self.fps
             u = 0.0 if t <= t0 else 1.0 if t >= t1 else (t - t0) / (t1 - t0)
-            e = u * u * (3 - 2 * u)
+            # "ease": "linear" for a move that goes on in the next scene (no stop at the cut)
+            e = u if scene['main'].get('ease') == 'linear' else u * u * (3 - 2 * u)
             x, y, w, h = (a + (b - a) * e for a, b in zip(rect_from, rect_to))
             lines.append(f'{t:.4f} crop w {w:.2f}, crop h {h:.2f}, crop x {x:.2f}, crop y {y:.2f};')
         path = self.cache / f'{scene["id"]}.move.txt'
@@ -592,6 +619,16 @@ class Project:
                 expr += f'+({after - before})*clip((t-{cut - RAMP:.4f})/{2 * RAMP},0,1)'
         return expr
 
+    def music_start(self):
+        """The time in the timeline where the music starts: "start" of "music", in seconds or the id of a scene."""
+        start = (self.tl.get('music') or {}).get('start', 0)
+        if isinstance(start, str):
+            scene = next((s for s in self.scenes if s['id'] == start), None)
+            if not scene:
+                raise Stop(f'the music starts at scene {start!r}: there is no such scene')
+            return scene['_start']
+        return float(start)
+
     def assemble(self, segments, out_path):
         listing = self.cache / 'list.txt'
         listing.write_text(''.join(f"file '{path.name}'\n" for path in segments), encoding='utf-8')
@@ -602,8 +639,10 @@ class Project:
         if music and music_path.is_file():
             args += ['-ss', float(music.get('in', 0)), '-i', music_path]
             fade = float(music.get('fadeOut', 2))
-            lines.append(f'[1:a]atrim=0:{self.total:.4f},asetpts=PTS-STARTPTS,aresample={RATE},'
-                         f'aformat=sample_fmts=fltp:channel_layouts=stereo,'
+            start = self.music_start()
+            delay = f'adelay={round(start * 1000)}:all=1,' if start > 0 else ''
+            lines.append(f'[1:a]atrim=0:{self.total - start:.4f},asetpts=PTS-STARTPTS,aresample={RATE},'
+                         f'aformat=sample_fmts=fltp:channel_layouts=stereo,{delay}'
                          f'volume=eval=frame:volume={opt(str(music.get("volume", 1)) + "*(" + self.music_level_expression() + ")")},'
                          f'afade=t=out:st={self.total - fade:.4f}:d={fade}[bed]')
             lines.append('[0:a][bed]amix=inputs=2:normalize=0:duration=first[mix]')
@@ -652,7 +691,7 @@ def describe(project, path):
 
 def list_scenes(project):
     print(f'{len(project.scenes)} scenes, {clock(project.total)} ({project.total:.2f} s) at {project.fps} fps\n')
-    print(f'{"":>3} {"start":>6} {"dur":>5}  {"scene":<14} {"main":<34} {"pip":<26} sound')
+    print(f'{"":>3} {"start":>6} {"dur":>6}  {"scene":<15} {"main":<36} {"pip":<24} sound')
     for n, scene in enumerate(project.scenes, 1):
         main = scene.get('main') or {}
         if 'source' in main:
@@ -670,9 +709,11 @@ def list_scenes(project):
         sound = ' '.join(f'{key} {value:g}' for key, value in levels.items() if value)
         if scene.get('sound'):
             sound += f' + {scene["sound"]["source"]}'
-        print(f'{n:>3} {clock(scene["_start"]):>6} {scene["duration"]:>5}  {scene["id"]:<14} {text:<34} {pip_text:<26} {sound}')
+        print(f'{n:>3} {clock(scene["_start"]):>6} {scene["_dur"]:>6.2f}  {scene["id"]:<15} {text:<36} {pip_text:<24} {sound}')
     missing = project.missing()
     print('\nmissing: ' + (', '.join(missing) if missing else 'nothing'))
+    if project.tl.get('music'):
+        print(f'music: starts at {clock(project.music_start())}')
     for name, (group, offset) in project.offsets.items():
         if group != name:
             print(f'sync: {name} = {group} {offset:+.3f} s')

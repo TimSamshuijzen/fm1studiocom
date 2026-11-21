@@ -1,9 +1,9 @@
 // capture.mjs - records the screen takes of the promotional video: FM-1 Studio in Chrome, played by a script.
 // README.md in this folder tells how to work with it.
 //
-//   node video/capture.mjs s2-vibe s4-paste     record these takes to footage/screen/
+//   node video/capture.mjs screen               record this take to footage/screen/
 //   node video/capture.mjs --all                record all takes
-//   node video/capture.mjs --show s1-app        with a visible browser window (to watch a take)
+//   node video/capture.mjs --show screen        with a visible browser window (to watch a take)
 //   node video/capture.mjs --list               the takes
 //
 // Chrome runs with a profile of its own in a temporary folder, without a window (unless --show), and gets the
@@ -62,8 +62,10 @@ function serve() {
   const server = createServer((request, response) => {
     let path = decodeURIComponent(new URL(request.url, 'http://x').pathname);
     if (path.endsWith('/')) path += 'index.html';
-    const file = resolve(SRC, '.' + path);
-    if (!file.startsWith(SRC) || !existsSync(file) || statSync(file).isDirectory()) {
+    // /video/... is this folder (the page of the AI chat, ai-chat.html), all other paths are ../src
+    const root = path.startsWith('/video/') ? HERE : SRC;
+    const file = resolve(root, '.' + (root === HERE ? path.slice(6) : path));
+    if (!file.startsWith(root) || !existsSync(file) || statSync(file).isDirectory()) {
       response.writeHead(404).end();
       return;
     }
@@ -225,7 +227,9 @@ const PAGE_TOOLS = String.raw`(() => {
       void ring.offsetWidth;
       ring.classList.add('on');
     },
-    keys(names, ms) {
+    keys(names, ms, at) {
+      keys.style.left = at ? at[0] + 'px' : '';
+      keys.style.top = at ? at[1] + 'px' : '';
       keys.replaceChildren(...names.map((name) => Object.assign(document.createElement('kbd'), { textContent: name })));
       keys.classList.add('on');
       clearTimeout(keys.timer);
@@ -245,12 +249,15 @@ const PAGE_TOOLS = String.raw`(() => {
     },
     async record() {
       const stream = this.stream;
-      startAudio();
-      await audioReady;
-      const tap = audioContext.createMediaStreamDestination();
-      fm1.connect(tap);
+      let tap = null;  // a page that is not FM-1 Studio has no sound
+      if (typeof startAudio === 'function') {
+        startAudio();
+        await audioReady;
+        tap = audioContext.createMediaStreamDestination();
+        fm1.connect(tap);
+      }
       const type = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus'].find((t) => MediaRecorder.isTypeSupported(t));
-      const recorder = new MediaRecorder(new MediaStream([...stream.getVideoTracks(), ...tap.stream.getAudioTracks()]),
+      const recorder = new MediaRecorder(new MediaStream([...stream.getVideoTracks(), ...(tap ? tap.stream.getAudioTracks() : [])]),
         { mimeType: type, videoBitsPerSecond: 24e6, audioBitsPerSecond: 320e3 });
       // Each second of the recording goes to capture.mjs, in sequence, as base64 (the binding capOut).
       let sent = Promise.resolve(), bytes = 0;
@@ -272,7 +279,7 @@ const PAGE_TOOLS = String.raw`(() => {
       const { recorder, stream, tap } = this.recording;
       await new Promise((done) => { recorder.onstop = done; recorder.stop(); });
       stream.getTracks().forEach((track) => track.stop());
-      fm1.disconnect(tap);
+      if (tap) fm1.disconnect(tap);
       await this.recording.sent();
       capOut('END');
       return this.recording.bytes();
@@ -354,6 +361,36 @@ class Take {
     }
   }
 
+  // Turns the mouse wheel over `target`: + is down. One step each `seconds`.
+  async wheel(target, steps, seconds = 0.09) {
+    const [x, y] = await this.move(target, 0.6);
+    for (let i = 0; i < Math.abs(steps); i++) {
+      await this.b.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY: steps > 0 ? 100 : -100 });
+      await this.wait(seconds);
+    }
+  }
+
+  // A double click: it selects the word there.
+  async doubleClick(target, seconds = 0.7) {
+    const [x, y] = await this.move(target, seconds);
+    await this.b.eval('cap.ring()');
+    for (const clickCount of [1, 2]) {
+      await this.b.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount });
+      await this.wait(0.05);
+      await this.b.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', buttons: 0, clickCount });
+      await this.wait(0.07);
+    }
+  }
+
+  // Ctrl+Enter, with its key caps at `at` [x, y] (or at their usual place).
+  async ctrlEnter(at) {
+    await this.b.eval(`cap.keys(['Ctrl', 'Enter'], 1100, ${JSON.stringify(at ?? null)})`);
+    await this.wait(0.25);
+    const key = { modifiers: 2, key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 };
+    await this.b.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...key });
+    await this.b.send('Input.dispatchKeyEvent', { type: 'keyUp', ...key });
+  }
+
   // Ctrl+V of `text` on the page: the key caps show, and the page gets a paste event with the text. (The clipboard
   // of the computer stays as it is.)
   async paste(text) {
@@ -382,7 +419,7 @@ function keyOf(code) {
 }
 
 // ---- The takes ----
-// Each take starts on a fresh page with the demo running (or loading, for s1-app), and records until it returns.
+// Each take starts on a fresh page with the demo running, and records until it returns.
 // The marks are the moments that timeline.json picks.
 
 const PANEL = {  // the parts of the simulator, as expressions that give an element
@@ -391,63 +428,147 @@ const PANEL = {  // the parts of the simulator, as expressions that give an elem
   body: [1385, 640],                                                   // the panel between the trays: no control there
 };
 
+// The AI chat of the take: ai-chat.html over the whole page, as another tab of the browser in front. It is in the
+// top layer, so that it is above the page; the take closes the VIBE dialog first (a dialog would keep it from clicks).
+const CHAT = {
+  frame: `document.getElementById('cap-chat').firstChild`,
+  part: (selector) => `js:document.getElementById('cap-chat').firstChild.contentDocument.querySelector('${selector}')`,
+  open: `new Promise((done) => {
+    const tab = Object.assign(document.createElement('div'), { id: 'cap-chat', popover: 'manual' });
+    tab.style.cssText = 'position: fixed; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; background: #171615;';
+    const frame = Object.assign(document.createElement('iframe'), { src: 'video/ai-chat.html' });
+    frame.style.cssText = 'width: 100%; height: 100%; border: 0; display: block;';
+    frame.onload = () => { tab.showPopover(); cap.top(); done(); };
+    tab.append(frame);
+    document.body.append(tab);
+  })`,
+  close: `document.getElementById('cap-chat').remove()`,
+};
+
 const TAKES = {
-  's1-app': {
-    about: 'FM-1 Studio opens, the demo compiles and plays; some notes, a knob',
-    fresh: false,  // starts to record while the page loads
+  // The screen of the video is one take, from the app with its demo to the end of the install. timeline.json
+  // picks its parts by their marks, and plays the slow parts faster.
+  'screen': {
+    about: 'the screen of the video, in one take: the app, the gallery, VIBE, the AI chat, paste, play, a change, INSTALL',
     async run(t) {
-      await t.mark('open');
-      await t.b.waitFor(`document.getElementById('status').textContent === 'Running'`, 120, 'the demo runs');
-      await t.mark('running');
-      await t.wait(1.2);
+      const prompt = readFileSync(join(HERE, 'night-drive', 'prompt.txt'), 'utf8');
+      const answer = readFileSync(join(HERE, 'night-drive', 'answer-1.md'), 'utf8');
+      const code = readFileSync(NIGHT_DRIVE, 'utf8');
+      const loaded = (name) => t.b.waitFor(`running && wasmName === '${name}' && !compiling`, 180, `${name} runs`);
+      const card = (id) => `.card[data-id="${id}"] button`;
+      const am = ['KeyA', 'KeyD', 'KeyH'], f = ['KeyA', 'KeyF', 'KeyH'], c = ['KeyA', 'KeyD', 'KeyG'], g = ['KeyS', 'KeyG', 'KeyJ'];
+
+      // Before all: the stand-in FM-1 for the install at the end. The take stops when it is not there: the page
+      // must never get the MIDI devices of this computer, where a real FM-1 can be.
+      await t.b.eval(readFileSync(join(HERE, 'stand-in-fm1.js'), 'utf8'));
+      if (await t.b.eval('navigator.requestMIDIAccess.standIn') !== true) throw new Error('the stand-in FM-1 is not in the page');
+      await t.b.eval('navigator.clipboard.writeText = async () => {}');  // COPY works as usual, but the clipboard stays as it is
+
+      // ---- The app: the demo, played with the computer keys ----
+      await t.wait(1.0);
       await t.click(PANEL.body, { seconds: 1.0 });  // the page has the keyboard now (not the editor)
       await t.mark('play');
-      const phrase = [['KeyA', 'KeyD', 'KeyG'], ['KeyS', 'KeyF', 'KeyH'], ['KeyD', 'KeyG', 'KeyJ'], ['KeyF', 'KeyH', 'KeyK']];
-      for (const chord of phrase) await t.hold(chord, 0.75);
+      for (const chord of [c, ['KeyS', 'KeyF', 'KeyH'], ['KeyD', 'KeyG', 'KeyJ'], ['KeyF', 'KeyH', 'KeyK']]) await t.hold(chord, 0.75);
       await t.click(PANEL.key(10), { seconds: 0.7 });  // ARP on
       await t.mark('arp');
-      t.hold(['KeyA', 'KeyD', 'KeyG', 'KeyK'], 6.0);
-      await t.wait(0.5);
+      const arp = t.hold(['KeyA', 'KeyD', 'KeyG', 'KeyK'], 4.5);
+      await t.wait(0.4);
       await t.turn(PANEL.knob(4), 6, 0.12);  // KNOB 1: the ratio
       await t.turn(PANEL.knob(5), 5, 0.12);  // KNOB 2: brighter
-      await t.wait(3.6);
+      await arp;
       await t.click(PANEL.key(10), { seconds: 0.6 });  // ARP off
-      await t.wait(1.0);
-    },
-  },
+      await t.wait(0.6);
 
-  's2-vibe': {
-    about: 'VIBE, CLEAR, the idea of NIGHT DRIVE is typed, COPY',
-    async run(t) {
-      await t.b.eval('navigator.clipboard.writeText = async () => {}');  // COPY works as usual, but the clipboard stays as it is
-      await t.wait(1.0);
-      await t.click('#vibe-open', { seconds: 0.9 });
-      await t.mark('vibe');
-      await t.wait(1.0);
-      await t.click('#vibe-clear', { seconds: 0.8 });
-      await t.mark('typing');
-      await t.type(STORY.idea, 22);
-      await t.mark('typed');
+      // ---- The gallery: PROG-1 (the band starts at once), GAME-1 (NEON REEF), AURORA from GitHub ----
+      await t.click(card('prog-1'), { seconds: 1.0 });
+      await t.mark('band_load');
+      await loaded('prog-1');
+      await t.mark('band');
+      await t.move(PANEL.body, 0.9);
+      await t.wait(6.0);
+      await t.click(card('game-1'), { seconds: 0.9 });
+      await t.mark('game_load');
+      await loaded('game-1');
+      await t.wait(0.5);
+      await t.click(PANEL.key(12), { seconds: 0.8 });  // PLAY: the game starts
+      await t.mark('game');
+      await t.keyDown('KeyJ');  // J fires; A, D, W and S fly
+      for (const [key, seconds] of [['KeyA', 0.7], ['KeyD', 1.1], ['KeyW', 0.5], ['KeyA', 0.8], ['KeyD', 0.9], ['KeyS', 0.4],
+        ['KeyA', 1.0], ['KeyD', 1.0]]) {
+        await t.hold([key], seconds);
+        await t.wait(0.12);
+      }
+      await t.keyUp('KeyJ');
+      await t.wheel('#gallery', 5);  // the card of AURORA is more to the right
+      await t.wait(0.4);
+      await t.click(card('aurora'), { seconds: 0.8 });
+      await t.mark('firmware_load');
+      await loaded('aurora');
+      await t.mark('firmware');
+      await t.wait(0.6);
+      await t.click(PANEL.body, { seconds: 0.7 });
+      await t.mark('firmware_play');
+      for (const chord of [am, f, c, g]) {
+        await t.hold(chord, 1.7);
+        await t.wait(0.15);
+      }
       await t.wait(1.2);
-      await t.move('#vibe-prompt', 0.9);
+
+      // ---- VIBE: the dialog opens, the idea is typed, COPY ----
+      await t.mark('to_vibe');
+      await t.click('#vibe-open', { seconds: 1.3 });
+      await t.mark('vibe');
+      await t.wait(1.4);
+      await t.click('#vibe-clear', { seconds: 0.9 });
+      await t.mark('typing');
+      await t.type(STORY.idea, 34);
+      await t.mark('typed');
       await t.wait(1.0);
+      await t.move('#vibe-prompt', 0.9);
+      await t.wait(0.8);
       await t.click('#vibe-copy', { seconds: 0.8 });
       await t.mark('copy');
-      await t.wait(2.5);
-    },
-  },
+      await t.wait(1.8);
+      await t.click('#vibe-close', { seconds: 0.9 });
+      await t.wait(0.5);
 
-  's4-paste': {
-    about: 'Ctrl+V of NIGHT DRIVE: it compiles and runs; NAME NIGHT DRIVE, COMPILE; chords, PLAY, the knobs',
-    async run(t) {
-      const code = readFileSync(NIGHT_DRIVE, 'utf8');
-      await t.wait(0.8);
-      await t.move([1385, 640], 0.8);
+      // ---- The AI chat, as another tab: the prompt goes in, the answer comes, COPY ----
+      await t.b.eval(CHAT.open);
+      await t.mark('chat');
+      await t.wait(1.0);
+      await t.click(CHAT.part('#input'), { seconds: 0.9 });
+      await t.b.eval(`cap.keys(['Ctrl', 'V'], 900)`);
+      await t.wait(0.25);
+      await t.b.eval(`(() => {
+        const data = new DataTransfer();
+        data.setData('text/plain', ${JSON.stringify(prompt)});
+        ${CHAT.frame}.contentDocument.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+      })()`);
+      await t.mark('prompt');
+      await t.wait(1.4);
+      await t.click(CHAT.part('#send'), { seconds: 0.7 });
+      await t.mark('send');
+      await t.wait(1.6);  // the AI "thinks"
+      await t.mark('answer');
+      // 400 characters a second, the speed of a fast AI chat: the answer takes more than a minute
+      t.b.eval(`${CHAT.frame}.contentWindow.chat.answer(${JSON.stringify(answer)}, 400)`).catch(() => {});
+      await t.b.waitFor(`${CHAT.frame}.contentWindow.chat.done`, 240, 'the answer is complete');
+      await t.mark('answered');
+      await t.wait(0.7);
+      await t.click(CHAT.part('#copy'), { seconds: 0.7 });
+      await t.mark('copy_answer');
+      await t.wait(2.0);
+      await t.b.eval(CHAT.close);
+      await t.mark('back');
+      await t.wait(0.9);
+
+      // ---- Ctrl+V on the page: NIGHT DRIVE compiles and runs. Its name, COMPILE, and it is played ----
+      await t.move(PANEL.body, 0.8);
       await t.wait(0.4);
       await t.mark('paste');
       await t.paste(code);
       await t.b.waitFor(`document.getElementById('project-name').value === 'no name'`, 10, 'the pasted project');
-      await t.b.waitFor(`typeof running !== 'undefined' && running && wasmName === 'no name'`, 60, 'NIGHT DRIVE runs');
+      await loaded('no name');
       await t.mark('running');
       await t.wait(1.0);
       await t.click('#project-name', { seconds: 0.9 });
@@ -455,13 +576,93 @@ const TAKES = {
       await t.type('NIGHT DRIVE', 9);
       await t.mark('named');
       await t.click('#compile', { seconds: 1.0 });
-      await t.b.waitFor(`running && wasmName === 'NIGHT DRIVE' && !compiling`, 60, 'NIGHT DRIVE runs with its name');
+      await loaded('NIGHT DRIVE');
       await t.mark('compiled');
       await t.click(PANEL.body, { seconds: 0.8 });  // the keyboard to the page
-      await t.mark('play');
+      await t.mark('perform');
       await STORY.perform(t);
-      await t.mark('end');
+      await t.mark('performed');
       await t.wait(0.8);
+
+      // ---- A change in the code: the sun gets bigger. The editor scrolls to the line, a double click selects the
+      // number, the new one is typed, and Ctrl+Enter compiles ----
+      await t.wheel('#source', 4, 0.12);
+      await t.wait(0.5);
+      const number = await t.b.eval(`(() => {
+        const area = document.getElementById('source'), style = getComputedStyle(area);
+        const lines = area.value.split('\\n'), line = lines.findIndex((text) => text.startsWith('#define SUN_R '));
+        const column = lines[line].indexOf('${STORY.edit[0]}', 14);
+        const pen = document.createElement('canvas').getContext('2d');
+        pen.font = style.fontSize + ' ' + style.fontFamily;  // the font of the editor: each character has this width
+        // The page is drawn at a scale: the box is in pixels of the window, the style in pixels of the page.
+        const box = area.getBoundingClientRect(), scale = box.width / area.offsetWidth;
+        return [box.left + scale * (parseFloat(style.paddingLeft) + (column + 1) * pen.measureText('0').width - area.scrollLeft),
+          box.top + scale * (parseFloat(style.paddingTop) + (line + 0.5) * parseFloat(style.lineHeight) - area.scrollTop)];
+      })()`);
+      await t.mark('edit');
+      await t.doubleClick(number, 0.9);
+      const selected = await t.b.eval(`(({ value, selectionStart, selectionEnd }) => value.slice(selectionStart, selectionEnd))(document.getElementById('source'))`);
+      if (selected !== STORY.edit[0]) throw new Error(`the double click selected ${JSON.stringify(selected)}, not ${STORY.edit[0]}`);
+      await t.wait(0.5);
+      await t.type(STORY.edit[1], 4);
+      await t.mark('edited');
+      await t.wait(0.7);
+      await t.ctrlEnter([number[0] + 40, number[1] + 70]);
+      await t.mark('enter');
+      await t.b.waitFor('compiling', 3, 'the compile starts').catch(() => {});
+      await loaded('NIGHT DRIVE');
+      await t.mark('changed');
+      await t.wait(0.5);
+      await t.click(PANEL.body, { seconds: 0.8 });
+      await t.hold(am, 2.2);
+      await t.hold(f, 2.2);
+      await t.wait(1.0);
+
+      // ---- INSTALL, on the stand-in FM-1: READ, CONNECT, INSTALL NOW, done ----
+      // A control of the dialog can be below the part that shows: the wheel moves the text until it is there.
+      const reach = async (selector) => {
+        for (let i = 0; i < 40; i++) {
+          const below = await t.b.eval(`(() => {
+            const box = document.querySelector('${selector}').getBoundingClientRect();
+            const view = document.getElementById('install-text').getBoundingClientRect();
+            return box.bottom > view.bottom - 12;
+          })()`);
+          if (!below) return;
+          await t.wheel('#install-text', 1, 0.12);
+        }
+      };
+      await t.mark('install');
+      await t.click('#install-open', { seconds: 1.0 });
+      await t.b.waitFor('installer.package', 120, 'the package is made');
+      await t.mark('package');
+      await t.wait(1.5);
+      await reach('#install-agree');
+      await t.wait(0.4);
+      await t.click('#install-agree', { seconds: 0.8 });
+      await t.mark('agree');
+      await reach('#install-next');
+      await t.click('#install-next', { seconds: 0.8 });
+      await t.mark('connect_step');
+      await t.wait(1.2);
+      await reach('#install-connect');
+      await t.click('#install-connect', { seconds: 0.8 });
+      await t.mark('connect');
+      await t.b.waitFor('installer.device', 30, 'the stand-in FM-1 is found');
+      await t.mark('found');
+      await t.wait(1.8);
+      await reach('#install-ready');
+      await t.click('#install-ready', { seconds: 0.8 });
+      await t.mark('write_step');
+      await t.wait(1.5);
+      await reach('#install-go');
+      await t.click('#install-go', { seconds: 0.9 });
+      await t.mark('go');
+      await t.b.waitFor(`!installer.writing && !document.getElementById('install-done').hidden`, 180, 'the install is done');
+      await t.mark('done');
+      await t.wait(2.5);
+      await t.click('#install-done', { seconds: 0.9 });
+      await t.mark('closed');
+      await t.wait(1.5);
     },
   },
 
@@ -524,8 +725,9 @@ const STORY = {
     'starts and stops a beat (kick, snare, hats). KNOB 1 is the tempo, KNOB 2 the filter, KNOB 3 the echo, ' +
     'KNOB 4 the drive. The screen shows a neon sun over a grid road that moves with the tempo; the held notes ' +
     'are stars in the sky. The LEDs of the held keys pulse on the beat.',
-  // A minute of playing: chords held with the computer keys, PLAY, the four knobs. The keys A W S E D F T G Y H U J K
-  // are C4 C#4 D4 D#4 E4 F4 F#4 G4 G#4 A4 A#4 B4 C5.
+  edit: ['50', '62'],  // the change in the code that the take makes: the radius of the sun, #define SUN_R
+  // The playing of NIGHT DRIVE in the take: chords held with the computer keys, PLAY, the knobs. The keys A W S E D F
+  // T G Y H U J K are C4 C#4 D4 D#4 E4 F4 F#4 G4 G#4 A4 A#4 B4 C5.
   async perform(t) {
     const am = ['KeyA', 'KeyD', 'KeyH'], f = ['KeyA', 'KeyF', 'KeyH'], c = ['KeyA', 'KeyD', 'KeyG'], g = ['KeyS', 'KeyG', 'KeyJ'];
     await t.hold(am, 2.6);
@@ -533,44 +735,46 @@ const STORY = {
     await t.mark('beat');
     for (const chord of [am, f, c, g]) await t.hold(chord, 2.2);
     await t.mark('knobs');
-    const holding = t.hold(am, 9.0);
+    const holding = t.hold(am, 5.5);
     await t.turn(PANEL.knob(5), -8, 0.1);   // KNOB 2: the filter closes
     await t.turn(PANEL.knob(5), 12, 0.12);  // and opens
-    await t.turn(PANEL.knob(6), 4, 0.15);   // KNOB 3: more echo
     await holding;
-    for (const chord of [f, c]) await t.hold(chord, 2.2);
-    const last = t.hold(g, 4.0);
-    await t.turn(PANEL.knob(7), 4, 0.2);    // KNOB 4: drive
-    await last;
-    await t.hold(am, 3.0);
+    await t.hold(f, 2.2);
     await t.click(PANEL.key(12), { seconds: 0.6 });  // PLAY: the beat stops
-    await t.mark('stop');
   },
 
-  // The music A1: about 80 s of NIGHT DRIVE, as events for the program (fm1.h ids: note key n is 14 + n, PLAY is
-  // 12; encoders 2 to 5 are KNOB 1 to 4). Note key 0 is F3: A3 is 4, C4 7, E4 11, F4 12, G4 14, A4 16, B4 18, C5 19, D5 21.
+  // The music A1: NIGHT DRIVE as events for the program (fm1.h ids: note key n is 14 + n, PLAY is 12; encoders 2
+  // to 5 are KNOB 1 to 4). Note key 0 is F3: A3 is 4, C4 7, E4 11, F4 12, G4 14, A4 16, B4 18, C5 19, D5 21.
+  // It is written to the bars of timeline.json, where the music starts at the scene "title" (bar 0) and each cut
+  // is on a beat of 110 BPM, the tempo at which NIGHT DRIVE starts:
+  //   0 title       the arpeggio alone                 19 paste, play, edit   (the simulator sounds; low under edit)
+  //   2 app, the gallery   (their own sound)           29 install             the filter opens, then echo and drive
+  //   9 vibe, idea  PLAY: the beat comes in            36 payoff              (the real FM-1 sounds)
+  //  14.5 ai        the filter closes                  40 end                 the beat stops at 42, the last chord rings
   master: 768,  // the MASTER of the page at its start
-  musicSeconds: 82,
+  bars: 43,
+  get musicSeconds() { return Math.ceil(this.bars * 240 / 110 + 3); },
   music() {
     const events = [];
-    const chords = [[4, 11, 16, 19], [0, 7, 12, 16], [7, 14, 19, 23], [2, 9, 14, 18]];  // Am, F, C, G
-    const bar = 240 / 110;  // one chord a bar: NIGHT DRIVE starts at 110 BPM
-    let time = 0.5;
+    const am = [4, 11, 16, 19], chords = [am, [0, 7, 12, 16], [7, 14, 19, 23], [2, 9, 14, 18]];  // Am, F, C, G
+    const bar = 240 / 110;
     const hold = (keys, from, to) => keys.forEach((n) => { events.push([from, 'fm1_sim_key', 14 + n, 1], [to, 'fm1_sim_key', 14 + n, 0]); });
     const press = (id, at) => events.push([at, 'fm1_sim_key', id, 1], [at + 0.08, 'fm1_sim_key', id, 0]);
-    const turn = (enc, steps, from, each) => { for (let i = 0; i < Math.abs(steps); i++) events.push([from + i * each, 'fm1_sim_enc', enc, Math.sign(steps)]); };
-    hold(chords[0], time, time + bar * 2 - 0.02); time += bar * 2;                      // the arpeggio alone
-    press(12, time - 0.05);                                                            // PLAY: the beat comes in
-    for (let round = 0; round < 8; round++) {
-      for (const chord of chords) { hold(chord, time, time + bar - 0.02); time += bar; }
-      if (round === 2) turn(3, -6, time - bar * 4, 0.25);                              // KNOB 2: the filter closes
-      if (round === 3) turn(3, 10, time - bar * 4, 0.3);                               // and opens
-      if (round === 4) turn(4, 3, time - bar * 4, 0.4);                                // KNOB 3: more echo
-      if (round === 5) turn(5, 3, time - bar * 4, 0.5);                                // KNOB 4: more drive
-      if (time > this.musicSeconds - bar * 6) break;
+    const turn = (enc, steps, fromBar, bars) => {
+      for (let i = 0; i < Math.abs(steps); i++) events.push([(fromBar + bars * i / Math.abs(steps)) * bar, 'fm1_sim_enc', enc, Math.sign(steps)]);
+    };
+    // One chord a bar. Am in the first two and the last two bars, and where the beat comes in (bar 9).
+    for (let n = 0; n < this.bars; n++) {
+      const chord = n < 2 || n >= this.bars - 2 ? am : chords[(n - 9 + 400) % 4];
+      hold(chord, n * bar, (n + 1) * bar - (n === this.bars - 1 ? 0 : 0.02));
     }
-    hold(chords[0], time, time + bar * 2); press(12, time + bar * 2 - 0.05);            // the beat stops, the arpeggio ends
-    return events.sort((a, b) => a[0] - b[0]);
+    press(12, 9 * bar);                // PLAY: the beat starts on its first kick, at the cut to "vibe"
+    turn(3, -8, 15, 2.5);              // KNOB 2: the filter closes while the AI writes
+    turn(3, 10, 29, 4);                // and opens over the first steps of the install
+    turn(4, 3, 33, 1.5);               // KNOB 3: more echo
+    turn(5, 3, 34.5, 1.5);             // KNOB 4: more drive
+    press(12, (this.bars - 1) * bar);  // the beat stops: the last bar is the arpeggio alone
+    return events.sort((x, y) => x[0] - y[0]);
   },
 };
 
@@ -585,7 +789,7 @@ async function record(browser, url, name, take, ffmpeg) {
   const t = new Take(browser, name);
   await browser.goto(url);
   await browser.eval(AS_ON_THE_SITE);
-  if (take.fresh !== false) {
+  {
     await browser.waitFor(`document.getElementById('status').textContent === 'Running'`, 120, 'the demo runs');
     await t.wait(1.0);
   }
@@ -634,7 +838,7 @@ async function main() {
   const urlAt = args.indexOf('--url');
   const names = args.includes('--all') ? Object.keys(TAKES) : args.filter((arg, i) => !arg.startsWith('--') && args[i - 1] !== '--url');
   for (const name of names) if (!TAKES[name]) throw new Error(`no take ${name}: ${Object.keys(TAKES).join(', ')}`);
-  if (names.includes('s4-paste') && !existsSync(NIGHT_DRIVE)) throw new Error(`s4-paste needs ${NIGHT_DRIVE}`);
+  if (!existsSync(NIGHT_DRIVE)) throw new Error(`the takes need ${NIGHT_DRIVE}`);
   const ffmpeg = findFfmpeg();
   const server = urlAt >= 0 ? null : await serve();
   const url = urlAt >= 0 ? args[urlAt + 1] : `http://127.0.0.1:${server.address().port}/`;
