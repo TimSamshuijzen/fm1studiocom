@@ -536,13 +536,14 @@
   .pcb.running .smd-led.run { fill: #4cff7a; filter: drop-shadow(0 0 4px #4cff7a); }
   .pcb.trap .smd-led.red { fill: #ff4a35; filter: drop-shadow(0 0 4px #ff3a2a); }
 
-  /* ---- A file that is dragged above the page: a frame shows that the page takes it ---- */
-  body.dropping::after {
-    content: "DROP A PROJECT ZIP FILE OR MAIN.C TO LOAD IT"; position: fixed; z-index: 100; inset: 10px;
-    display: grid; place-items: center; pointer-events: none;
+  /* ---- A file that is dragged above the page: a frame shows that the page takes it. The frame is a popover:
+     shown, it is in the top layer, above a dialog that is open (VIBE, ABOUT). ---- */
+  #drop-layer {
+    inset: 10px; width: auto; height: auto; margin: 0; padding: 0; overflow: hidden; pointer-events: none;
     border: 3px dashed var(--stripe-1); border-radius: 12px; background: #000000b0;
     color: var(--stripe-1); font-size: 22px; font-weight: 700; letter-spacing: 0.12em;
   }
+  #drop-layer:popover-open { display: grid; place-items: center; }
 
   /* ---- Dialogs (ABOUT, INSTALL and SAVE; VIBE is a device of its own, see below): a modal dialog, in the middle of the window. It is in the
      device, so that it gets --scale. On a large window it grows with the device. On a small window
@@ -1438,6 +1439,9 @@ PLAY: BACK</pre>
   </dialog>
 </div>
 </div>
+
+<!-- The frame that shows while files are dragged above the page (see the styles of #drop-layer) -->
+<div id="drop-layer" popover="manual" aria-hidden="true">DROP A PROJECT ZIP FILE OR MAIN.C TO LOAD IT</div>
 
 <!-- ==== fm1.h: the API that a program is written against ==== -->
 <script type="text/plain" id="fm1.h">
@@ -10713,28 +10717,43 @@ $('project-file').onchange = () => {
 // dropped next to the target.
 const dragsFiles = (event) => event.dataTransfer.types.includes('Files');
 
+// Shows or hides the frame of a drag (#drop-layer). It is a popover, so that it shows above an open dialog.
+const dropLayer = $('drop-layer');
+function showDropLayer(on) {
+  if (on === dropLayer.matches(':popover-open')) return;
+  if (on) dropLayer.showPopover(); else dropLayer.hidePopover();
+}
+
+// INSTALL and SAVE: the project does not change while their dialog shows it, as with pasted code. The page then
+// takes no drop, and shows no frame.
+const dropRefused = () => install.open || save.open;
+
 window.addEventListener('dragover', (event) => {
   if (!dragsFiles(event)) return;
   event.preventDefault();
-  event.dataTransfer.dropEffect = 'copy';
-  document.body.classList.add('dropping');
+  event.dataTransfer.dropEffect = dropRefused() ? 'none' : 'copy';
+  showDropLayer(!dropRefused());
 });
 
 // The drag goes out of the window when there is no element that it goes to.
 window.addEventListener('dragleave', (event) => {
-  if (!event.relatedTarget) document.body.classList.remove('dropping');
+  if (!event.relatedTarget) showDropLayer(false);
 });
 
 window.addEventListener('drop', (event) => {
   if (!dragsFiles(event)) return;
   event.preventDefault();
-  document.body.classList.remove('dropping');
-  if (save.open) return;  // SAVE: the project does not change while its dialog shows it
+  showDropLayer(false);
+  if (dropRefused()) return;
   const files = [...event.dataTransfer.files];
   const file = files.find((file) => /\.zip$/i.test(file.name) || file.name === 'main.c');
   if (!file) log(`Cannot load ${files[0]?.name ?? 'this'}: only a project zip file or main.c can be dropped here\n`);
   else if (githubBusy) log(`Cannot load ${file.name}: a download from GitHub is in progress\n`);
-  else if (canReplace()) (file.name === 'main.c' ? loadMain : loadZip)(file);
+  else if (canReplace()) {
+    about.close();  // so that the new project shows, as for pasted code
+    vibe.close();
+    (file.name === 'main.c' ? loadMain : loadZip)(file);
+  }
 });
 
 // C code that is pasted on the page (Ctrl+V), but not in a text field, makes a new project, as a
