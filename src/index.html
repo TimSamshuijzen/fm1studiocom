@@ -518,7 +518,7 @@
     color: var(--stripe-1); font-size: 22px; font-weight: 700; letter-spacing: 0.12em;
   }
 
-  /* ---- Dialogs (ABOUT and INSTALL): a modal dialog, in the middle of the window. It is in the
+  /* ---- Dialogs (ABOUT, VIBE, INSTALL and SAVE): a modal dialog, in the middle of the window. It is in the
      device, so that it gets --scale. On a large window it grows with the device. On a small window
      it does not get smaller than its own size, so that its text stays easy to read: then it takes
      the room that the window has. Its head is a part of the device. The text below the head is a
@@ -631,6 +631,10 @@
   .dialog-text .ports { margin: 0 0 12px; padding: 0; list-style: none; }
   .dialog-text .ports li { display: flex; align-items: center; gap: 12px; margin: 6px 0; }
   .dialog-text .ports .push { height: 24px; padding: 0 12px; font-size: 10px; }
+
+  /* ---- Save: for a firmware of the gallery, SAVE asks first. ---- */
+  .save { width: min(560px, 100vw - 24px); }
+  .dialog-text .confirm { font-weight: 700; }  /* what the user confirms, as the boxes of INSTALL */
 
   /* ---- Vibe: prompts for an AI. Each prompt has a COPY button in its top right corner. ---- */
   .dialog-text .choices { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
@@ -885,9 +889,10 @@ void loop(void) { }                         /* again and again: controls and scr
           the project is built: <code>sources</code>, <code>include</code>, <code>define</code> and
           <code>flags</code>.</li>
         <li>The page keeps nothing between visits. SAVE downloads the project as a zip file, and LOAD reads
-          it back. You can also drop a project zip file on the page. A file <code>main.c</code> that you
-          drop on the page makes a new project with it, and so does C code that you paste on the page with
-          <kbd>Ctrl</kbd> + <kbd>V</kbd>, outside the editor.</li>
+          it back. For a firmware of the gallery, SAVE first asks you to confirm that it is the work of its
+          authors, and that you keep to its licence. You can also drop a project zip file on the page. A file
+          <code>main.c</code> that you drop on the page makes a new project with it, and so does C code that you
+          paste on the page with <kbd>Ctrl</kbd> + <kbd>V</kbd>, outside the editor.</li>
       </ul>
       <p>The screen and input functions have the names and signatures of felucca-bsp
         <a class="ref" href="https://github.com/hugelton/felucca-bsp" target="_blank" rel="noopener" title="felucca-bsp">[3]</a>.</p>
@@ -1278,6 +1283,29 @@ PLAY: BACK</pre>
           <button class="push ok" id="install-done" title="Close (Esc)" hidden>CLOSE</button>
         </p>
       </section>
+    </div>
+  </dialog>
+
+  <!-- SAVE: for a firmware of the gallery, the dialog that the SAVE button opens before the download. The user
+       confirms that the firmware is the work of its authors, and keeps to its licence, as in the INSTALL dialog.
+       The page script fills in its name, licence and repository. -->
+  <dialog class="dialog save" id="save" aria-labelledby="save-title">
+    <header class="dialog-head">
+      <h2 class="logo" id="save-title">SAVE</h2>
+      <p class="brand-text">
+        <span class="model">THE WORK OF OTHERS</span>
+        <span class="tagline">a firmware of the gallery</span>
+      </p>
+      <div class="stripes"><i></i><i></i><i></i><i></i></div>
+    </header>
+
+    <div class="dialog-text">
+      <p class="lead" id="save-what"></p>
+      <p class="confirm" id="save-licence-text"></p>
+      <p class="actions">
+        <button class="push ok" id="save-confirm" autofocus>CONFIRM</button>
+        <button class="push" id="save-cancel" title="Do not save (Esc)">CANCEL</button>
+      </p>
     </div>
   </dialog>
 </div>
@@ -10392,14 +10420,30 @@ async function zipRead(buffer) {
   return files;
 }
 
-$('project-save').onclick = () => {
+// Downloads the project as a zip file.
+function saveZip() {
   const link = document.createElement('a');
   link.href = URL.createObjectURL(zipWrite(project.files));
   link.download = `${project.name.replace(/[\\/:*?"<>|]/g, '') || 'project'}.zip`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(link.href), 10000);
   setChanged(false);
+}
+
+// SAVE downloads the project. For a firmware of the gallery (galleryEntry()) it first opens the SAVE dialog:
+// CONFIRM, that the firmware is the work of its authors and that the user keeps to its licence, downloads it.
+// CANCEL and Esc close the dialog, and nothing is saved.
+const save = $('save');
+$('project-save').onclick = () => {
+  const entry = galleryEntry();
+  if (!entry) { saveZip(); return; }
+  $('save-what').textContent = `This downloads the project as a zip file: ${entry.label} ${entry.version} from ` +
+    `github.com/${entry.sources[0].repo}, with the files that FM-1 Studio added or changed, and your changes.`;
+  $('save-licence-text').replaceChildren(...workOfOthers(entry, 'the zip file'));
+  save.showModal();
 };
+$('save-confirm').onclick = () => { save.close(); saveZip(); };
+$('save-cancel').onclick = () => save.close();
 
 $('project-load').onclick = () => { if (canReplace()) $('project-file').click(); };
 
@@ -10456,6 +10500,7 @@ window.addEventListener('drop', (event) => {
   if (!dragsFiles(event)) return;
   event.preventDefault();
   document.body.classList.remove('dropping');
+  if (save.open) return;  // SAVE: the project does not change while its dialog shows it
   const files = [...event.dataTransfer.files];
   const file = files.find((file) => /\.zip$/i.test(file.name) || file.name === 'main.c');
   if (!file) log(`Cannot load ${files[0]?.name ?? 'this'}: only a project zip file or main.c can be dropped here\n`);
@@ -10469,7 +10514,8 @@ window.addEventListener('drop', (event) => {
 document.addEventListener('paste', (event) => {
   const field = ['TEXTAREA', 'SELECT', 'INPUT'].includes(event.target.tagName) && !event.target.readOnly;
   const pasted = event.clipboardData.getData('text/plain');
-  if (field || install.open || !pasted.trim()) return;  // INSTALL: the project does not change during an install
+  // INSTALL and SAVE: the project does not change while their dialog shows it
+  if (field || install.open || save.open || !pasted.trim()) return;
   event.preventDefault();
   const blocks = [...pasted.matchAll(/```[^\n]*\n([\s\S]*?)```/g)].map((match) => match[1]);
   const code = blocks.sort((a, b) => b.length - a.length)[0] ?? pasted;
@@ -11098,6 +11144,31 @@ $('gallery').addEventListener('wheel', (event) => {
   $('gallery').scrollLeft += event.deltaMode ? event.deltaY * 30 : event.deltaY;
 }, { passive: false });
 
+// The firmware of the gallery that the project is, or null for a demo project or a project of the user:
+// by the card that loaded it, or else by the identity of its own build ("device" of fm1project.json).
+function galleryEntry() {
+  const loaded = GITHUB_PROJECTS.find(({ id }) => id === project.gallery);
+  if (loaded) return loaded;
+  let product = null;
+  try {
+    product = JSON.parse(project.files.get(MANIFEST))?.device?.product ?? null;
+  } catch {
+    // There is no fm1project.json, or it is not correct.
+  }
+  return (product && GITHUB_PROJECTS.find(({ manifest }) => manifest.device?.product === product)) || null;
+}
+
+// What the user confirms for a firmware of the gallery, in the INSTALL and SAVE dialogs: it is the work of its
+// authors, and the user keeps to its licence. `shared` is what the user can share: the package, or the zip file.
+// Gives the parts of the text, with a link to the repository.
+function workOfOthers(entry, shared) {
+  const { repo, ref } = entry.sources[0];
+  const link = Object.assign(document.createElement('a'),
+    { href: `https://github.com/${repo}/tree/${ref}`, target: '_blank', rel: 'noopener', textContent: `github.com/${repo}` });
+  return [`${entry.label} is the work of its authors (`, link,
+    `), under ${entry.license}. I keep to its terms, also when I share ${shared}.`];
+}
+
 // ---- Code editor ----
 // The text box has transparent text. Below it is the same text with colours, moved with the scroll
 // position of the text box. Thus both must have the same font, padding and line height.
@@ -11638,32 +11709,13 @@ function showInstallStep(step) {
 // install/fm1ota.js, which that file does not export.)
 const stockVersion = (product) => (product === 'FM-1_099' ? null : /^FM-1_0(\d\d)$/.exec(product)?.[1] ?? null);
 
-// The firmware of the gallery that the project is, or null for a demo project or a project of the user:
-// by the card that loaded it, or else by the identity of its own build ("device" of fm1project.json).
-function galleryEntry() {
-  const loaded = GITHUB_PROJECTS.find(({ id }) => id === project.gallery);
-  if (loaded) return loaded;
-  let product = null;
-  try {
-    product = JSON.parse(project.files.get(MANIFEST))?.device?.product ?? null;
-  } catch {
-    // There is no fm1project.json, or it is not correct.
-  }
-  return (product && GITHUB_PROJECTS.find(({ manifest }) => manifest.device?.product === product)) || null;
-}
-
 // For a firmware of the gallery: a box to tick, that the firmware is the work of its authors and that
 // the user keeps to its licence. For a project of the user, no box.
 function showInstallLicence() {
   const entry = galleryEntry();
   $('install-licence-row').hidden = !entry;
   $('install-licence').checked = false;
-  if (!entry) return;
-  const { repo, ref } = entry.sources[0];
-  const link = Object.assign(document.createElement('a'),
-    { href: `https://github.com/${repo}/tree/${ref}`, target: '_blank', rel: 'noopener', textContent: `github.com/${repo}` });
-  $('install-licence-text').replaceChildren(`${entry.label} is the work of its authors (`, link,
-    `), under ${entry.license}. I keep to its terms, also when I share the package.`);
+  if (entry) $('install-licence-text').replaceChildren(...workOfOthers(entry, 'the package'));
 }
 
 // NEXT is there when the package is made and the user ticked the boxes.
@@ -12364,8 +12416,8 @@ function releaseComputerKey(code) {
 
 document.addEventListener('keydown', (event) => {
   if (heldCodes.has(event.code)) { event.preventDefault(); return; } // the key repeats
-  // The keys do not play while the cursor is in a text field, or while a dialog (ABOUT, VIBE, INSTALL) is open.
-  const typing = ['TEXTAREA', 'SELECT', 'INPUT'].includes(event.target.tagName) || about.open || vibe.open || install.open;
+  // The keys do not play while the cursor is in a text field, or while a dialog (ABOUT, VIBE, INSTALL, SAVE) is open.
+  const typing = ['TEXTAREA', 'SELECT', 'INPUT'].includes(event.target.tagName) || about.open || vibe.open || install.open || save.open;
   if (!(event.code in COMPUTER_KEYS) || typing || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
   event.preventDefault();
   heldCodes.add(event.code);

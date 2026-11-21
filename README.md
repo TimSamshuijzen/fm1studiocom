@@ -70,6 +70,9 @@ and runs it. Browsers block sound until a click or a key press, so click the pag
 | MIDI | The MIDI IN button asks the browser for permission |
 
 A project is a name and a set of text files. SAVE downloads it as a zip file and LOAD reads one back.
+For a firmware of the gallery, SAVE first opens a dialog: CONFIRM that the firmware is the work of its
+authors and that you keep to its licence, and the zip file downloads; CANCEL saves nothing. INSTALL asks
+the same.
 A project zip file that is dropped on the page loads too. A file `main.c` that is dropped on the page
 makes a new project with the name "no name": that `main.c`, and the `fm1project.json` of the demo
 project. C code with `#include "fm1.h"` that is pasted on the page with `Ctrl`+`V`, outside the editor
