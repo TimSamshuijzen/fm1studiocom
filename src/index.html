@@ -11884,8 +11884,7 @@ $('install-ready').onclick = () => {
   $('install-from').textContent = `${installer.package.name}, identity ${installer.package.product}`;
   $('install-to').textContent = `${installer.device.id.text}, on the MIDI port "${installer.device.name}"`;
   $('install-boot').textContent = installer.mboot && !installer.mboot.stage
-    ? `${['m-bootloader', installer.mboot.version].filter(Boolean).join(' ')}, in its MIDI mode. It writes the program ` +
-      'area only: the boot loader stays.' : '';
+    ? `${['m-bootloader', installer.mboot.version].filter(Boolean).join(' ')}, in its MIDI mode.` : '';
   $('install-boot-row').hidden = !$('install-boot').textContent;
   setProgress($('install-progress'), 0);
   installSay('install-state', 'Nothing is written yet.');
