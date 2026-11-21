@@ -469,7 +469,7 @@ The application is one file, `src/index.html`, the compiler in `src/fwsc`, and t
 
 The page is made so that it also works when `index.html` is opened from disk: the worker and the worklet
 start from text in the page, and the extras are scripts. Such a page cannot fetch the files of its own
-folder: it loads the compiler from `https://www.fm1studio.com/fwsc/`, the same files
+folder: it loads the compiler from `https://fm1studio.com/fwsc/`, the same files
 (`src/staticwebapp.config.json` lets other pages fetch them). Only DOWNLOAD and INSTALL need a web
 server.
 

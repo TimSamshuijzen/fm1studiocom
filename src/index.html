@@ -11581,7 +11581,7 @@ function log(text) {
 // the runtime and the files of web-libc (the web-libc/ blocks) as the constant FILES, in front of its code.
 // The compiler is in the folder fwsc/ next to this page. A page opened from disk cannot fetch a file of
 // its own folder: it loads the same files from fm1studio.com.
-const SITE = location.protocol === 'file:' ? 'https://www.fm1studio.com/' : location.href;
+const SITE = location.protocol === 'file:' ? 'https://fm1studio.com/' : location.href;
 const files = { 'fm1.h': text('fm1.h'), 'fm1_runtime.c': text('fm1_runtime.c') };
 for (const block of document.querySelectorAll('script[type="text/plain"][id^="web-libc/"]')) files[block.id] = text(block.id);
 const compilerUrl = URL.createObjectURL(new Blob(
