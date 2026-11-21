@@ -78,28 +78,89 @@ uint32_t fm1x_input_note_edges(void)
     return pressed;
 }
 
-/* ---- LEDs ---- */
+/* ---- LEDs ----
+ *
+ * The level of each LED, with the ids of fm1.h (41: PLAY's red LED). After a loop() that changed one, ad_leds
+ * gives them all to the platform: fully lit and the glow with plat_lights, the mid level (over the glow) with
+ * plat_lights_mid, and the breath with felucca-bsp's fm1_led_breath, for which fm1-base has no function.
+ * fm1_led_dim_low gives plat_lights the low glow (1), which also makes the mid level and the breath darker. */
 
-static uint32_t ad_led_buttons, ad_led_keys;   /* as plat_lights takes them */
-static uint8_t ad_led_changed;
+enum { AD_OFF, AD_GLOW, AD_MID, AD_ON, AD_BREATH };   /* FM1_LED_OFF ... FM1_LED_BREATH */
+#define AD_NLED 42u                                     /* FM1_NLED */
+#define AD_PLAY_RED 41u                                 /* FM1_LED_PLAY_RED */
 
-void fm1x_led_key(uint32_t id, int on)
+static uint8_t ad_level[AD_NLED];
+static uint8_t ad_low, ad_led_changed;
+
+void fm1x_led_level(uint32_t id, int level)
 {
-    uint32_t *leds, bit;
-    if (id >= 41u)
+    if (id >= AD_NLED || level < AD_OFF || level > AD_BREATH || ad_level[id] == (uint8_t)level)
         return;
-    if (id >= 14u) {
-        leds = &ad_led_keys;
-        bit = 1u << (id - 14u);
-    } else {
-        leds = &ad_led_buttons;
-        bit = id == 0u ? 1u << B_OCTDN : id == 1u ? 1u << B_OCTUP :
-              id == 12u ? LED_PLAY_GREEN : 1u << (id - 2u);   /* PLAY is green, as in the simulator */
-    }
-    if (((*leds & bit) != 0u) == (on != 0))
-        return;
-    *leds ^= bit;
+    ad_level[id] = (uint8_t)level;
     ad_led_changed = 1;
+}
+
+void fm1x_led_key(uint32_t id, int on) { fm1x_led_level(id, on ? AD_ON : AD_OFF); }
+
+void fm1x_led_dim_low(int low)
+{
+    if (ad_low == (low != 0))
+        return;
+    ad_low = low != 0;
+    ad_led_changed = 1;
+}
+
+/* The bit of a button's LED in plat_lights' buttons: OCT- and OCT+ are 0 and 1 in fm1.h and B_OCTDN and B_OCTUP
+ * in plat.h, the others follow from FX (B_FX); PLAY's green LED is LED_PLAY_GREEN, its red one PLAY's own bit. */
+static uint32_t ad_button_bit(uint32_t id)
+{
+    return id == 0u ? 1u << B_OCTDN : id == 1u ? 1u << B_OCTUP : id == 12u ? LED_PLAY_GREEN :
+           id == AD_PLAY_RED ? 1u << B_PLAY : 1u << (id - 2u);
+}
+
+#ifndef PLAT_HOST
+/* felucca-bsp's breath (boards/fm1/fm1_input.h): fm1_led_breath has the LEDs that breathe, by their place in the
+ * matrix, found as plat_lights finds them (plat_fm1.c: led_pos, panel; PLAY's green LED at column 8, row PA5). */
+static void ad_breath(uint32_t buttons, uint32_t keys)
+{
+    uint8_t br[FM1_NCOL] = {0};
+    uint32_t i, c;
+    for (i = 0; i < NB + NKEYS; i++) {
+        uint8_t q = led_pos[i < NB ? panel.btn[i] : 14u + (i - NB)];
+        if (q != 0xFF && (i < NB ? (buttons >> i) & 1u : (keys >> (i - NB)) & 1u))
+            br[q >> 3] |= (uint8_t)(1u << (q & 7u));
+    }
+    if (buttons & LED_PLAY_GREEN)
+        br[8] |= 1u << 1;
+    for (c = 0; c < FM1_NCOL; c++)
+        fm1_led_breath[c] = br[c];
+}
+#endif
+
+static void ad_leds(void)
+{
+    uint32_t lit[2] = {0}, glow[2] = {0}, mid[2] = {0}, breath[2] = {0};   /* [0]: buttons, [1]: keys */
+    uint32_t id;
+    for (id = 0; id < AD_NLED; id++) {
+        uint32_t key = id >= 14u && id < 41u, bit = key ? 1u << (id - 14u) : ad_button_bit(id);
+        switch (ad_level[id]) {
+        case AD_ON: lit[key] |= bit; break;
+        case AD_MID: mid[key] |= bit; glow[key] |= bit; break;
+        case AD_GLOW: glow[key] |= bit; break;
+        case AD_BREATH: breath[key] |= bit; break;
+        }
+    }
+#ifdef PLAT_HOST
+    glow[0] |= breath[0];                               /* the host simulator has no breath: the glow */
+    glow[1] |= breath[1];
+#endif
+    plat_lights(lit[0], lit[1], glow[0], glow[1], ad_low ? 1 : 2);
+    plat_lights_mid(mid[0], mid[1]);
+#ifndef PLAT_HOST
+    if ((mid[0] & LED_PLAY_GREEN) && !(fm1_led[8] & (1u << 1)))   /* plat_lights_mid has no PLAY's green */
+        fm1_led_mid[8] |= 1u << 1;
+    ad_breath(breath[0], breath[1]);
+#endif
 }
 
 /* ---- Encoders, MASTER, MIDI ---- */
@@ -229,7 +290,7 @@ static void ad_pass(void)
     fm1x_loop();
     if (ad_led_changed) {
         ad_led_changed = 0;
-        plat_lights(ad_led_buttons, ad_led_keys, 0, 0, 0);
+        ad_leds();
     }
 }
 

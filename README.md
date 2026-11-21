@@ -17,7 +17,8 @@ USB (INSTALL). Code that works in this simulator does not guarantee it will work
   Worker. The output is one WebAssembly module. It compiles a program as the FM-1 takes it: C, `float`
   only, and the C library of the FM-1.
 - **FM-1 simulator**: the front panel with its 240 x 240 screen, 27 note keys, 14 buttons, 7 encoders,
-  the MASTER pot and the LEDs, in the six colours of the device.
+  the MASTER pot and the LEDs, in the six colours of the device. The LEDs have the levels of a real FM-1
+  (a glow, a mid level, fully lit, a breath), and PLAY has its red and its green LED.
 - **Sound** on the audio thread of the browser (an AudioWorklet), with a scope and a level meter.
 - **MIDI input** from the keyboards and controllers of the computer (Web MIDI).
 - **Firmware gallery**: loads a demo project, or the source code of open-source FM-1 firmware from
@@ -105,7 +106,7 @@ The API gives the program:
 |---|---|
 | Screen, RGB565 | `fm1_lcd_fill_rect`, `fm1_lcd_blit` |
 | Keys and buttons | `fm1_in`, `fm1_input_edges`, `fm1_input_note_edges` |
-| LEDs | `fm1_led_key` |
+| LEDs, with levels, and PLAY's red LED | `fm1_led_key`, `fm1_led_level`, `fm1_led_dim_low` |
 | Encoders | `fm1_enc_take` |
 | MASTER pot | `fm1_master` |
 | MIDI input | `fm1_midi_take` |
@@ -564,6 +565,13 @@ The firmware must have a C source that gives the `web_` interface: `web_boot`, `
 `web_lit_keys`). A repository that has its generated headers needs only the entry. One that makes them
 in its build also needs an extras file: a script that calls `fm1Extras({ path: text, ... })`.
 
+The page shows the LEDs as Felucca's emulator gives them: a bit for each LED that is lit, where bit 14
+of the buttons is PLAY's green LED and PLAY's own bit its red one. When the firmware has them, the page
+also shows the LEDs in the glow (`web_dim_buttons`, `web_dim_keys`), those that breathe
+(`web_breath_buttons`, `web_breath_keys`), the keys at the mid level (`web_mid_keys`), the darker levels
+(`web_dim_level` 1: "DIM LO"), and the light of each LED during a power-on sweep or idle animation
+(`web_anim_levels`).
+
 The firmware gets web-libc as its C library: the `web-libc/` blocks of `src/index.html`. Its headers
 (`string.h`, `stdlib.h`, `stdio.h`, `math.h`, `time.h`, `unistd.h`, `sys/types.h`; clang has `stdint.h`,
 `stddef.h`, `stdarg.h` and `stdbool.h`) declare the names that the firmwares of the gallery use, and
@@ -589,7 +597,11 @@ of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/ma
 - GitHub gives the list of files of a repository 60 times in an hour to one address. The first LOAD of
   a firmware uses one such request for each item in its `sources` (four for FELUCCA). After that, the
   page has the files until it is closed.
-- The LEDs are on or off: the dim levels of some firmware are not shown.
+- The LEDs of a firmware of the gallery are as its emulator gives them. AURORA, CS-1 and GR!MM give on
+  and off, as they light their LEDs on the FM-1. SLOOP's backlight shows as the glow, though on the FM-1
+  it is darker. JIANT's extra level between the mid level and lit is not shown: its emulator does not
+  give it. The colours of the simulator's LEDs (amber, and PLAY's red and green) were not compared with a
+  real FM-1.
 - The firmware compiler is for `fm1.h` programs in C, and for the firmwares of the gallery in the table of
   "The gallery's firmware on a real FM-1". The other firmwares of the gallery have their own builds in
   their repositories: DOWNLOAD and INSTALL are off for them, and their hints tell why. INSTALL installs

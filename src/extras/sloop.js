@@ -63,7 +63,7 @@ static inline int pthread_create(pthread_t *t, const void *a, void *(*f)(void *)
  *     one of main.c, written again below (web_frame): it runs each 15 ms, with ui_input() each
  *     millisecond between two runs;
  *   - the panel: buttons and encoders by their printed labels (panel.c), the note keys as
- *     fm1_in.notes, the LEDs as the UI sets them (fm1_led);
+ *     fm1_in.notes, the LEDs as the UI sets them (fm1_led, and the glow: fm1_led_dim, fm1_led_bg);
  *   - the screen: lcd_fill and lcd_blit draw into a picture of 240 x 240 pixels;
  *   - the flash: 1 MiB of RAM behind the functions that storage.c calls.
  * Not here: USB, TRS MIDI, the editor, updates, the second core, the crash screen.
@@ -418,30 +418,45 @@ EXPORT void web_midi(uint32_t status, uint32_t d1, uint32_t d2)
         midi_in_event((status >> 4) | status << 8 | (d1 & 127u) << 16 | (d2 & 127u) << 24);
 }
 
-/* The LEDs that are fully on: bit b = the button with label b, keys bit k. */
-static uint32_t led_on(uint32_t id)
+/* The LEDs, as Felucca's emulator gives them: bit b = the button with label b, keys bit k. Those that are
+ * fully on (fm1_led), and those in the glow: fm1_led_dim, and the backlight of SLOOP's menu LIGHTS
+ * (fm1_led_bg, while fm1_led_bg_ns is not 0). On the FM-1 the backlight is a shorter pulse than the glow
+ * (hal/fm1_input.h); Felucca's emulator has one glow, so the page shows both as that glow. */
+static uint32_t led_on(const uint8_t *l, uint32_t id)
 {
     uint32_t c, r;
     for (c = 0; c < FM1_NCOL; c++)
         for (r = 1; r < 5u; r++)
             if (FM1_KEYMAP[r][c] == (int8_t)id)
-                return (fm1_led[c] >> r) & 1u;
+                return (l[c] >> r) & 1u;
     return 0;
 }
-EXPORT uint32_t web_lit_buttons(void)
+static uint32_t led_buttons(const uint8_t *l)
 {
     uint32_t b, m = 0;
     for (b = 0; b < NB; b++)
-        m |= led_on(panel.btn[b]) << b;
+        m |= led_on(l, panel.btn[b]) << b;
     return m;
 }
-EXPORT uint32_t web_lit_keys(void)
+static uint32_t led_keys(const uint8_t *l)
 {
     uint32_t k, m = 0;
     for (k = 0; k < 27u; k++)
-        m |= led_on(14u + k) << k;
+        m |= led_on(l, 14u + k) << k;
     return m;
 }
+static const uint8_t *led_glow(void)
+{
+    static uint8_t g[FM1_NCOL];
+    uint32_t c;
+    for (c = 0; c < FM1_NCOL; c++)
+        g[c] = (uint8_t)(fm1_led_dim[c] | (fm1_led_bg_ns ? fm1_led_bg[c] : 0u));
+    return g;
+}
+EXPORT uint32_t web_lit_buttons(void) { return led_buttons(fm1_led); }
+EXPORT uint32_t web_lit_keys(void) { return led_keys(fm1_led); }
+EXPORT uint32_t web_dim_buttons(void) { return led_buttons(led_glow()); }
+EXPORT uint32_t web_dim_keys(void) { return led_keys(led_glow()); }
 
 EXPORT uint16_t *web_screen(void) { return web_fb; }
 EXPORT uint32_t web_screen_draws(void) { return web_draws; }

@@ -409,14 +409,21 @@
   .key .rule { stroke: var(--ink); stroke-width: 1.5; }
   .key.down { transform: translateY(2px); }
   .key.down .cap { fill: color-mix(in srgb, var(--cap), #000 37%); }
-  .btn.lit .cap { fill: #f3a33a; filter: drop-shadow(0 0 6px #f3a33a); }
-  .btn.lit.green .cap { fill: #62d36e; filter: drop-shadow(0 0 6px #62d36e); }
-  .btn.lit text { fill: #201400; }
-  .btn.lit .rule { stroke: #201400; }
+  /* The LEDs. The page script sets --b on a key: the light of its LED as the eye sees it, 0 dark to 1 fully lit,
+     or var(--breath) while the LED breathes (showLeds). PLAY has two LEDs: --b is its green one, --r its red one.
+     A button's light is a layer over its cap; two layers add up as light does. Its text turns dark on a bright cap. */
+  .btn { --led: #f3a33a; --on: clamp(0, (max(var(--b, 0), var(--r, 0)) - 0.6) * 6, 1); }
+  .btn .light { fill: var(--led); opacity: var(--b, 0); filter: drop-shadow(0 0 6px var(--led)); mix-blend-mode: screen; pointer-events: none; }
+  .btn .light.green { --led: #62d36e; }
+  .btn .light.red { --led: #ff4b3e; opacity: var(--r, 0); }
+  .btn text { fill: color-mix(in srgb, #201400 calc(var(--on) * 100%), var(--ink)); }
+  .btn .rule { stroke: color-mix(in srgb, #201400 calc(var(--on) * 100%), var(--ink)); }
   .note text { font-weight: 400; font-size: 11px; }
-  .note .led { fill: color-mix(in srgb, var(--ink), var(--cap) 30%); }
-  .note.lit .cap { fill: color-mix(in srgb, var(--cap), #f3a33a 22%); }
-  .note.lit .led { fill: #ffe2b0; filter: drop-shadow(0 0 4px #f3a33a); }
+  .note .cap { fill: color-mix(in srgb, #f3a33a calc(var(--b, 0) * 22%), var(--cap)); }
+  .note .led {
+    fill: color-mix(in srgb, #ffe2b0 calc(var(--b, 0) * 100%), color-mix(in srgb, var(--ink), var(--cap) 30%));
+    filter: drop-shadow(0 0 4px color-mix(in srgb, #f3a33a calc(var(--b, 0) * 100%), transparent));
+  }
 
   /* ---- FM-1 API: one lane for each signal between the program and the FM-1 ---- */
 
@@ -870,7 +877,7 @@ void loop(void) { }                         /* again and again: controls and scr
         <tr><th>Part</th><th>Functions</th></tr>
         <tr><td>Screen, 240 x 240, RGB565</td><td><code>fm1_lcd_fill_rect</code>, <code>fm1_lcd_blit</code></td></tr>
         <tr><td>Keys and buttons</td><td><code>fm1_in</code>, <code>fm1_input_edges</code>, <code>fm1_input_note_edges</code></td></tr>
-        <tr><td>LEDs</td><td><code>fm1_led_key</code></td></tr>
+        <tr><td>LEDs, with levels, and PLAY's red LED</td><td><code>fm1_led_key</code>, <code>fm1_led_level</code>, <code>fm1_led_dim_low</code></td></tr>
         <tr><td>Encoders</td><td><code>fm1_enc_take</code></td></tr>
         <tr><td>MASTER pot</td><td><code>fm1_master</code></td></tr>
         <tr><td>MIDI input</td><td><code>fm1_midi_take</code></td></tr>
@@ -992,7 +999,8 @@ void loop(void) { }                         /* again and again: controls and scr
         <li>The simulator compiler takes C only. A program whose main loop does not return cannot run.
           A page that is opened from disk loads the compiler from fm1studio.com.</li>
         <li>A project holds text files only.</li>
-        <li>The LEDs are on or off: the dim levels of some firmware are not shown.</li>
+        <li>The LEDs of a firmware of the gallery are as its emulator gives them: some give only on and
+          off. The colours of the LEDs were not compared with a real FM-1.</li>
         <li>GitHub gives the list of files of a repository 60 times in an hour to one address. A firmware
           of the gallery uses one or more of these for its first load.</li>
         <li>DOWNLOAD and INSTALL are for <code>fm1.h</code> programs in C, and for the firmwares of the gallery
@@ -1138,7 +1146,7 @@ Here is fm1.h:
 
   <!-- The parts of the prompts of VIBE that all prompts have. -->
   <script type="text/plain" id="vibe-fm1">
-The FM-1 is a small synthesizer: 27 note keys and 14 buttons, each with an LED, 7 encoders, a MASTER pot, a 240 x 240 colour screen and stereo sound. FM-1 Studio compiles C programs for it in the browser, and runs them in a simulator of the FM-1. It can also build a program for a real FM-1.
+The FM-1 is a small synthesizer: 27 note keys and 14 buttons, each with an LED (PLAY has a green one and a red one), 7 encoders, a MASTER pot, a 240 x 240 colour screen and stereo sound. FM-1 Studio compiles C programs for it in the browser, and runs them in a simulator of the FM-1. It can also build a program for a real FM-1.
 </script>
   <script type="text/plain" id="vibe-rules">
 Rules for the program:
@@ -1146,7 +1154,7 @@ Rules for the program:
 - audio(out, frames) writes 256 stereo frames, L R L R ..., as signed 24-bit samples (FM1_AUDIO_MAX is full scale), at 44100 Hz. On a real FM-1 it is an interrupt: keep it fast, and do not draw from it.
 - loop() reads the keys, the buttons and the encoders, and draws. It must return soon: no endless loop, no waiting.
 - On a real FM-1 the screen is slow (a full screen takes about 77 ms): draw only what changed. fm1.h has no text function: for text, put a small bitmap font in main.c.
-- The LEDs are part of the interface: they show which buttons and note keys do something. The LED of each button that has a use now is on, also while nobody presses it, and the LED of a button without a use is off. When a mode changes what the buttons do (a title screen, a pause, a menu), the LEDs change with it. A button that switches something on and off shows the state by blinking: for example, PLAY is on while the music is stopped, and blinks with the beat while the music plays. Note keys that play notes light up while their notes sound. Note keys with another use, such as game controls, follow the rule of the buttons. Call fm1_led_key() only for an LED that changes.
+- The LEDs are part of the interface: they show which buttons and note keys do something. The LED of each button that has a use now is on, also while nobody presses it, and the LED of a button without a use is off. When a mode changes what the buttons do (a title screen, a pause, a menu), the LEDs change with it. A button that switches something on and off shows the state by blinking: for example, PLAY is on while the music is stopped, and blinks with the beat while the music plays. Note keys that play notes light up while their notes sound. Note keys with another use, such as game controls, follow the rule of the buttons. An LED can also glow, be at a mid level or breathe (fm1_led_level), and PLAY's red LED (FM1_LED_PLAY_RED) can show a second state, such as recording. Call fm1_led_key() or fm1_led_level() only for an LED that changes.
 - Use fm1_master() as the volume, and keep the sound below full scale.
 - So that the program also runs on a real FM-1: float only (0.5f, sinf, powf; no double), no malloc, no printf, and small tables and buffers (the program and the platform share 464 KB of memory).
 </script>
@@ -1489,8 +1497,39 @@ uint32_t fm1_input_edges(uint32_t *released);
 /* The note keys pressed since the last call, one bit for each note key. */
 uint32_t fm1_input_note_edges(void);
 
-/* Sets the LED of a key or button on or off. */
+/* ---- LEDs ----
+ *
+ * Each key and button has an LED, with the id of the key or button. PLAY has two
+ * LEDs: a green one, with the id FM1_BTN_PLAY, and a red one, with the id
+ * FM1_LED_PLAY_RED. Both can be on at the same time.
+ *
+ * An LED has one of five levels. These are the levels of a real FM-1 (fm1-base
+ * and felucca-bsp), as parts of the time that a fully lit LED is on:
+ *   FM1_LED_OFF     dark
+ *   FM1_LED_GLOW    a dim glow, about 1/30 (labels can be read in the dark)
+ *   FM1_LED_MID     a mid level, about 1/8, over the glow
+ *   FM1_LED_ON      fully lit
+ *   FM1_LED_BREATH  fades from dark to about 60 % and back in about 1.1 s. All
+ *                   LEDs that breathe do it at the same time. A breath that
+ *                   starts when no LED breathes starts at its brightest.
+ * The eye sees the glow brighter than these numbers: about a fifth of the light
+ * of a lit LED, the mid level about half. */
+
+#define FM1_LED_PLAY_RED 41u  /* the id of PLAY's red LED */
+#define FM1_NLED         42u  /* LED ids: the key ids 0 to 40, and FM1_LED_PLAY_RED */
+
+enum { FM1_LED_OFF = 0, FM1_LED_GLOW = 1, FM1_LED_MID = 2, FM1_LED_ON = 3, FM1_LED_BREATH = 4 };
+
+/* Sets LED `id` fully on (on is not 0) or off. */
 void fm1_led_key(uint32_t id, int on);
+
+/* Sets LED `id` to `level`, one of FM1_LED_OFF to FM1_LED_BREATH. */
+void fm1_led_level(uint32_t id, int level);
+
+/* With low not 0, the glow, the mid level and the breath of all LEDs are darker:
+ * the glow about 1/60, the mid level about 1/12, the breath to about 30 %, as the
+ * setting "DIM LO" of Felucca. 0 (the start) gives the levels above. */
+void fm1_led_dim_low(int low);
 
 /* ---- Encoders ---- */
 
@@ -1624,7 +1663,6 @@ int fm1_sim_screen_changed(void) {
 
 volatile fm1_in_t fm1_in;
 static uint32_t buttons_pressed, buttons_released, notes_pressed;
-static uint8_t leds[FM1_NKEY];
 
 void fm1_sim_key(uint32_t id, int down) {
   if (id >= FM1_NKEY) return;
@@ -1654,11 +1692,21 @@ uint32_t fm1_input_note_edges(void) {
   return pressed;
 }
 
-void fm1_led_key(uint32_t id, int on) {
-  if (id < FM1_NKEY) leds[id] = on != 0;
+/* ---- LEDs: the level of each, FM1_LED_OFF to FM1_LED_BREATH. The worklet shows them. ---- */
+
+static uint8_t leds[FM1_NLED];
+static int led_low;
+
+void fm1_led_level(uint32_t id, int level) {
+  if (id < FM1_NLED && level >= FM1_LED_OFF && level <= FM1_LED_BREATH) leds[id] = (uint8_t)level;
 }
 
+void fm1_led_key(uint32_t id, int on) { fm1_led_level(id, on ? FM1_LED_ON : FM1_LED_OFF); }
+
+void fm1_led_dim_low(int low) { led_low = low != 0; }
+
 uint8_t *fm1_sim_leds(void) { return leds; }
+int fm1_sim_led_low(void) { return led_low; }
 
 /* ---- Encoders ---- */
 
@@ -8238,7 +8286,7 @@ const FM1_LIBC = '-I/fm1/libc';
 const EXPORTS = [
   'setup', 'audio', 'loop', '__wasm_call_ctors',
   'fm1_sim_audio', 'fm1_sim_screen', 'fm1_sim_screen_changed',
-  'fm1_sim_key', 'fm1_sim_leds', 'fm1_sim_enc', 'fm1_sim_master', 'fm1_sim_midi',
+  'fm1_sim_key', 'fm1_sim_leds', 'fm1_sim_led_low', 'fm1_sim_enc', 'fm1_sim_master', 'fm1_sim_midi',
 ];
 
 // A double in the code brings in these routines on the FM-1: it has no hardware for them (as firmware-worker.js).
@@ -9775,7 +9823,9 @@ onmessage = async ({ data }) => {
 //                          { enc, steps } an encoder turned
 //                          { master }  the position of the MASTER pot, 0 to 1023
 //                          { midi }  a MIDI message as a 32-bit packet (see fm1.h)
-// Messages to the page:    { reset }, { screen }, { leds }, { error },
+// Messages to the page:    { reset }, { screen }, { error },
+//                          { leds, low }  the light of each LED (see ledLight), and 1 for the darker
+//                              levels ("DIM LO", which also make the breath darker)
 //                          { peak, blocks, memory }  each 32 render quanta: the peak level, the
 //                              count of audio blocks, and the size of the program's memory in bytes
 
@@ -9786,8 +9836,27 @@ const SCREEN_BLOCKS = 6;      // send the screen at most each 6 blocks (about 29
 const SCREEN_PIXELS = 240 * 240;
 const KEYS = 41;
 const BUTTONS = 14;           // key ids 0 to 13 are the buttons, the others are the note keys
+const PLAY = 12;              // FM1_BTN_PLAY: the id of PLAY, and of its green LED
+const LEDS = 42;              // FM1_NLED: the LED ids are the key ids, and 41 for PLAY's red LED
+const PLAY_RED = 41;          // FM1_LED_PLAY_RED
+const WEB_GREEN = 14;         // web_ interface: the bit of PLAY's green LED in web_lit_buttons(), as Felucca has it
 const WEB_HOLD_MS = 24;       // web_ interface: a key or button change stays this long, in the time of
                               // the program, before the next one. A shorter press is not seen by the firmware.
+
+// The light of an LED, as a part of the light of a fully lit LED (the time that it is on), as felucca-bsp's
+// scan makes it (boards/fm1/fm1_input.h): the glow is a pulse of 3.2 us in each frame, where a lit LED is on
+// for about 95 us (1.6 us with "DIM LO"), and the mid level is lit 1 frame in 8 (in 12 with "DIM LO").
+// BREATH: the LED breathes, and the page shows the breath. `low` is 1 for "DIM LO".
+const GLOW = [3.2 / 95, 1.6 / 95];
+const MID = [1 / 8, 1 / 12];
+const BREATH = -1;
+function ledLight(lit, dim, mid, breath, low) {
+  if (lit) return 1;
+  if (breath && !dim) return BREATH;  // felucca-bsp: an LED that is lit, or in the glow, does not breathe
+  return (mid ? MID[low] : 0) + (dim ? GLOW[low] : 0);
+}
+// fm1.h: the levels FM1_LED_OFF, _GLOW, _MID (over the glow), _ON and _BREATH.
+const LEVEL_LIGHT = [[0, 0, 0, 0], [0, 1, 0, 0], [0, 1, 1, 0], [1, 0, 0, 0], [0, 0, 0, 1]];
 
 class Fm1Processor extends AudioWorkletProcessor {
   constructor() {
@@ -9800,7 +9869,8 @@ class Fm1Processor extends AudioWorkletProcessor {
     this.samples = null; // the current audio block
     this.pos = BLOCK;    // read position in the current block
     this.blocks = 0;     // audio blocks since the screen was sent
-    this.leds = new Uint8Array(KEYS);
+    this.leds = new Float32Array(LEDS); // the light of each LED (ledLight), as the page has it
+    this.low = 0;        // 1: the darker levels ("DIM LO"), as the page has it
     this.master = 0;     // position of the MASTER pot: kept here, because it stays when a program starts
     this.keys = new Uint8Array(KEYS); // 1 for each key that is down: kept here for the same reason
     this.peak = 0;       // these three are for the report to the page
@@ -9827,6 +9897,7 @@ class Fm1Processor extends AudioWorkletProcessor {
     this.pos = BLOCK;
     this.blocks = SCREEN_BLOCKS;
     this.leds.fill(0);
+    this.low = 0;
     this.port.postMessage({ reset: true });
     if (!wasm) return;
     try {
@@ -9909,16 +9980,42 @@ class Fm1Processor extends AudioWorkletProcessor {
       if (this.web.screen === 'swapped') for (let i = 0; i < SCREEN_PIXELS; i++) screen[i] = screen[i] >> 8 | screen[i] << 8;
       this.port.postMessage({ screen: screen.buffer }, [screen.buffer]);
     }
-    // The LEDs that are fully on. The dim levels of Felucca are not shown.
-    const buttons = (program.web_leds_buttons || program.web_lit_buttons)();
-    const keys = (program.web_leds_keys || program.web_lit_keys)();
-    let changed = false;
-    for (let id = 0; id < KEYS; id++) {
-      const led = id < BUTTONS ? (buttons >> this.webId('buttons', id)) & 1 : (keys >> (id - BUTTONS)) & 1;
-      if (led !== this.leds[id]) changed = true;
-      this.leds[id] = led;
+    this.webLeds(program, memory);
+  }
+
+  // The LEDs of a program with the web_ interface, as Felucca's emulator gives them: one bit for each LED that
+  // is lit (bit WEB_GREEN: PLAY's green LED; PLAY's own bit is its red one), and, from the firmwares that
+  // have them, those in the glow, those that breathe, the keys at the mid level, "DIM LO", and the light of
+  // each LED while the firmware's power-on sweep or idle animation runs.
+  webLeds(program, memory) {
+    const get = (name) => (program[name] ? program[name]() : 0);
+    const lit = (program.web_leds_buttons || program.web_lit_buttons)(), litKeys = (program.web_leds_keys || program.web_lit_keys)();
+    const dim = get('web_dim_buttons'), dimKeys = get('web_dim_keys');
+    const breath = get('web_breath_buttons'), breathKeys = get('web_breath_keys'), midKeys = get('web_mid_keys');
+    const low = get('web_dim_level') === 1 ? 1 : 0;
+    const anim = get('web_anim_levels');  // 0 when no animation runs
+    const levels = anim ? new Uint8Array(memory, anim, KEYS) : null;  // 0..64 of 64 of lit, 0x80: the glow under it
+    const leds = new Float32Array(LEDS);
+    for (let id = 0; id < LEDS; id++) {
+      if (id >= BUTTONS && id < KEYS) {
+        const k = id - BUTTONS;
+        leds[id] = levels ? Math.min(1, (levels[id] & 0x7F) / 64 + (levels[id] & 0x80 ? GLOW[low] : 0))
+          : ledLight(litKeys >> k & 1, dimKeys >> k & 1, midKeys >> k & 1, breathKeys >> k & 1, low);
+        continue;
+      }
+      const bit = id === PLAY ? WEB_GREEN : this.webId('buttons', id === PLAY_RED ? PLAY : id);
+      leds[id] = levels && id !== PLAY ? Math.min(1, (levels[bit] & 0x7F) / 64 + (levels[bit] & 0x80 ? GLOW[low] : 0))
+        : ledLight(lit >> bit & 1, dim >> bit & 1, 0, breath >> bit & 1, low);
     }
-    if (changed) this.port.postMessage({ leds: this.leds.slice() });
+    this.showLeds(leds, low);
+  }
+
+  // Sends the light of each LED to the page when it changed.
+  showLeds(leds, low) {
+    if (low === this.low && leds.every((light, id) => light === this.leds[id])) return;
+    this.leds.set(leds);
+    this.low = low;
+    this.port.postMessage({ leds: this.leds.slice(), low });
   }
 
   // ---- The fm1.h interface ----
@@ -9931,11 +10028,8 @@ class Fm1Processor extends AudioWorkletProcessor {
       const screen = new Uint16Array(memory, program.fm1_sim_screen(), SCREEN_PIXELS).slice();
       this.port.postMessage({ screen: screen.buffer }, [screen.buffer]);
     }
-    const leds = new Uint8Array(memory, program.fm1_sim_leds(), KEYS);
-    if (leds.some((led, id) => led !== this.leds[id])) {
-      this.leds.set(leds);
-      this.port.postMessage({ leds: this.leds.slice() });
-    }
+    const levels = new Uint8Array(memory, program.fm1_sim_leds(), LEDS), low = program.fm1_sim_led_low() ? 1 : 0;
+    this.showLeds(Float32Array.from(levels, (level) => ledLight(...LEVEL_LIGHT[level], low)), low);
   }
 
   process(inputs, outputs) {
@@ -12061,7 +12155,7 @@ function startAudio() {
       fm1.port.onmessage = ({ data }) => {
         if ('peak' in data) showReport(data);
         else if (data.screen) { drawScreen(data.screen); flash('lcd'); }
-        else if (data.leds) { showLeds(data.leds); flash('led'); }
+        else if (data.leds) { showLeds(data.leds, data.low); flash('led'); }
         else if (data.reset) { drawScreen(new ArrayBuffer(240 * 240 * 2)); showLeds([]); }
         else if (data.error) {
           setRunning(false);
@@ -12358,8 +12452,50 @@ function setKey(id, down) {
   sendInput(id < 14 ? 'buttons' : 'notes', { key: id, down });
 }
 
-function showLeds(leds) {
-  keyElements.forEach((element, id) => element.classList.toggle('lit', Boolean(leds[id])));
+// ---- LEDs ----
+// The worklet gives the light of each LED, as a part of the light of a fully lit LED, or -1 while it breathes
+// (ledLight in the fm1-worklet.js block). The LED ids are the key ids, and PLAY_RED for PLAY's red LED (PLAY's own
+// id is its green LED). The panel shows each light as the eye sees it: --b on the key (--r for PLAY's red LED).
+
+const PLAY_RED = 41;  // FM1_LED_PLAY_RED
+const LED_COUNT = 42; // FM1_NLED
+
+// What the eye sees of a light (a part of fully lit): its lightness, CIE L*, from 0 to 1.
+const seen = (light) => (light > 216 / 24389 ? 1.16 * Math.cbrt(light) - 0.16 : light * 24389 / 2700);
+
+// The breath of felucca-bsp (boards/fm1/fm1_input.h): 1024 scan frames of 1.1 ms; a triangle, made smooth
+// (smoothstep) and squared, times the peak: 154/256 of lit, or 77/256 with "DIM LO". All LEDs breathe in step,
+// and a breath that starts when no LED breathes starts at its peak. The page sets --breath on the panel.
+const BREATH_MS = 1024 * 1.1;
+let breathStart = 0;      // the time of the breath's peak (performance.now()), or 0 when no LED breathes
+let breathLow = 0;        // 1: "DIM LO"
+
+function breathLight(ms) {
+  let x = Math.floor(((ms / BREATH_MS + 0.5) % 1) * 512);  // 0..511, from the peak
+  x = x & 256 ? 511 - x : x;                                // a triangle, 0..255
+  x = x * x * (768 - 2 * x) / 65536 / 255;                  // smoothstep, 0..1
+  return x * x * (breathLow ? 77 : 154) / 256;
+}
+
+function breathe(now) {
+  if (!breathStart) return;
+  panel.style.setProperty('--breath', seen(breathLight(now - breathStart)).toFixed(3));
+  requestAnimationFrame(breathe);
+}
+
+function showLeds(leds = [], low = 0) {
+  let breathing = false;
+  for (let id = 0; id < LED_COUNT; id++) {
+    const light = leds[id] ?? 0;
+    breathing ||= light < 0;
+    keyElements[id === PLAY_RED ? 12 : id].style.setProperty(id === PLAY_RED ? '--r' : '--b',
+      light < 0 ? 'var(--breath)' : seen(light).toFixed(3));
+  }
+  breathLow = low;
+  if (breathing && !breathStart) {
+    breathStart = performance.now();
+    breathe(breathStart);
+  } else if (!breathing) breathStart = 0;
 }
 
 // Adds a key or button with its centre at (x, y). Returns its SVG group, for the parts on top of it.
@@ -12373,8 +12509,12 @@ function addKey(id, className, x, y, width, height, radius) {
 }
 
 // `label` can have two lines. They get a rule between them, as PLAY and STOP have on the device.
+// The light of the button's LED is a layer over its cap; PLAY has two, for its red and its green LED.
 function addButton(id, label, x, y, width, height) {
-  const key = addKey(id, id === 12 ? 'btn green' : 'btn', x, y, width, height, 8); // the PLAY LED is green
+  const key = addKey(id, 'btn', x, y, width, height, 8);
+  for (const colour of id === 12 ? ['red', 'green'] : ['']) {
+    svg(key, 'rect', { class: `light ${colour}`.trim(), x: x - width / 2, y: y - height / 2, width, height, rx: 8 });
+  }
   const lines = label.split('\n');
   lines.forEach((line, i) => svg(key, 'text', { x, y: y + 5 + (2 * i + 1 - lines.length) * 8.5 }, line));
   if (lines.length === 2) svg(key, 'line', { class: 'rule', x1: x - 17, x2: x + 17, y1: y + 0.5, y2: y + 0.5 });

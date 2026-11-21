@@ -16,6 +16,8 @@
 #define fm1_input_edges fm1x_input_edges
 #define fm1_input_note_edges fm1x_input_note_edges
 #define fm1_led_key fm1x_led_key
+#define fm1_led_level fm1x_led_level
+#define fm1_led_dim_low fm1x_led_dim_low
 #define fm1_enc_take fm1x_enc_take
 #define fm1_master fm1x_master
 #define fm1_midi_take fm1x_midi_take

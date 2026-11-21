@@ -63,7 +63,8 @@ The functions that a program calls go to fm1-base's platform (`plat.h`, `lcd.c`)
 | `fm1_lcd_fill_rect` | `lcd_fill` | The check of the rectangle |
 | `fm1_lcd_blit` | `lcd_blit`, `lcd_sync` | Strips of 2400 pixels, each copied with its bytes swapped: the panel takes the high byte first |
 | `fm1_in`, `fm1_input_edges`, `fm1_input_note_edges` | `plat_buttons`, `plat_keys` | The button numbers of `fm1.h`, and the record of what changed |
-| `fm1_led_key` | `plat_lights` | The LED numbers of `fm1.h` |
+| `fm1_led_key`, `fm1_led_level` | `plat_lights`, `plat_lights_mid`, felucca-bsp's `fm1_led_breath` | The LED numbers of `fm1.h`; PLAY's green LED is `LED_PLAY_GREEN`, its red one PLAY's own bit. The mid level is over the glow. fm1-base has no function for the breath (the host simulator shows it as the glow) |
+| `fm1_led_dim_low` | `plat_lights` | The low glow (1), which also makes the mid level and the breath darker |
 | `fm1_enc_take` | `plat_enc` | The encoder numbers of `fm1.h` |
 | `fm1_master` | `plat_master` | The range 0 to 1023 |
 | `fm1_midi_take` | `plat_midi_in` | Nothing: it is the same USB-MIDI packet |
@@ -191,7 +192,6 @@ These things are different on the FM-1:
 - The accuracy of the maths is about six digits (`atan2f`, `asinf`, `acosf`: about five).
 - After an update that was cancelled, the FM-1 starts again.
 - USB audio and Bluetooth are not built in. USB MIDI in works: `fm1_midi_take`.
-- PLAY has a green LED and a red one. `fm1_led_key` lights the green one.
 
 ## Check a build
 
