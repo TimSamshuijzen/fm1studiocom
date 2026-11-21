@@ -172,8 +172,11 @@ the steps:
    with [M-Flasher](https://github.com/jvitkauskas/m-flasher) first: make a backup, check the flash chip and
    the boot loader, and install [m-bootloader](https://github.com/jvitkauskas/m-bootloader).
 2. **Connect.** Connect the FM-1 with a USB cable that carries data, and let it run as it is. CONNECT
-   asks the browser for MIDI with SysEx messages, finds the FM-1, and tells which firmware it runs. A
-   firmware that runs does not tell the boot loader. To see it, start the FM-1 in m-bootloader's MIDI mode
+   asks the browser for MIDI with SysEx messages, finds the FM-1, and tells which firmware it runs. It
+   asks only the MIDI ports with a usual name of an FM-1: those of fm1-base's installer ("FM-1", "Felucca"
+   and more), and "JIANT", the port of JIANT (`PORT_NAMES_MORE` in `src/index.html`). When no FM-1
+   answers, it lists the other ports, each with a TRY button. A firmware that runs does not tell the
+   boot loader. To see it, start the FM-1 in m-bootloader's MIDI mode
    (version 2.2 or later: hold PLAY at power-on, then choose MIDI MODE). There, CONNECT also shows what
    M-Flasher shows of the boot loader and the flash: the version of m-bootloader, the flash chip, the chip
    key and the ID of the unit (command `0x12` of m-bootloader's `docs/SPEC.md`, 11.6). The page sends that

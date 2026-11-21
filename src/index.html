@@ -11784,10 +11784,17 @@ function showConnectStep() {
 $('install-next').onclick = showConnectStep;
 $('install-again').onclick = showConnectStep;
 
-// An updater of fm1-base's installer. It asks only the MIDI ports with a usual name of an FM-1,
-// those that answer as a firmware on fm1-base, and those that the user let it ask with TRY.
+// The MIDI ports that the installer asks without TRY, besides those with a name of its own list (PORT_NAMES of
+// install/fm1ports.js: "FM-1", "Felucca", ...): those of the firmwares of the gallery that name their port after
+// themselves. JIANT's port is "JIANT", and "JIANT Update" while its update loader runs (its firmware/src/usb.c).
+// A part of a name is enough, in any case.
+const PORT_NAMES_MORE = ['jiant'];
+
+// An updater of fm1-base's installer. It asks only the MIDI ports with a usual name of an FM-1 (its own list and
+// PORT_NAMES_MORE), those that answer as a firmware on fm1-base, and those that the user let it ask with TRY.
 function newUpdater() {
   const updater = new installer.code.Updater(installer.access);
+  updater.setNames(PORT_NAMES_MORE);
   for (const name of installer.tried) updater.allow(name);
   return updater;
 }
