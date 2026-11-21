@@ -17,8 +17,9 @@ USB (INSTALL). Code that works in this simulator does not guarantee it will work
   Worker. The output is one WebAssembly module. It compiles a program as the FM-1 takes it: C, `float`
   only, and the C library of the FM-1.
 - **FM-1 simulator**: the front panel with its 240 x 240 screen, 27 note keys, 14 buttons, 7 encoders,
-  the MASTER pot and the LEDs, in the six colours of the device. The LEDs have the levels of a real FM-1
-  (a glow, a mid level, fully lit, a breath), and PLAY has its red and its green LED.
+  the MASTER pot and the LEDs, in the six colours of the device. The LEDs light the legends of the keys,
+  with the levels of a real FM-1 (a glow, a mid level, fully lit, a breath), and PLAY has its red and its
+  green LED.
 - **Sound** on the audio thread of the browser (an AudioWorklet), with a scope and a level meter.
 - **MIDI input** from the keyboards and controllers of the computer (Web MIDI).
 - **Firmware gallery**: loads a demo project, or the source code of open-source FM-1 firmware from
@@ -600,8 +601,12 @@ of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/ma
 - The LEDs of a firmware of the gallery are as its emulator gives them. AURORA, CS-1 and GR!MM give on
   and off, as they light their LEDs on the FM-1. SLOOP's backlight shows as the glow, though on the FM-1
   it is darker. JIANT's extra level between the mid level and lit is not shown: its emulator does not
-  give it. The colours of the simulator's LEDs (amber, and PLAY's red and green) were not compared with a
-  real FM-1.
+  give it.
+- An LED lights the legend of its key, as on a real FM-1: the text of a button, the text and the line of a
+  note key, in white; REC in red; PLAY and STOP in green, in red, or (both LEDs) PLAY green and STOP
+  orange. This was compared with one FM-1. On the light skins the legends are dark: a legend at the glow
+  or the mid level comes near the colour of its cap there, which was not compared with an FM-1 of such a
+  colour.
 - The firmware compiler is for `fm1.h` programs in C, and for the firmwares of the gallery in the table of
   "The gallery's firmware on a real FM-1". The other firmwares of the gallery have their own builds in
   their repositories: DOWNLOAD and INSTALL are off for them, and their hints tell why. INSTALL installs

@@ -409,21 +409,37 @@
   .key .rule { stroke: var(--ink); stroke-width: 1.5; }
   .key.down { transform: translateY(2px); }
   .key.down .cap { fill: color-mix(in srgb, var(--cap), #000 37%); }
-  /* The LEDs. The page script sets --b on a key: the light of its LED as the eye sees it, 0 dark to 1 fully lit,
-     or var(--breath) while the LED breathes (showLeds). PLAY has two LEDs: --b is its green one, --r its red one.
-     A button's light is a layer over its cap; two layers add up as light does. Its text turns dark on a bright cap. */
-  .btn { --led: #f3a33a; --on: clamp(0, (max(var(--b, 0), var(--r, 0)) - 0.6) * 6, 1); }
-  .btn .light { fill: var(--led); opacity: var(--b, 0); filter: drop-shadow(0 0 6px var(--led)); mix-blend-mode: screen; pointer-events: none; }
-  .btn .light.green { --led: #62d36e; }
-  .btn .light.red { --led: #ff4b3e; opacity: var(--r, 0); }
-  .btn text { fill: color-mix(in srgb, #201400 calc(var(--on) * 100%), var(--ink)); }
-  .btn .rule { stroke: color-mix(in srgb, #201400 calc(var(--on) * 100%), var(--ink)); }
+  /* The LEDs light the legends, as on a real FM-1: the text of a button, and the text and the line of a note key,
+     in white (REC in red, PLAY below); the caps stay dark. The page script sets --b on a key: the light of its LED as the eye sees it, 0 dark
+     to 1 fully lit, or var(--breath) while the LED breathes (showLeds). --lit is the colour of the lit legend, --lv
+     how bright it is. */
+  .key { --lit: #fff; --lv: var(--b, 0); }
+  .key text, .key .rule, .note .led { --glow: color-mix(in srgb, var(--lit) calc(var(--lv) * 100%), transparent); }
+  .key text, .key .rule { filter: drop-shadow(0 0 1.5px var(--glow)) drop-shadow(0 0 5px var(--glow)); }
+  .key text { fill: color-mix(in srgb, var(--lit) calc(var(--lv) * 100%), var(--ink)); }
+  .key .rule { stroke: color-mix(in srgb, var(--lit) calc(var(--lv) * 100%), var(--ink)); }
   .note text { font-weight: 400; font-size: 11px; }
-  .note .cap { fill: color-mix(in srgb, #f3a33a calc(var(--b, 0) * 22%), var(--cap)); }
   .note .led {
-    fill: color-mix(in srgb, #ffe2b0 calc(var(--b, 0) * 100%), color-mix(in srgb, var(--ink), var(--cap) 30%));
-    filter: drop-shadow(0 0 4px color-mix(in srgb, #f3a33a calc(var(--b, 0) * 100%), transparent));
+    fill: color-mix(in srgb, var(--lit) calc(var(--lv) * 100%), color-mix(in srgb, var(--ink), var(--cap) 30%));
+    filter: drop-shadow(0 0 4px var(--glow));
   }
+  /* PLAY has two LEDs: --b is its green one, --r its red one. With one of them on, PLAY and STOP have its colour;
+     with both, PLAY is green and STOP orange. --t is the part of the light that is green: 0 red only, 0.5 both
+     alike, 1 green only. Between those, PLAY turns green when the green LED is at least as bright as the red one,
+     and STOP goes from red over orange to green. */
+  .btn { --red: #ff4b3e; }
+  .btn.rec { --lit: var(--red); }  /* REC's LED is red */
+  .btn.play {
+    --green: #62d36e; --orange: #ff9a2e;
+    --lv: max(var(--b, 0), var(--r, 0));
+    --t: calc(var(--b, 0) / max(0.001, var(--b, 0) + var(--r, 0)));
+    --play: color-mix(in srgb, var(--red), var(--green) calc(clamp(0, (var(--t) - 0.45) * 20, 1) * 100%));
+    --stop: color-mix(in srgb, color-mix(in srgb, var(--red), var(--orange) calc(clamp(0, var(--t) * 2, 1) * 100%)),
+      var(--green) calc(clamp(0, var(--t) * 2 - 1, 1) * 100%));
+  }
+  .btn.play text:first-of-type { --lit: var(--play); }
+  .btn.play text:last-of-type { --lit: var(--stop); }
+  .btn.play .rule { --lit: color-mix(in srgb, var(--play), var(--stop)); }
 
   /* ---- FM-1 API: one lane for each signal between the program and the FM-1 ---- */
 
@@ -1000,7 +1016,8 @@ void loop(void) { }                         /* again and again: controls and scr
           A page that is opened from disk loads the compiler from fm1studio.com.</li>
         <li>A project holds text files only.</li>
         <li>The LEDs of a firmware of the gallery are as its emulator gives them: some give only on and
-          off. The colours of the LEDs were not compared with a real FM-1.</li>
+          off. On the light skins, a legend at the glow or the mid level comes near the colour of its cap;
+          that was not compared with an FM-1 of such a colour.</li>
         <li>GitHub gives the list of files of a repository 60 times in an hour to one address. A firmware
           of the gallery uses one or more of these for its first load.</li>
         <li>DOWNLOAD and INSTALL are for <code>fm1.h</code> programs in C, and for the firmwares of the gallery
@@ -1499,9 +1516,11 @@ uint32_t fm1_input_note_edges(void);
 
 /* ---- LEDs ----
  *
- * Each key and button has an LED, with the id of the key or button. PLAY has two
- * LEDs: a green one, with the id FM1_BTN_PLAY, and a red one, with the id
- * FM1_LED_PLAY_RED. Both can be on at the same time.
+ * Each key and button has an LED, with the id of the key or button. An LED lights
+ * the legend of its key in white; REC's is red. PLAY has two LEDs: a green one,
+ * with the id FM1_BTN_PLAY, and a red one, with the id FM1_LED_PLAY_RED. With one
+ * of them on, PLAY and STOP have its colour; with both, PLAY is green and STOP
+ * orange.
  *
  * An LED has one of five levels. These are the levels of a real FM-1 (fm1-base
  * and felucca-bsp), as parts of the time that a fully lit LED is on:
@@ -12509,12 +12528,10 @@ function addKey(id, className, x, y, width, height, radius) {
 }
 
 // `label` can have two lines. They get a rule between them, as PLAY and STOP have on the device.
-// The light of the button's LED is a layer over its cap; PLAY has two, for its red and its green LED.
+// The LED of a button lights its text (the styles of .key): REC's in red (.btn.rec), and PLAY's two LEDs light
+// PLAY and STOP (.btn.play).
 function addButton(id, label, x, y, width, height) {
-  const key = addKey(id, 'btn', x, y, width, height, 8);
-  for (const colour of id === 12 ? ['red', 'green'] : ['']) {
-    svg(key, 'rect', { class: `light ${colour}`.trim(), x: x - width / 2, y: y - height / 2, width, height, rx: 8 });
-  }
+  const key = addKey(id, id === 12 ? 'btn play' : id === 13 ? 'btn rec' : 'btn', x, y, width, height, 8);
   const lines = label.split('\n');
   lines.forEach((line, i) => svg(key, 'text', { x, y: y + 5 + (2 * i + 1 - lines.length) * 8.5 }, line));
   if (lines.length === 2) svg(key, 'line', { class: 'rule', x1: x - 17, x2: x + 17, y1: y + 0.5, y2: y + 0.5 });
