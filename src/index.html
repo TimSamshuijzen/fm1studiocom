@@ -707,14 +707,13 @@
   }
   .vibe-legend::before { content: ""; width: 10px; height: 10px; border-radius: 1px; background: var(--accent); box-shadow: 0 0 0 1px #0002; }
   .vibe-row { display: flex; align-items: center; gap: 9px; margin: 0; }
-  .vibe-print { margin-right: 4px; font: 700 10px/1 var(--font-panel); letter-spacing: 0.16em; color: var(--vink-dim); }
   .vibe-caption, .vibe-hint { margin: 0; align-self: center; font: 14px/1.4 var(--font-label); color: var(--vink-dim); }
   /* The keys of the examples: dark caps, as on the FM-1. The legend of the example that the display shows is lit. */
   .vibe-key {
-    height: 34px; padding: 0 14px 0 15px; border-radius: 6px;
+    flex: none; height: 34px; padding: 0 12px 0 13px; border-radius: 6px; white-space: nowrap;  /* DRUM-1: no break at the hyphen */
     background: linear-gradient(#3c3f41, #26292a);
     box-shadow: 0 0 0 1px #121314, 0 3px 0 #121314, 0 4px 5px #0004, inset 0 1px 0 #ffffff2a;
-    font: 700 11px/34px var(--font-panel); letter-spacing: 0.14em; color: #b4b7b9;
+    font: 700 11px/34px var(--font-panel); letter-spacing: 0.12em; color: #b4b7b9;
     transition: color 0.1s, text-shadow 0.1s;
   }
   .vibe-key:active { transform: translateY(2px); box-shadow: 0 0 0 1px #121314, 0 1px 0 #121314, 0 1px 2px #0004, inset 0 1px 0 #ffffff2a; }
@@ -1207,10 +1206,10 @@ void loop(void) { }                         /* again and again: controls and scr
         <h3 class="vibe-legend" id="vibe-idea-title">YOUR IDEA</h3>
         <!-- The keys of the examples: the key of the example that the display shows is lit. -->
         <div class="vibe-row" id="vibe-ideas" role="group" aria-label="Examples of an idea">
-          <span class="vibe-print">EXAMPLES</span>
-          <button class="vibe-key" data-idea="synth" aria-pressed="true" title="An example: a synth">SYNTH</button>
-          <button class="vibe-key" data-idea="piece" aria-pressed="false" title="An example: a piece of music">PIECE</button>
-          <button class="vibe-key" data-idea="game" aria-pressed="false" title="An example: a game">GAME</button>
+          <button class="vibe-key" data-idea="drum" aria-pressed="true" title="An example: a drum kit">DRUM-1</button>
+          <button class="vibe-key" data-idea="string" aria-pressed="false" title="An example: a string instrument">STRING-1</button>
+          <button class="vibe-key" data-idea="piece" aria-pressed="false" title="An example: a piece of music">PIECE-1</button>
+          <button class="vibe-key" data-idea="game" aria-pressed="false" title="An example: a game">GAME-1</button>
           <button class="vibe-key clear" id="vibe-clear" title="Empty the display, to write your own idea">CLEAR</button>
         </div>
         <div class="vibe-screen idea-screen">
@@ -10263,7 +10262,9 @@ about.onpointerdown = (event) => { if (event.target === about) about.close(); };
 
 const vibe = $('vibe');
 const VIBE_IDEAS = {
-  synth: 'A plucked-string instrument made with physical modelling (Karplus-Strong) that sounds real: each ' +
+  drum: 'A drum kit simulator with realistic drum sounds, and visualization of drum kit on screen. PLAY starts and ' +
+    'stops a great sounding drum solo.',
+  string: 'A plucked-string instrument made with physical modelling (Karplus-Strong) that sounds real: each ' +
     'note key plucks a string, and up to 8 strings ring at the same time. ALGORITHM chooses the instrument: ' +
     'harp, nylon guitar, koto or hammered dulcimer, each with its own body resonance. KNOB1 sets where the ' +
     'string is plucked (soft to bright), KNOB2 how long it rings, KNOB3 the size of a stereo hall reverb, ' +
@@ -10336,7 +10337,7 @@ $('vibe-idea').oninput = () => {
   pressChoice(null);  // it is the user's own idea now
   showIdea();
 };
-$('vibe-idea').value = VIBE_IDEAS.synth;
+$('vibe-idea').value = VIBE_IDEAS.drum;
 showIdea();
 
 // Puts `value` on the clipboard. Returns true when that worked.
