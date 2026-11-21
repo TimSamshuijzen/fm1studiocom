@@ -18,6 +18,7 @@ import glob
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -160,7 +161,26 @@ class Source:
         if not self.exists:
             return [str(self.path), None]
         stat = self.path.stat()
-        return [str(self.path), stat.st_size, stat.st_mtime_ns]
+        return [str(self.path), stat.st_size, stat.st_mtime_ns, self.marks()]
+
+    def marks(self):
+        """The marks of the recording: <file>.marks.json next to it (capture.mjs makes it), or {}."""
+        path = self.path.with_suffix('.marks.json')
+        return json.loads(path.read_text(encoding='utf-8')) if path.is_file() else {}
+
+    def time(self, value):
+        """A time in the recording: a number of seconds, or a mark with seconds to add, as "typing-1.0" or "copy"."""
+        if isinstance(value, (int, float)):
+            return float(value)
+        match = re.fullmatch(r'([a-z][a-z0-9_]*)([+-]\d+(?:\.\d+)?)?', str(value))
+        if not match:
+            raise Stop(f'{self.name}: "in" is seconds or a mark, as "typing-1.0": {value!r}')
+        if not self.exists:
+            return 0.0  # a placeholder
+        marks = self.marks()
+        if match.group(1) not in marks:
+            raise Stop(f'{self.name} has no mark {match.group(1)!r}: ' + (', '.join(marks) or 'it has no marks file'))
+        return marks[match.group(1)] + float(match.group(2) or 0)
 
 
 class Project:
@@ -352,10 +372,10 @@ class Project:
         """The time in the source of `part` (the PiP or the sound) at the start of the scene: its "in", or the time
         that its sync gives for the main picture's "in"."""
         if 'in' in part:
-            return float(part['in'])
+            return self.source(part['source']).time(part['in'])
         if 'source' not in main:
             raise Stop(f'scene {scene["id"]}: the {what} needs "in" (the main picture is no recording)')
-        start = self.synced_time(main['source'], float(main.get('in', 0)), part['source'])
+        start = self.synced_time(main['source'], self.source(main['source']).time(main.get('in', 0)), part['source'])
         if start is None:
             raise Stop(f'scene {scene["id"]}: give the {what} "in", or give {part["source"]} a "sync" to {main["source"]} '
                        f'(python video/sync.py find {main["source"]} {part["source"]})')
@@ -387,7 +407,7 @@ class Project:
                     i = add_input(['-loop', '1', '-framerate', fps, '-t', f'{dur:.4f}', '-i', src.path])
                     chain = f'[{i}:v]fps={fps}'
                 else:
-                    start = float(main.get('in', 0))
+                    start = src.time(main.get('in', 0))
                     if start + dur * speed > src.duration + 0.05:
                         print(f'  note: {scene["id"]} needs {src.name} to {start + dur * speed:.1f} s, '
                               f'it has {src.duration:.1f} s: the last picture stays', flush=True)
@@ -638,7 +658,7 @@ def list_scenes(project):
         if 'source' in main:
             src = project.source(main['source'])
             speed = f' x{main["speed"]}' if main.get('speed', 1) != 1 else ''
-            text = f'{src.name} @{float(main.get("in", 0)):.1f}{speed}' + ('' if src.exists else ' (missing)')
+            text = f'{src.name} @{src.time(main.get("in", 0)):.1f}{speed}' + ('' if src.exists else ' (missing)')
         else:
             text = 'card'
         pip = scene.get('pip')

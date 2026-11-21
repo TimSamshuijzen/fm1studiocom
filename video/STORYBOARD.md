@@ -44,10 +44,12 @@ The idea for NIGHT DRIVE, as you type it in the VIBE dialog (it fits the display
 > KNOB 4 the drive. The screen shows a neon sun over a grid road that moves with the tempo; the held notes
 > are stars in the sky. The LEDs of the held keys pulse on the beat.
 
-**Before you record:** do the vibe session one time without a camera. Install the result on the FM-1 and
-play it. If the road moves too slowly on the real FM-1, ask the AI to make the road smaller or to move only
-its lines. Keep the final `main.c` (for example in `video/night-drive/main.c`): the recordings of the
-simulator and of the FM-1 need the same program.
+**NIGHT DRIVE is made:** `night-drive/` has the prompt that COPY gives, the first answer of an AI (Claude, in
+a chat with only that prompt) and its `main.c`, used without a change. It compiles, makes its package and
+plays in the simulator (`night-drive/README.md`). **Before the FM-1 videos:** install it on the FM-1 (NAME:
+NIGHT DRIVE) and play it. If the road moves too slowly on the real FM-1, ask the AI to move only the lines of
+the road, and record the screen takes again with the new `main.c`: the simulator and the FM-1 must show the
+same program.
 
 ## Storyboard
 
@@ -56,11 +58,11 @@ simulator and of the FM-1 need the same program.
 | 1 | 0:00 | `cold-open`, 5 s | F1: the real FM-1 plays NIGHT DRIVE, close, a slow move. Fade in from black | | "What if you could just describe a synth?" | The FM-1 |
 | 2 | 0:05 | `title`, 4 s | Title card: FM-1 STUDIO, the four stripes | | CODE · SIMULATE · INSTALL / for the M-VAVE FM-1, in your browser | Music |
 | 3 | 0:09 | `app`, 6 s | S1: FM-1 Studio, the demo plays; a slow push in | | "Code, compile and play. All in the browser." | The demo |
-| 4 | 0:15 | `idea`, 8 s | S2: VIBE, CLEAR, the idea is typed (2x); close on YOUR IDEA | | **1** Describe your idea | Music |
-| 5 | 0:23 | `prompt`, 3 s | S2: close on the PROMPT, COPY, the check mark | | **1** Copy the prompt: your idea and the rules of the FM-1 | Music |
+| 4 | 0:15 | `idea`, 8 s | S2: VIBE, CLEAR, the idea is typed (3.3x); the view moves close to YOUR IDEA | | **1** Describe your idea | Music |
+| 5 | 0:23 | `prompt`, 3 s | S2: close on the PROMPT, COPY, the check mark | | **1** Copy the prompt: your idea and the rules of the FM-1 (at the top) | Music |
 | 6 | 0:26 | `ai`, 8 s | S3: an AI chat: the prompt goes in, the answer comes (6x), copy | | **2** An AI chat writes the code; **×6** | Music |
-| 7 | 0:34 | `paste`, 5 s | S4: Ctrl+V on FM-1 Studio, NAME: NIGHT DRIVE, the compile, it runs | | **3** Paste it: it compiles and plays | The simulator, music under it |
-| 8 | 0:39 | `play`, 10 s | S4: the view moves close to the simulator; keys, knobs, PLAY | | **3** Play it in the FM-1 simulator | The simulator |
+| 7 | 0:34 | `paste`, 5 s | S4: Ctrl+V on FM-1 Studio (the keys show), the compile, it runs | | **3** Paste it: it compiles and plays | The simulator, music under it |
+| 8 | 0:39 | `play`, 10 s | S4, after NAME: NIGHT DRIVE and COMPILE: the view moves close to the simulator; a chord, the arpeggio, PLAY and the beat | | **3** Play it in the FM-1 simulator | The simulator |
 | 9 | 0:49 | `install-steps`, 5 s | S5: INSTALL: READ, CONNECT, the FM-1 is found (1.5x) | F2: the FM-1, in sync | **4** Install it on your FM-1 | Music |
 | 10 | 0:54 | `install-write`, 6 s | S5: INSTALL NOW, the bar, done (8x) | F2: UPDATING, the restart, NIGHT DRIVE starts, in sync | **4** Install it on your FM-1; **×8** | Music |
 | 11 | 1:00 | `payoff`, 9 s | F3: hands play NIGHT DRIVE on the real FM-1 | | "Your idea. Your synth. On a real FM-1." | The FM-1 |
@@ -78,11 +80,11 @@ Record each shot longer than the scene: the timeline picks the part. File names 
 
 | Shot | File | What to do | Record |
 | --- | --- | --- | --- |
-| S1 | `screen/s1-app.mkv` | Open fm1studio.com in a fresh tab; the compiler loads and the demo plays. Click the page, play some notes with the computer keys, turn KNOB 1 | 30 s |
-| S2 | `screen/s2-vibe.mkv` | Click VIBE. Click CLEAR. Type the idea (at a calm speed; the video plays it at 2x). Wait 2 s, then click COPY and wait for the check mark | 40 s |
-| S3 | `screen/s3-ai.mkv` | A new chat in your AI. Paste the prompt, send it, let the answer come to its end, and click the copy button of the code block | The full answer |
-| S4 | `screen/s4-paste.mkv` | Back in FM-1 Studio, close the VIBE dialog. Press Ctrl+V outside the editor: the project "no name" compiles and runs. Type NIGHT DRIVE in NAME. Hold a chord with the computer keys, turn the knobs, press PLAY | 60 s |
-| S5 | `screen/s5-install.mkv` | With F2 running and the microphone on: clap one time. Click INSTALL, tick the box, NEXT, CONNECT (allow MIDI), NEXT, INSTALL NOW. Wait until the dialog says that it is done | The full install |
+| S1 | `screen/s1-app.mkv` | Open fm1studio.com in a fresh tab; the compiler loads and the demo plays. Click the page, play some notes with the computer keys, turn KNOB 1. **Made by `capture.mjs s1-app`** | 30 s |
+| S2 | `screen/s2-vibe.mkv` | Click VIBE. Click CLEAR. Type the idea (the video plays it at 3.3x). Wait 2 s, then click COPY and wait for the check mark. **Made by `capture.mjs s2-vibe`** | 40 s |
+| S3 | `screen/s3-ai.mkv` | A new chat in your AI. Paste the prompt, send it, let the answer come to its end, and click the copy button of the code block. **By hand** | The full answer |
+| S4 | `screen/s4-paste.mkv` | Back in FM-1 Studio, close the VIBE dialog. Press Ctrl+V outside the editor: the project "no name" compiles and runs. Type NIGHT DRIVE in NAME, COMPILE. Hold chords with the computer keys, press PLAY, turn the knobs. **Made by `capture.mjs s4-paste`** | 60 s |
+| S5 | `screen/s5-install.mkv` | With F2 running and the microphone on: clap one time. Click INSTALL, tick the box, NEXT, CONNECT (allow MIDI), NEXT, INSTALL NOW. Wait until the dialog says that it is done. **By hand**, with the real FM-1 | The full install |
 
 - In S3, hide what is private: the list of your other chats, your name and picture. A real answer of a
   real AI is the honest choice. If the code needed more than one round, show that too (see "Keep it true").
@@ -107,7 +109,7 @@ Record each shot longer than the scene: the timeline picks the part. File names 
 
 | Shot | File | What |
 | --- | --- | --- |
-| A1 | `audio/a1-night-drive.wav` | About 80 s of NIGHT DRIVE as music: a jam from the FM-1's audio output (or from the simulator). It plays under the scenes with captions |
+| A1 | `audio/a1-night-drive.wav` | About 80 s of NIGHT DRIVE as music. It plays under the scenes with captions. **Made by `capture.mjs a1-night-drive`** from the program in the simulator (a jam from the FM-1's audio output can replace it) |
 
 ## Words on the screen
 

@@ -117,14 +117,22 @@
       "id": "app",
       "duration": 6,
       "note": "The app: editor, compiler, simulator",
-      "main": {"source": "screen-app", "in": 0, "view": "full", "viewTo": "app-near"},
-      "texts": [{"text": "Code, compile and play. All in the browser.", "style": "caption", "x": 96, "from": 0.5}]
+      "main": {"source": "screen-app", "in": "play-2.0", "view": "full", "viewTo": "app-near"},
+      "texts": [{"text": "Code, compile and play. All in the browser.", "style": "caption", "x": 96, "from": 0.5}],
+      "audio": {"main": 3}
     },
     {
       "id": "idea",
       "duration": 8,
       "note": "Step 1: the idea in the VIBE dialog",
-      "main": {"source": "screen-vibe", "in": 0, "speed": 2, "view": "vibe-idea"},
+      "main": {
+        "source": "screen-vibe",
+        "in": "vibe-0.6",
+        "speed": 3.3,
+        "view": "full",
+        "viewTo": "vibe-idea",
+        "move": [0, 1.2]
+      },
       "audio": {"music": 1},
       "texts": [{"text": "1", "style": "step", "box": "#f6b31b"}, {"text": "Describe your idea", "style": "caption"}]
     },
@@ -132,11 +140,11 @@
       "id": "prompt",
       "duration": 3,
       "note": "COPY: the prompt has the idea, the rules and fm1.h",
-      "main": {"source": "screen-vibe", "in": 16, "view": "vibe-prompt"},
+      "main": {"source": "screen-vibe", "in": "copy-1.8", "view": "vibe-prompt"},
       "audio": {"main": 0, "music": 1},
       "texts": [
-        {"text": "1", "style": "step", "box": "#f6b31b"},
-        {"text": "Copy the prompt: your idea and the rules of the FM-1", "style": "caption"}
+        {"text": "1", "style": "step", "box": "#f6b31b", "y": 56},
+        {"text": "Copy the prompt: your idea and the rules of the FM-1", "style": "caption", "y": 56}
       ]
     },
     {
@@ -155,7 +163,7 @@
       "id": "paste",
       "duration": 5,
       "note": "Step 3: paste on the page: it compiles and runs",
-      "main": {"source": "screen-paste", "in": 0},
+      "main": {"source": "screen-paste", "in": "paste-1.0"},
       "audio": {"main": 1, "music": 0.4},
       "texts": [
         {"text": "3", "style": "step", "box": "#e2492a"},
@@ -166,8 +174,8 @@
       "id": "play",
       "duration": 10,
       "note": "Play NIGHT DRIVE in the simulator, closer",
-      "main": {"source": "screen-paste", "in": 5, "view": "full", "viewTo": "simulator", "move": [0, 1.5]},
-      "audio": {"main": 1},
+      "main": {"source": "screen-paste", "in": "compiled+0.3", "view": "full", "viewTo": "simulator", "move": [0, 1.5]},
+      "audio": {"main": 0.6},
       "texts": [
         {"text": "3", "style": "step", "box": "#e2492a"},
         {"text": "Play it in the FM-1 simulator", "style": "caption", "from": 0, "to": 9.5}
