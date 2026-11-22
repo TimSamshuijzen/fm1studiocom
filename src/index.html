@@ -10,9 +10,9 @@
     color-scheme: dark;
     --room: #0c0b0a; --mahogany: #5a1d10;
     --panel: #171615; --panel-high: #201e1c; --panel-low: #100f0e;
-    --silk: #ede4cc; --silk-dim: #a89f8b; --silk-faint: #6b655a; --rule: #4a463f;
+    --silk: #ede4cc; --silk-dim: #a89f8b; --rule: #4a463f;
     --stripe-1: #f6b31b; --stripe-2: #f2801f; --stripe-3: #e2492a; --stripe-4: #b8282d;
-    --oled-bg: #020304; --oled: #cdf2ff; --oled-mid: #6fb9d2; --oled-dim: #24414b;
+    --oled-bg: #020304; --oled: #cdf2ff; --oled-mid: #6fb9d2;
     --to-fm1: #ffb347;      /* light of a signal from the program to the FM-1 */
     --to-program: #8fe3ff;  /* light of a signal from the FM-1 to the program */
     --focus: #ffdf76;
@@ -34,6 +34,7 @@
   :focus { outline: none; }
   :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   * { scrollbar-width: thin; scrollbar-color: #2f4a55 transparent; }
+  [hidden] { display: none !important; }
 
   /* The device has a fixed size. fitDevice() in the page script sets --scale, so that the device
      is as large as the window permits. The arrangement of the panels never changes. */
@@ -86,7 +87,6 @@
   }
   .oled-chip { flex: none; font-size: 11px; color: var(--oled-mid); }
   .oled-chip.warn { color: var(--stripe-1); }
-  [hidden] { display: none !important; }
   .oled-input { width: 100%; min-width: 0; user-select: text; -webkit-user-select: text; }
   .oled-input:disabled { color: var(--oled-mid); }
 
@@ -153,7 +153,6 @@
     to { filter: saturate(1.6) brightness(1.2) drop-shadow(0 0 9px var(--glow)); }
   }
   .big-button.green.lit { color: #04260f; text-shadow: none; background: radial-gradient(circle at 50% 42%, #d8ffd9 0%, #4fe07a 38%, #1fa84a 70%, #0f7a31 100%); }
-  @keyframes lit { from { filter: brightness(0.85); } to { filter: brightness(1.1); } }
   .transport { display: grid; align-content: center; justify-items: center; gap: 14px; }  /* a column of big buttons */
   .progress {  /* the progress of a job, below its big button: an estimate (see showProgress()) */
     width: 62px; height: 6px; overflow: hidden; border-radius: 3px; background: var(--oled-bg);
@@ -179,7 +178,6 @@
     font-family: var(--font-panel); font-size: 12px; font-weight: 700; letter-spacing: 0.22em; line-height: 14px;
     color: var(--silk); white-space: nowrap;
   }
-  .legend small { font-size: 9px; letter-spacing: 0.14em; color: var(--silk-faint); }
   .legend::before { content: ""; width: 9px; height: 9px; border-radius: 1px; background: var(--accent); }
   .legend.right { left: auto; right: 12px; }
   .legend.right::before { display: none; }
@@ -188,6 +186,25 @@
   /* ---- Top of the device ---- */
 
   .masthead { display: flex; align-items: center; gap: 20px; min-width: 0; padding: 0 4px; }
+  .masthead .buttons { align-items: center; }
+  .push.github { display: grid; place-items: center; width: 26px; padding: 0; }  /* the GitHub logo, next to ABOUT */
+  .push.github svg { width: 14px; height: 14px; fill: currentColor; }
+  .arcade {  /* VIBE: a green arcade button, with its name on the cap */
+    --edge: #075b3d;
+    position: relative; flex: none; width: 40px; height: 40px; border-radius: 50%;
+    border: 2px solid var(--edge); background: #089d6c;
+    box-shadow: 0 0 0 2px #090909, 0 2px 4px #0009, inset 0 0 0 2px #35ca99;
+  }
+  .arcade span {  /* the cap: it stands up from the ring, and goes down when it is pressed */
+    position: absolute; left: 3px; top: 1px; width: 30px; height: 30px; border-radius: 50%;
+    display: grid; place-items: center; padding-left: 0.12em;  /* the letter spacing after the last letter */
+    border: 1px solid #3ac58e; background: radial-gradient(circle at 38% 30%, #5cd3a3, #089b66 62%, #09603f);
+    box-shadow: 0 3px 0 var(--edge), 0 4px 3px #000a;
+    font-family: var(--font-panel); font-size: 9px; font-weight: 700; letter-spacing: 0.12em;
+    color: #f2fff8; text-shadow: 0 1px 1px #0009;
+    transition: transform 0.06s, box-shadow 0.06s;
+  }
+  .arcade:active span { transform: translateY(2px); box-shadow: 0 1px 0 var(--edge), 0 1px 2px #000a; }
   .logo {
     font-family: var(--font-panel); font-size: 31px; font-weight: 900; font-style: italic; line-height: 1;
     white-space: nowrap; padding-right: 4px; color: transparent; -webkit-background-clip: text; background-clip: text;
@@ -238,28 +255,9 @@
   .project-controls { display: grid; align-content: space-between; }
   .buttons { display: flex; gap: 7px; }
   .buttons .file-buttons { margin-left: auto; }
-  .push.github { display: grid; place-items: center; width: 26px; padding: 0; }  /* the GitHub logo, next to ABOUT */
   /* SAVE: a download, with the symbol of DOWNLOAD (an arrow down to a line) before its name */
   .push.down { display: inline-flex; align-items: center; gap: 5px; }
   .push.down svg { flex: none; width: 10px; height: 10px; fill: currentColor; }
-  .push.github svg { width: 14px; height: 14px; fill: currentColor; }
-  .masthead .buttons { align-items: center; }
-  .arcade {  /* VIBE: a green arcade button, as SMART BOMB of GWAVE (complexity.zone/gwave), with its name on the cap */
-    --edge: #075b3d;
-    position: relative; flex: none; width: 40px; height: 40px; border-radius: 50%;
-    border: 2px solid var(--edge); background: #089d6c;
-    box-shadow: 0 0 0 2px #090909, 0 2px 4px #0009, inset 0 0 0 2px #35ca99;
-  }
-  .arcade span {  /* the cap: it stands up from the ring, and goes down when it is pressed */
-    position: absolute; left: 3px; top: 1px; width: 30px; height: 30px; border-radius: 50%;
-    display: grid; place-items: center; padding-left: 0.12em;  /* the letter spacing after the last letter */
-    border: 1px solid #3ac58e; background: radial-gradient(circle at 38% 30%, #5cd3a3, #089b66 62%, #09603f);
-    box-shadow: 0 3px 0 var(--edge), 0 4px 3px #000a;
-    font-family: var(--font-panel); font-size: 9px; font-weight: 700; letter-spacing: 0.12em;
-    color: #f2fff8; text-shadow: 0 1px 1px #0009;
-    transition: transform 0.06s, box-shadow 0.06s;
-  }
-  .arcade:active span { transform: translateY(2px); box-shadow: 0 1px 0 var(--edge), 0 1px 2px #000a; }
   /* The gallery: a tray with a card for each demo project of this page, then for each firmware on GitHub.
      The tray scrolls sideways: a part of the next card shows at the right edge. The lamp of a card shows
      the card that the project came from. */
@@ -285,6 +283,7 @@
   .card-name i { width: 7px; height: 7px; border-radius: 50%; background: #3b2c10; box-shadow: 0 0 0 1px #000; }
   .card.lit .card-name i { background: var(--accent); box-shadow: 0 0 0 1px #000, 0 0 6px 1px var(--accent); }
   .card.busy .card-name i { background: var(--accent); animation: lit 0.4s ease-in-out infinite alternate; }
+  @keyframes lit { from { filter: brightness(0.85); } to { filter: brightness(1.1); } }
   .card a.push { grid-area: 1 / 2 / span 2; display: grid; place-items: center; width: 22px; height: 20px; padding: 0; }  /* the GitHub logo */
   .card a.push svg { width: 13px; height: 13px; fill: currentColor; }
   .card button.push {  /* LOAD: orange */
@@ -413,9 +412,9 @@
   .key.down { transform: translateY(2px); }
   .key.down .cap { fill: color-mix(in srgb, var(--cap), #000 37%); }
   /* The LEDs light the legends, as on a real FM-1: the text of a button, and the text and the line of a note key,
-     in white (REC in red, PLAY below); the caps stay dark. The page script sets --b on a key: the light of its LED as the eye sees it, 0 dark
-     to 1 fully lit, or var(--breath) while the LED breathes (showLeds). --lit is the colour of the lit legend, --lv
-     how bright it is. */
+     in white (REC in red, PLAY below); the caps stay dark. showLeds() sets --b on a key: the light of its LED as
+     the eye sees it, 0 dark to 1 fully lit, or var(--breath) while the LED breathes. --lit is the colour of the
+     lit legend, --lv how bright it is. */
   .key { --lit: #fff; --lv: var(--b, 0); }
   .key text, .key .rule, .note .led { --glow: color-mix(in srgb, var(--lit) calc(var(--lv) * 100%), transparent); }
   .key text, .key .rule { filter: drop-shadow(0 0 1.5px var(--glow)) drop-shadow(0 0 5px var(--glow)); }
@@ -545,11 +544,11 @@
   }
   #drop-layer:popover-open { display: grid; place-items: center; }
 
-  /* ---- Dialogs (ABOUT, INSTALL and SAVE; VIBE is a device of its own, see below): a modal dialog, in the middle of the window. It is in the
-     device, so that it gets --scale. On a large window it grows with the device. On a small window
-     it does not get smaller than its own size, so that its text stays easy to read: then it takes
-     the room that the window has. Its head is a part of the device. The text below the head is a
-     sheet of paper: dark text on a light background, with the look of a README. ---- */
+  /* ---- Dialogs (ABOUT, INSTALL and SAVE; VIBE is a device of its own, see below): a modal dialog, in the
+     middle of the window. It is in the device, so that it gets --scale. On a large window it grows with the
+     device. On a small window it does not get smaller than its own size, so that its text stays easy to read:
+     then it takes the room that the window has. Its head is a part of the device. The text below the head is
+     a sheet of paper: dark text on a light background, with the look of a README. ---- */
   .dialog {
     position: fixed; inset: 50% auto auto 50%; margin: 0; padding: 0; max-width: none;
     width: min(880px, 100vw - 24px); max-height: min(840px, 100vh - 24px);
@@ -632,7 +631,6 @@
   .dialog-text .check { display: flex; align-items: baseline; gap: 9px; margin-top: 16px; font-weight: 700; cursor: pointer; }
   .dialog-text .check input { flex: none; width: 16px; height: 16px; margin: 0; translate: 0 2px; accent-color: var(--stripe-2); }
   .dialog-text .check:has(input:disabled) { color: var(--ink-dim); cursor: default; }
-  .dialog-text .check[hidden] { display: none; }
   .install .note { margin-top: 18px; }
   .install [data-step="read"] .note, .install [data-step="read"] ul, .install #install-boot-how { font-size: 14px; line-height: 1.5; }
   .install [data-step="read"] code { font-size: 13px; }
@@ -855,7 +853,6 @@
 
         <section class="section firmware" style="--accent: var(--stripe-3)">
           <h2 class="legend">FIRMWARE</h2>
-          <!-- The compiler of the firmware runs in the page: clang and ld.lld for the FM-1, as WebAssembly (fwsc/). -->
           <div class="wasm-badge" role="img" aria-label="WebAssembly compiler" title="The firmware is compiled in this page, for the processor of the FM-1 (JieLi pi32v2).
 Compiler: pi32v2-llvm by Julius Vitkauskas (github.com/jvitkauskas/pi32v2-llvm, Apache-2.0 with LLVM exceptions):
 clang 23.1.5 and ld.lld, release pi32v2-23.1.5-5, built as WebAssembly with Emscripten 7.0.0.
@@ -928,7 +925,6 @@ It runs in a Web Worker; its output is a .fwsc package for a real FM-1.">
             </div>
             <div class="progress" id="compile-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
               aria-label="Compile progress, an estimate" title="Compile progress (an estimate)"><i></i></div>
-            <!-- The compiler of the simulator: pi32v2-llvm with its WebAssembly target, as WebAssembly (fwsc/, run by compiler-worker.js). -->
             <div class="wasm-logo" role="img" aria-label="WebAssembly compiler" title="The program is compiled in this page, to WebAssembly.
 Compiler: pi32v2-llvm by Julius Vitkauskas (github.com/jvitkauskas/pi32v2-llvm, Apache-2.0 with LLVM exceptions):
 clang 23.1.5 and wasm-ld, release pi32v2-23.1.5-5, built as WebAssembly with Emscripten 7.0.0,
@@ -1251,7 +1247,6 @@ Here is fm1.h:
 
 <span data-copy="fm1.h">[COPY puts all of fm1.h here]</span></pre>
         </div>
-        <!-- COPY, then the steps that follow it -->
         <div class="vibe-steps">
           <button class="vibe-copy" id="vibe-copy" title="Copy the prompt, with fm1.h"><svg viewBox="0 0 16 16" aria-hidden="true">
             <g class="copy"><rect x="5.5" y="5.5" width="8.5" height="8.5" rx="1.5"/><path d="M3 10.5V3.5A1.5 1.5 0 0 1 4.5 2H11"/></g>
@@ -8643,6 +8638,7 @@ function readManifest(files) {
   } catch (error) {
     throw new Error(`${MANIFEST}: ${error.message}`);
   }
+  if (manifest === null || typeof manifest !== 'object' || Array.isArray(manifest)) throw new Error(`${MANIFEST}: must be an object.`);
   for (const name of ['sources', 'include', 'define', 'flags']) {
     const list = manifest[name] ?? [];
     if (!Array.isArray(list) || list.some((item) => typeof item !== 'string')) {
@@ -8661,7 +8657,7 @@ function readManifest(files) {
 async function build(files) {
   const manifest = readManifest(files);
   const web = manifest.web != null;
-  const sources = manifest.sources ?? Object.keys(files).filter((path) => SOURCE.test(path)).sort();
+  const sources = manifest.sources?.length ? manifest.sources : Object.keys(files).filter((path) => SOURCE.test(path)).sort();
   if (!sources.length) throw new Error('The project has no .c file.');
   for (const path of sources) {
     if (!/\.c$/i.test(path)) throw new Error(`${path}: the compiler takes C only. It has no C++ library, as the FM-1 has none.`);
@@ -9355,25 +9351,12 @@ licence = "GPL-3.0-only"
 // file names and flags. Thus the package is the same bytes as the one that the firmware's own build
 // makes with this compiler (firmware/web/reference_device.sh makes that one, to compare).
 // Two builds are known:
-//   "dinghy"   the build of AURORA, CS-1, FM-106 and GR!MM (tools/build.py of github.com/twochannels/AURORA
-//              and /CS-1, github.com/PatttF/fm-106 and github.com/GRiMMBIENT/grimm, on the platform Dinghy
-//              of Felucca). FM-106's build has three more things, which "device" turns on: more flags for
-//              the C files, one core, and a boot stub in front of the app. GR!MM's keeps 4 KiB of RAM free
-//              ("ramFree").
-//   "felucca"  the build of Felucca, FMINI-1, SLOOP, SKIFF and JIANT (tools/build.py of github.com/hugelton/
-//              Felucca, github.com/ruppert/fmini-1, github.com/isod89/sloop-fm1, github.com/illuminus5/skiff
-//              and github.com/juanjiant-bit/JIANT, made from Felucca's): the headers in build/gen, the second
-//              core's code, a pass that builds the functions of the main loop for size ("size"; SLOOP's build
-//              has none, SKIFF's also keeps the helpers of its biggest functions out of line: "giants"), and
-//              other memory checks (SLOOP's, SKIFF's and JIANT's keep no RAM free: "ramFree"). Felucca's
-//              hardware layer is in three folders ("hal"): its own firmware/hal, and the chip and board
-//              folders of felucca-bsp. SKIFF's update loader is built at -Oz with its own identity
-//              ("loaderFlags"), and must fit the room that the stock firmware has for it ("loaderMax").
-//              JIANT's size pass has more roots, follows globals, skips attributes and builds event
-//              functions for size ("sizeRoots", "sizeGlobals", "sizeAttributes", "sizeEvents"); its hottest
-//              sound code runs from RAM, and what an interrupt reaches comes first in the image ("hot"); its
-//              app slot is bigger ("appSlot"), and it starts its second core without fm1_cpu1.S.
-// Their steps and checks, but those that need a disassembly: reference_device.sh runs those.
+//   "dinghy"   the build of AURORA, CS-1, FM-106 and GR!MM, on Felucca's platform Dinghy
+//   "felucca"  the build of Felucca, FMINI-1, SLOOP, SKIFF and JIANT: also the headers in build/gen, the
+//              code of the second core, and a pass that builds the functions of the main loop for size
+// The other options of "device" turn on the steps that only some of these firmwares have: fm1.h lists
+// them, and the entries of GITHUB_PROJECTS in the page script show which firmware has which.
+// The checks that need a disassembly are not done here: reference_device.sh runs those.
 
 // LZ4 blocks, the same bytes as tools/lz4blk.py of AURORA writes: a match is looked for only at the
 // last place where its first 4 bytes were.
@@ -10207,8 +10190,10 @@ registerProcessor('fm1', Fm1Processor);
 
 <!-- ==== Page script ==== -->
 <script>
-// Main-thread logic of the FM-1 Studio page. Its parts are in this sequence:
-// project, code editor, log, compiler, firmware, program, FM-1 API, FM-1 simulator.
+// Main-thread logic of the FM-1 Studio page. Its parts are in this sequence: the device size, the ABOUT
+// and VIBE dialogs, the project (with its zip file, a drop or a paste, and the gallery), the code editor,
+// the log, the compiler, the firmware (DOWNLOAD and INSTALL), the program and its board, the FM-1 API,
+// the FM-1 simulator, and the start.
 
 const $ = (id) => document.getElementById(id);
 
@@ -10379,7 +10364,7 @@ vibeCopy.onclick = async () => {
   const done = await copyText(prompt.textContent);
   vibeCopy.lastElementChild.textContent = done ? 'COPIED' : 'FAILED';
   vibeCopy.classList.toggle('copied', done);
-  vibeCopy.classList.toggle('failed', !done);  // red
+  vibeCopy.classList.toggle('failed', !done);
   clearTimeout(vibeCopy.timer);
   vibeCopy.timer = setTimeout(() => {
     vibeCopy.lastElementChild.textContent = 'COPY';
@@ -10420,7 +10405,7 @@ function setChanged(value) {
 function builtFiles() {
   try {
     const { sources } = JSON.parse(project.files.get(MANIFEST));
-    if (Array.isArray(sources)) return new Set(sources);
+    if (Array.isArray(sources) && sources.length) return new Set(sources);
   } catch {
     // There is no fm1project.json, or it is not correct. The compiler gives the message for that.
   }
@@ -10776,15 +10761,15 @@ function showDropLayer(on) {
   if (on) dropLayer.showPopover(); else dropLayer.hidePopover();
 }
 
-// INSTALL and SAVE: the project does not change while their dialog shows it, as with pasted code. The page then
-// takes no drop, and shows no frame.
-const dropRefused = () => install.open || save.open;
+// INSTALL and SAVE show the project in their dialog: while one of them is open, a drop or a paste does not
+// change the project.
+const projectLocked = () => install.open || save.open;
 
 window.addEventListener('dragover', (event) => {
   if (!dragsFiles(event)) return;
   event.preventDefault();
-  event.dataTransfer.dropEffect = dropRefused() ? 'none' : 'copy';
-  showDropLayer(!dropRefused());
+  event.dataTransfer.dropEffect = projectLocked() ? 'none' : 'copy';
+  showDropLayer(!projectLocked());
 });
 
 // The drag goes out of the window when there is no element that it goes to.
@@ -10796,7 +10781,7 @@ window.addEventListener('drop', (event) => {
   if (!dragsFiles(event)) return;
   event.preventDefault();
   showDropLayer(false);
-  if (dropRefused()) return;
+  if (projectLocked()) return;
   const files = [...event.dataTransfer.files];
   const file = files.find((file) => /\.zip$/i.test(file.name) || file.name === 'main.c');
   if (!file) log(`Cannot load ${files[0]?.name ?? 'this'}: only a project zip file or main.c can be dropped here\n`);
@@ -10814,8 +10799,7 @@ window.addEventListener('drop', (event) => {
 document.addEventListener('paste', (event) => {
   const field = ['TEXTAREA', 'SELECT', 'INPUT'].includes(event.target.tagName) && !event.target.readOnly;
   const pasted = event.clipboardData.getData('text/plain');
-  // INSTALL and SAVE: the project does not change while their dialog shows it
-  if (field || install.open || save.open || !pasted.trim()) return;
+  if (field || projectLocked() || !pasted.trim()) return;
   event.preventDefault();
   const blocks = [...pasted.matchAll(/```[^\n]*\n([\s\S]*?)```/g)].map((match) => match[1]);
   const code = blocks.sort((a, b) => b.length - a.length)[0] ?? pasted;
@@ -10997,7 +10981,7 @@ const GITHUB_PROJECTS = [
       flags: ['-std=gnu99', '-w'],
       stack: 1048576,
       web: FELUCCA_WEB,
-      // The firmware build ("device"): the steps of FMini-1's tools/build.py for the FM-1, as its releases are made
+      // The firmware build ("device"): the steps of FMINI-1's tools/build.py for the FM-1, as its releases are made
       // (identity FM-1_900, no --release), with the files of its tools/size_fns.py (SIZE_FILES)
       device: {
         build: 'felucca', name: 'fmini-1-fm1-2.5.12', product: 'FM-1_900', sources: ['firmware/src/felucca.c'],
@@ -11528,10 +11512,9 @@ function highlight(source, json) {
   return html + escapeHtml(source.slice(last));
 }
 
-// The text box shows no text itself: #highlight, below it, shows the same text with colours. It has only
-// the lines in view, and PAINT_MARGIN lines above and below them. A large file, such as one with a table
-// of numbers, has hundreds of thousands of tokens: a span for each would take seconds to lay out, and
-// the page would show nothing in that time.
+// #highlight has only the lines in view, and PAINT_MARGIN lines above and below them. A large file, such
+// as one with a table of numbers, has hundreds of thousands of tokens: a span for each would take seconds
+// to lay out, and the page would show nothing in that time.
 const PAINT_MARGIN = 100;
 const LINE_HEIGHT = parseFloat(getComputedStyle($('source')).lineHeight);  // pixels, the same in #highlight
 let sourceText = '';    // the text in the editor (the text box gives a new copy each time it is asked)
@@ -11635,11 +11618,10 @@ logCopy.onclick = async () => {
 
 // ---- Compiler ----
 
-// The compiler worker starts from inline code, because a page opened from disk cannot load
-// a worker from a file. It gets the address of the compiler (fwsc/) as the constant BASE, and fm1.h,
-// the runtime and the files of web-libc (the web-libc/ blocks) as the constant FILES, in front of its code.
-// The compiler is in the folder fwsc/ next to this page. A page opened from disk cannot fetch a file of
-// its own folder: it loads the same files from fm1studio.com.
+// The compiler worker starts from inline code, because a page opened from disk cannot load a worker from
+// a file. In front of its code it gets two constants: BASE, the address of the compiler (the folder fwsc/
+// next to this page; a page opened from disk cannot fetch the files of its own folder, and loads the same
+// files from fm1studio.com), and FILES: fm1.h, the runtime and the web-libc/ blocks.
 const SITE = location.protocol === 'file:' ? 'https://fm1studio.com/' : location.href;
 const files = { 'fm1.h': text('fm1.h'), 'fm1_runtime.c': text('fm1_runtime.c') };
 for (const block of document.querySelectorAll('script[type="text/plain"][id^="web-libc/"]')) files[block.id] = text(block.id);
@@ -11742,7 +11724,7 @@ function compile() {
   $('log').textContent = '';
   compilingName = project.name || 'project';
   compileStart = Date.now();
-  compileSize = sizeOf(/\.(c|cc|cpp|cxx)$/i);
+  compileSize = sizeOf(SOURCE_FILE);
   compileEstimate = estimateCompile();
   const showTime = () => {
     const seconds = Math.round((Date.now() - compileStart) / 1000);
@@ -12662,11 +12644,14 @@ const panel = $('panel');
 // ---- Keys and buttons ----
 // Key ids as in fm1.h: 0 to 13 are buttons, 14 to 40 are the note keys (F3 to G5).
 
+const BUTTONS = 14;  // FM1_KEY_NOTE0: the key id of note key 0
+const PLAY = 12;     // FM1_BTN_PLAY
+const REC = 13;      // FM1_BTN_REC
 const keyElements = []; // index: key id
 
 function setKey(id, down) {
   keyElements[id].classList.toggle('down', down);
-  sendInput(id < 14 ? 'buttons' : 'notes', { key: id, down });
+  sendInput(id < BUTTONS ? 'buttons' : 'notes', { key: id, down });
 }
 
 // ---- LEDs ----
@@ -12675,7 +12660,7 @@ function setKey(id, down) {
 // id is its green LED). The panel shows each light as the eye sees it: --b on the key (--r for PLAY's red LED).
 
 const PLAY_RED = 41;  // FM1_LED_PLAY_RED
-const LED_COUNT = 42; // FM1_NLED
+const LEDS = 42;      // FM1_NLED
 
 // What the eye sees of a light (a part of fully lit): its lightness, CIE L*, from 0 to 1.
 const seen = (light) => (light > 216 / 24389 ? 1.16 * Math.cbrt(light) - 0.16 : light * 24389 / 2700);
@@ -12702,10 +12687,10 @@ function breathe(now) {
 
 function showLeds(leds = [], low = 0) {
   let breathing = false;
-  for (let id = 0; id < LED_COUNT; id++) {
+  for (let id = 0; id < LEDS; id++) {
     const light = leds[id] ?? 0;
     breathing ||= light < 0;
-    keyElements[id === PLAY_RED ? 12 : id].style.setProperty(id === PLAY_RED ? '--r' : '--b',
+    keyElements[id === PLAY_RED ? PLAY : id].style.setProperty(id === PLAY_RED ? '--r' : '--b',
       light < 0 ? 'var(--breath)' : seen(light).toFixed(3));
   }
   breathLow = low;
@@ -12729,7 +12714,7 @@ function addKey(id, className, x, y, width, height, radius) {
 // The LED of a button lights its text (the styles of .key): REC's in red (.btn.rec), and PLAY's two LEDs light
 // PLAY and STOP (.btn.play).
 function addButton(id, label, x, y, width, height) {
-  const key = addKey(id, id === 12 ? 'btn play' : id === 13 ? 'btn rec' : 'btn', x, y, width, height, 8);
+  const key = addKey(id, id === PLAY ? 'btn play' : id === REC ? 'btn rec' : 'btn', x, y, width, height, 8);
   const lines = label.split('\n');
   lines.forEach((line, i) => svg(key, 'text', { x, y: y + 5 + (2 * i + 1 - lines.length) * 8.5 }, line));
   if (lines.length === 2) svg(key, 'line', { class: 'rule', x1: x - 17, x2: x + 17, y1: y + 0.5, y2: y + 0.5 });
@@ -12749,13 +12734,13 @@ for (let note = 0, whites = 0, blacks = 0, afterWhite = false; note < 27; note++
   const black = [1, 3, 6, 8, 10].includes((FIRST_NOTE + note) % 12);
   const x = 78 + (black ? whites - 0.5 : whites) * KEY_PITCH;
   if (black) {
-    const key = addKey(14 + note, 'note', x, 419.5, 54, 93, 27);
+    const key = addKey(BUTTONS + note, 'note', x, 419.5, 54, 93, 27);
     const label = UPPER_LABELS[blacks++];
     svg(key, 'rect', { class: 'led', x: x - 2.5, y: label ? 397 : 393, width: 5, height: label ? 28 : 54, rx: 2.5 });
     if (label) svg(key, 'text', { x, y: 444 }, label);
   } else {
     if (afterWhite) svg(panel, 'circle', { class: 'dot', cx: x - KEY_PITCH / 2, cy: 472.5, r: 2.5 });
-    const key = addKey(14 + note, 'note', x, 526.5, 50, 97, 25);
+    const key = addKey(BUTTONS + note, 'note', x, 526.5, 50, 97, 25);
     svg(key, 'rect', { class: 'led', x: x - 2.5, y: 498, width: 5, height: 54, rx: 2.5 });
     whites++;
   }
@@ -12767,7 +12752,7 @@ for (let note = 0, whites = 0, blacks = 0, afterWhite = false; note < 27; note++
 const COMPUTER_KEYS = { KeyZ: 0, KeyX: 1 }; // event.code -> key id
 ['KeyA', 'KeyW', 'KeyS', 'KeyE', 'KeyD', 'KeyF', 'KeyT', 'KeyG', 'KeyY', 'KeyH', 'KeyU', 'KeyJ',
   'KeyK', 'KeyO', 'KeyL', 'KeyP', 'Semicolon', 'Quote']
-  .forEach((code, i) => { COMPUTER_KEYS[code] = 14 + 60 - FIRST_NOTE + i; });
+  .forEach((code, i) => { COMPUTER_KEYS[code] = BUTTONS + 60 - FIRST_NOTE + i; });  // 60: MIDI number of C4
 
 const heldCodes = new Set(); // the computer keys that hold a panel key down
 
