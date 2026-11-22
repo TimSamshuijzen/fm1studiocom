@@ -864,7 +864,7 @@ It runs in a Web Worker; its output is a .fwsc package for a real FM-1.">
             <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M0 0H37A13 13 0 0 0 63 0H100V100H0Z"/><text x="96" y="94">WA</text></svg>
           </div>
           <div class="transport">
-            <button class="big-button amber down" id="download" title="Build and download project as a .fwsc package. You can load this .fwsc package onto your FM-1 with M-Flasher, at your own risk. Make sure you have m-bootloader installed on your device first."><i></i>DOWNLOAD</button>
+            <button class="big-button amber down" id="download" title="Build and download project as a .fwsc package. You can load this .fwsc package onto your FM-1 with M-Flasher, at your own risk."><i></i>DOWNLOAD</button>
             <button class="big-button red send" id="install-open" title="Install the program of the project on a real FM-1 over USB, at your own risk. A dialog shows the steps." aria-haspopup="dialog"><i></i>INSTALL</button>
             <div class="progress" id="firmware-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
               aria-label="Firmware progress, an estimate" title="Firmware progress (an estimate)"><i></i></div>
@@ -873,6 +873,7 @@ It runs in a Web Worker; its output is a .fwsc package for a real FM-1.">
 
         <section class="section log-section" style="--accent: var(--stripe-4)">
           <h2 class="legend">LOG</h2>
+          <div class="legend right"><button class="push" id="log-copy" title="Copy the text of the log">COPY</button></div>
           <pre class="oled" id="log" aria-label="Log"></pre>
         </section>
 
@@ -10361,7 +10362,8 @@ async function copyText(value) {
   } catch {  // no clipboard API here: copy from a text box
     const area = Object.assign(document.createElement('textarea'), { value });
     area.style.cssText = 'position: fixed; opacity: 0;';
-    vibe.append(area);  // in the dialog: the page outside a modal dialog cannot be used
+    // in the open dialog, if there is one: the page outside a modal dialog cannot be used
+    (document.querySelector('dialog[open]') ?? document.body).append(area);
     area.select();
     const done = document.execCommand('copy');
     area.remove();
@@ -11619,11 +11621,17 @@ $('source').onkeydown = (event) => {
 
 // ---- Log ----
 
-// Adds text to the display of the LOG panel, and shows its end.
 function log(text) {
   $('log').textContent += text;
   $('log').scrollTop = $('log').scrollHeight;
 }
+
+const logCopy = $('log-copy');
+logCopy.onclick = async () => {
+  logCopy.textContent = (await copyText($('log').textContent)) ? 'COPIED' : 'FAILED';
+  clearTimeout(logCopy.timer);
+  logCopy.timer = setTimeout(() => { logCopy.textContent = 'COPY'; }, 2000);
+};
 
 // ---- Compiler ----
 
