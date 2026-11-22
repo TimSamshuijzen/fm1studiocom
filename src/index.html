@@ -442,6 +442,9 @@
   .btn.play text:first-of-type { --lit: var(--play); }
   .btn.play text:last-of-type { --lit: var(--stop); }
   .btn.play .rule { --lit: color-mix(in srgb, var(--play), var(--stop)); }
+  /* The computer key that plays a key, small, at the bottom of its cap. It is not printed on the device: no LED
+     lights it. */
+  .key text.shortcut { font: 600 9px var(--font-mono); fill: var(--ink); opacity: 0.45; filter: none; }
 
   /* ---- FM-1 API: one lane for each signal between the program and the FM-1 ---- */
 
@@ -12753,6 +12756,16 @@ const COMPUTER_KEYS = { KeyZ: 0, KeyX: 1 }; // event.code -> key id
 ['KeyA', 'KeyW', 'KeyS', 'KeyE', 'KeyD', 'KeyF', 'KeyT', 'KeyG', 'KeyY', 'KeyH', 'KeyU', 'KeyJ',
   'KeyK', 'KeyO', 'KeyL', 'KeyP', 'Semicolon', 'Quote']
   .forEach((code, i) => { COMPUTER_KEYS[code] = BUTTONS + 60 - FIRST_NOTE + i; });  // 60: MIDI number of C4
+
+// Each key that a computer key plays shows the name of that key at the bottom of its cap: on a note key in the
+// middle, on a button (its legend fills the middle) at the right.
+const KEY_NAMES = { Semicolon: ';', Quote: "'" };  // the others: "KeyA" -> "A"
+for (const [code, id] of Object.entries(COMPUTER_KEYS)) {
+  const cap = keyElements[id].querySelector('.cap');
+  const [x, y, width, height] = ['x', 'y', 'width', 'height'].map((name) => +cap.getAttribute(name));
+  const at = id < BUTTONS ? { x: x + width - 8, y: y + height - 4 } : { x: x + width / 2, y: y + height - 5 };
+  svg(keyElements[id], 'text', { class: 'shortcut', ...at }, KEY_NAMES[code] ?? code.slice(3));
+}
 
 const heldCodes = new Set(); // the computer keys that hold a panel key down
 
