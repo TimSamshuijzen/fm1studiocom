@@ -821,7 +821,7 @@
         <section class="section project" style="--accent: var(--stripe-1)">
           <h2 class="legend">PROJECT</h2>
           <div class="project-controls">
-            <label class="field">NAME <input class="oled-input" id="project-name" spellcheck="false" autocomplete="off"></label>
+            <label class="field">NAME <input class="oled-input" id="project-name" title="The name of the project" spellcheck="false" autocomplete="off"></label>
             <div class="buttons">
               <button class="push" id="project-new" title="Start again with the startup demo project">NEW</button>
               <button class="push" id="project-load" title="Load a project from a zip file (or drop the zip file, or a file main.c, on the page)">LOAD</button>
@@ -10531,10 +10531,44 @@ function newProject() {
 
 const canReplace = () => !changed || confirm('The project has changes that are not saved. Discard them?');
 
-$('project-name').oninput = () => {
+// The name of a project is also the name on the start screen of a real FM-1. The large font there has capitals,
+// digits, space, + and -, and the name has 14 characters at most (build() of firmware-worker.js, as
+// firmware/make_app.py). So the NAME field takes letters, digits, space, + and -: the FM-1 shows the letters as
+// capitals.
+const NAME_MAX = 14;
+const NAME_OTHER = /[^A-Za-z0-9 +-]/g;  // the characters that a name cannot have
+
+// The name from a file name (LOAD): a space for each character that a name cannot have, as build() of
+// firmware-worker.js makes the name on the start screen, but with the small letters.
+const nameOf = (text) => text.replace(NAME_OTHER, ' ').replace(/ +/g, ' ').trim().slice(0, NAME_MAX).trim();
+
+// The name of the files of the project (SAVE) and of its package (DOWNLOAD, INSTALL). A name without a letter or a
+// digit gives "project".
+const fileName = () => (/[A-Za-z0-9]/.test(project.name) ? project.name : 'project');
+
+// Removes the characters that a name cannot have from the NAME field, also from pasted text, and keeps the name to
+// NAME_MAX characters: of the text that came in (before the cursor), the end that does not fit is cut. The cursor
+// stays after that text. Not during the input of an input method (IME): its text is complete at compositionend.
+// (The field has no maxlength: the browser would cut a paste before the other characters are removed.)
+function cleanNameField() {
+  const field = $('project-name');
+  const caret = field.selectionStart;
+  const after = field.value.slice(caret).replace(NAME_OTHER, '');
+  const before = field.value.slice(0, caret).replace(NAME_OTHER, '').slice(0, Math.max(0, NAME_MAX - after.length));
+  if (before + after === field.value) return;
+  field.value = before + after;
+  field.setSelectionRange(before.length, before.length);
+}
+
+$('project-name').oninput = (event) => {
+  if (!event.isComposing) cleanNameField();
   project.name = $('project-name').value.trim();
   setChanged(true);
 };
+$('project-name').addEventListener('compositionend', () => {
+  cleanNameField();
+  project.name = $('project-name').value.trim();
+});
 
 $('project-new').onclick = () => {
   if (!canReplace()) return;
@@ -10663,7 +10697,7 @@ async function zipRead(buffer) {
 function saveZip() {
   const link = document.createElement('a');
   link.href = URL.createObjectURL(zipWrite(project.files));
-  link.download = `${project.name.replace(/[\\/:*?"<>|]/g, '') || 'project'}.zip`;
+  link.download = `${fileName()}.zip`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(link.href), 10000);
   setChanged(false);
@@ -10698,7 +10732,8 @@ $('project-load').onclick = () => { if (canReplace()) $('project-file').click();
 // Replaces the project with that of a zip file (a File).
 async function loadZip(file) {
   try {
-    setProject(file.name.replace(/\.zip$/i, ''), await zipRead(await file.arrayBuffer()));
+    // The name of the zip file is the name of the project, with a space for each character that a name cannot have.
+    setProject(nameOf(file.name.replace(/\.zip$/i, '')), await zipRead(await file.arrayBuffer()));
     compileNew();
   } catch (error) {
     log(`Cannot load ${file.name}: ${error.message}\n`);
@@ -11887,7 +11922,7 @@ function makeFirmware(download = false) {
   // The name of the zip file gives the name of the firmware, as with firmware/build.sh.
   firmware.postMessage({
     files: Object.fromEntries(project.files),
-    zip: `${project.name.replace(/[\\/:*?"<>|]/g, '') || 'project'}.zip`,
+    zip: `${fileName()}.zip`,
   });
   return new Promise((resolve) => { firmwareDone = resolve; });
 }

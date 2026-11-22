@@ -72,6 +72,9 @@ and runs it. Browsers block sound until a click or a key press, so click the pag
 | MIDI | The MIDI IN button asks the browser for permission |
 
 A project is a name and a set of text files. SAVE downloads it as a zip file and LOAD reads one back.
+The name (NAME) has letters, digits, space, `+` and `-`, 14 characters at most: a real FM-1 shows it in
+capitals on its start screen. It also gives the names of the zip file and of the package. A loaded zip
+file gives its name, with a space for each other character.
 For a firmware of the gallery, SAVE first opens a dialog: CONFIRM that the firmware is the work of its
 authors and that you keep to its licence, and the zip file downloads; CANCEL saves nothing. DOWNLOAD and
 INSTALL ask the same.
@@ -149,7 +152,8 @@ mistakes: test the program in the simulator, and read "On a real FM-1" before yo
 
 The DOWNLOAD button makes a `.fwsc` package of the project with the firmware compiler, and downloads it.
 It uses the compiler that the page loaded for COMPILE: a package takes some seconds. The NAME of the
-project gives the name on the FM-1's start screen. An adapter makes the functions of `fm1.h` from
+project gives the name on the FM-1's start screen, and of the package (a name without a letter or a digit
+gives "project"). An adapter makes the functions of `fm1.h` from
 [fm1-base](https://github.com/charlesvestal/fm1-base) and felucca-bsp. The program must be C, with `float`
 and no `double`; the LOG panel tells when a program does not fit the FM-1.
 
