@@ -169,8 +169,9 @@ that SAVE gives), with JieLi's own compiler: `firmware\build.cmd PROJECT.zip` on
 
 #### Install the package
 
-The INSTALL button builds the project and writes the package to an FM-1, over USB MIDI. A dialog shows
-the steps:
+The INSTALL button builds the project and writes the package to an FM-1, over USB MIDI. Its dialog is a
+device of its own, with a panel for each step, from left to right. A step can be done when the step
+before it is done:
 
 1. **Read.** The page makes the package of the project and checks it. You read what an install does,
    and agree. For a firmware of the gallery, you also agree that it is the work of its authors and that
@@ -190,14 +191,16 @@ the steps:
    kind of message, and some of its commands erase the flash.
 3. **Install.** INSTALL NOW starts the install. The firmware on the FM-1 checks the package and starts
    the update loader of the package. The loader writes the program, and the FM-1 starts again. The
-   page then asks the FM-1 for its identity and compares it with the package. The dialog shows these
-   stages, a light that blinks with the messages of the FM-1, and the time since its last message.
+   page then asks the FM-1 for its identity and compares it with the package. The panel shows these
+   stages, each with a lamp, the progress, the time of the install, the data that the FM-1 asked for,
+   the time since its last message, and a light (DATA) that blinks with its messages.
 
 The button needs Chrome or Edge (Web MIDI), and the page from `https:` or `localhost`. Do not disconnect
 the cable during the install, and keep the page in front: the installer waits with timers, and a browser
 slows down the timers of a page that is not in front, so that the install can take much longer, or stop.
-During the install, the page keeps the screen of the computer on (when the browser allows it), the title
-of the page shows the progress, and the dialog tells how long the page was not in front. An install that stops after the FM-1 went to update mode can continue:
+During the install, a red bar below the head of the dialog says DO NOT DISCONNECT · KEEP THIS PAGE IN
+FRONT, the page keeps the screen of the computer on (when the browser allows it), the title of the page
+shows the progress, and the dialog tells how long the page was not in front (AWAY). An install that stops after the FM-1 went to update mode can continue:
 connect the cable again and go through the steps again. The code that talks to the FM-1 is fm1-base's
 own installer, not changed: [src/install/README.md](src/install/README.md). INSTALL is off while a
 firmware of the gallery is open that the firmware compiler cannot build (see "The gallery's firmware on a
