@@ -132,8 +132,8 @@ a real FM-1:
 
 ### Vibe coding
 
-You do not have to write the program yourself. The VIBE button tells how an AI chat can
-write it: you describe a synth, a piece or a game, and the AI writes `main.c`.
+You do not have to write the program yourself. The VIBE button makes a prompt for an AI chat
+from your idea: you describe a synth, a piece or a game, and the AI writes `main.c`.
 
 1. Write the idea in the dialog, or start from one of its examples: DRUM-1, STRING-1, PIECE-1 or GAME-2.
 2. COPY the prompt, and give it to an AI chat. Use a strong AI model: a weaker one makes more mistakes.
