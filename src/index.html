@@ -654,7 +654,7 @@
   .vibe .tagline { color: var(--vink-dim); }
   .vibe-panel {  /* a panel: a printed frame, with its name on the frame */
     position: relative; min-width: 0; min-height: 0; margin: 0; padding: 24px 18px 14px;
-    display: grid; grid-template-rows: 34px minmax(0, 1fr) 52px; row-gap: 18px;
+    display: grid; grid-template-rows: 34px minmax(0, 1fr) 79px; row-gap: 18px;
     border: 1.5px solid var(--vrule); border-radius: 9px;
   }
   .vibe-legend {
@@ -665,8 +665,13 @@
   .vibe-legend::before { content: ""; width: 10px; height: 10px; border-radius: 1px; background: var(--accent); box-shadow: 0 0 0 1px #0002; }
   .vibe-row { display: flex; align-items: center; gap: 9px; margin: 0; }
   .vibe-caption, .vibe-hint { margin: 0; align-self: center; font: 14px/1.4 var(--font-label); color: var(--vink-dim); }
-  .vibe-caption { line-height: 17px; }  /* two lines in the height of the keys of the examples */
+  .vibe-caption { line-height: 17px; }
   .vibe-caption strong { color: var(--vink); }
+  /* The bottom row of a panel: the steps after COPY (52 px high), with a line below them. The hint of the idea is
+     in the middle of the height of the steps. */
+  .vibe-end { display: grid; grid-template-rows: 52px auto; row-gap: 10px; align-content: start; min-width: 0; }
+  .vibe-end .vibe-caption { align-self: start; padding-left: 148px; }  /* below the text of the first step: COPY, the arrow, the gap */
+  .vibe-hint { align-self: start; margin-top: 6px; }
   /* The keys of the examples: dark caps, as on the FM-1. The legend of the example that the display shows is lit. */
   .vibe-key {
     flex: none; height: 34px; padding: 0 12px 0 13px; border-radius: 6px; white-space: nowrap;  /* DRUM-1: no break at the hyphen */
@@ -685,6 +690,7 @@
     box-shadow: 0 0 0 1px #9b9384, 0 1px 0 1px #fffc, inset 0 2px 4px #00000024;
   }
   .vibe-screen:has(textarea:focus) { box-shadow: 0 0 0 1px #9b9384, 0 0 0 3px var(--stripe-1), inset 0 2px 4px #00000024; }
+  .vibe-screen.prompt-screen { background: #f8f6f1; }  /* the prompt is read only: a little darker than the idea */
   .vibe-screen textarea, .vibe-screen pre {
     margin: 0; padding: 14px 18px; border: 0; border-radius: inherit; overflow-y: auto; resize: none; background: none;
     white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text;
@@ -1438,9 +1444,8 @@ void loop(void) { }                         /* again and again: controls and scr
 
       <section class="vibe-panel" style="--accent: var(--stripe-3)" aria-labelledby="vibe-prompt-title">
         <h3 class="vibe-legend" id="vibe-prompt-title">PROMPT</h3>
-        <p class="vibe-caption">Your idea, the rules of the FM-1 and all of fm1.h: what the AI needs to know.<br>
-          <strong>Use a strong AI model</strong>: a weaker one makes more mistakes.</p>
-        <div class="vibe-screen">
+        <p class="vibe-caption">Your idea, the rules of the FM-1 and all of fm1.h: what the AI needs to know.</p>
+        <div class="vibe-screen prompt-screen">
 <pre id="vibe-prompt" tabindex="0" aria-label="The prompt">Write a program for the M-VAVE FM-1 that does my idea, for FM-1 Studio (<span data-fill="site"></span>). I test it there.
 
 My idea: <mark data-fill="idea"></mark>
@@ -1455,15 +1460,18 @@ Here is fm1.h:
 
 <span data-copy="fm1.h">[COPY puts all of fm1.h here]</span></pre>
         </div>
-        <div class="vibe-steps">
-          <button class="vibe-copy" id="vibe-copy" title="Copy the prompt, with fm1.h"><svg viewBox="0 0 16 16" aria-hidden="true">
-            <g class="copy"><rect x="5.5" y="5.5" width="8.5" height="8.5" rx="1.5"/><path d="M3 10.5V3.5A1.5 1.5 0 0 1 4.5 2H11"/></g>
-            <path class="done" d="M2.5 8.5l3.5 3.5 7.5-8"/></svg><span>COPY</span></button>
-          <ol>
-            <li><span>Paste it in a new AI chat, and send it.</span></li>
-            <li><span>Copy the code of the answer.</span></li>
-            <li><span>Press <kbd>Ctrl</kbd>+<kbd>V</kbd> or drop main.c here to play it.</span></li>
-          </ol>
+        <div class="vibe-end">
+          <div class="vibe-steps">
+            <button class="vibe-copy" id="vibe-copy" title="Copy the prompt, with fm1.h"><svg viewBox="0 0 16 16" aria-hidden="true">
+              <g class="copy"><rect x="5.5" y="5.5" width="8.5" height="8.5" rx="1.5"/><path d="M3 10.5V3.5A1.5 1.5 0 0 1 4.5 2H11"/></g>
+              <path class="done" d="M2.5 8.5l3.5 3.5 7.5-8"/></svg><span>COPY</span></button>
+            <ol>
+              <li><span>Paste it in a new AI chat, and send it.</span></li>
+              <li><span>Copy the code of the answer.</span></li>
+              <li><span>Press <kbd>Ctrl</kbd>+<kbd>V</kbd> or drop main.c here to play it.</span></li>
+            </ol>
+          </div>
+          <p class="vibe-caption"><strong>Use a strong AI model</strong>: a weaker one makes more mistakes.</p>
         </div>
       </section>
 
