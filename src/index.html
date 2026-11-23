@@ -656,6 +656,48 @@
   .dialog-text .state.bad { color: #ffb4a6; }
   .dialog-text .state.good { color: #9dffb4; }
   .dialog-text .progress { width: 100%; height: 12px; margin: 0 0 12px; border-radius: 6px; }
+  /* During an install (the step 'write'): the bar below the head tells to stay, and the border of the dialog
+     pulses in red. After the install the bar tells how it ended: green when it is done. */
+  .install-alarm {
+    flex: none; margin: 0; padding: 9px 22px; text-align: center; color: #fff; background: #8e110a;
+    font: 700 13px/1.4 var(--font-panel); letter-spacing: 0.12em;
+  }
+  .install-alarm.done { background: #1f8039; }
+  .install.writing { animation: install-pulse 0.7s ease-in-out infinite alternate; }
+  .install.writing .install-alarm { animation: install-alarm 0.7s ease-in-out infinite alternate; }
+  @keyframes install-pulse {
+    from { border-color: #5a1a12; }
+    to { border-color: #ff3b24; box-shadow: 0 0 0 1px #000, 0 0 28px #ff3b24a0, 0 30px 60px #000c; }
+  }
+  @keyframes install-alarm { from { background: #8e110a; } to { background: #d12a1c; } }
+  @media (prefers-reduced-motion: reduce) {
+    .install.writing { animation: none; border-color: #ff3b24; }
+    .install.writing .install-alarm { animation: none; background: #b01a10; }
+  }
+  .install .note.away { margin-top: 12px; border-left-color: #c0392b; background: #fbdcd6; font-weight: 700; }
+  /* The stages of the install: a number, a ring that turns for the stage that runs now, a tick when it is done */
+  .dialog-text .stages { margin: 18px 0 14px; padding: 0; list-style: none; counter-reset: stage; font-size: 15px; }
+  .dialog-text .stages li { display: flex; align-items: center; gap: 10px; margin: 5px 0; color: var(--ink-dim); counter-increment: stage; }
+  .dialog-text .stages li::before {
+    content: counter(stage); flex: none; display: grid; place-items: center; box-sizing: border-box; width: 20px; height: 20px;
+    border-radius: 50%; background: var(--paper-rule); color: var(--paper); font: 700 11px/1 var(--font-panel);
+  }
+  .dialog-text .stages li.current { color: var(--ink); font-weight: 700; }
+  .dialog-text .stages li.current::before {
+    content: ""; border: 3px solid var(--paper-rule); border-top-color: var(--stripe-2); background: none;
+    animation: stage-turn 0.8s linear infinite;
+  }
+  @keyframes stage-turn { to { rotate: 360deg; } }
+  .dialog-text .stages li.done::before { content: "✓"; background: #6d9c63; }
+  .dialog-text .stages li.skipped::before { content: "–"; background: #b3ab9b; }  /* an install that continues */
+  .dialog-text .stages li.failed { color: #a3261b; font-weight: 700; }
+  .dialog-text .stages li.failed::before { content: "✕"; background: #c0392b; }
+  @media (prefers-reduced-motion: reduce) { .dialog-text .stages li.current::before { animation: none; border-color: var(--stripe-2); } }
+  /* The activity of the FM-1: a light that blinks while it asks for data, and a line of numbers */
+  .install .activity { display: flex; align-items: center; gap: 10px; margin: 0 0 4px; font: 13px/1.5 var(--font-mono); color: var(--ink-dim); }
+  .install .activity i { flex: none; width: 10px; height: 10px; border-radius: 50%; background: #c9c1b0; box-shadow: inset 0 1px 1px #0004; }
+  .install .activity i.on { background: #2fd35c; box-shadow: 0 0 7px #2fd35c; }
+  .install #install-awake { margin: 0 0 12px; }
   .dialog-text .ports { margin: 0 0 12px; padding: 0; list-style: none; }
   .dialog-text .ports li { display: flex; align-items: center; gap: 12px; margin: 6px 0; }
   .dialog-text .ports .push { height: 24px; padding: 0 12px; font-size: 10px; }
@@ -1300,6 +1342,9 @@ Rules for the program:
       <div class="stripes"><i></i><i></i><i></i><i></i></div>
       <button class="push" id="install-close" title="Close (Esc)">CLOSE</button>
     </header>
+    <!-- During an install, and after it: a bar below the head that does not scroll. It tells to stay with the
+         install, and then how it ended (showAlarm()). -->
+    <p class="install-alarm" id="install-alarm" role="status" hidden></p>
 
     <div class="dialog-text" id="install-text" tabindex="0">
       <ol class="steps" id="install-steps" aria-label="Steps of the install">
@@ -1408,8 +1453,23 @@ PLAY: BACK</pre>
           <strong>Keep this page in front, and wait.</strong> Do not go to another tab or window until the
           install is done: the browser slows down a page that is not in front, and the install can then take
           much longer, or stop.</p>
+        <!-- When the page was not in front during the install: for how long (showAway()). -->
+        <p class="note away" id="install-away" role="alert" hidden></p>
+        <!-- The stages of the install, as the installer tells them: the page script marks the stage that runs now,
+             and those that are done (showStage()). -->
+        <ol class="stages" id="install-stages" aria-label="Stages of the install">
+          <li data-stage="check">The FM-1 checks the package</li>
+          <li data-stage="loader">The FM-1 starts again in update mode (up to 30 s)</li>
+          <li data-stage="write">The update loader writes the program</li>
+          <li data-stage="reboot">The FM-1 starts again with the new program (up to 40 s)</li>
+          <li data-stage="identity">The page checks the identity of the FM-1</li>
+        </ol>
         <div class="progress" id="install-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
           aria-label="Install progress"><i></i></div>
+        <!-- During the install: a light that blinks while the FM-1 asks for data, and a line with the time since its
+             last message, the data that it got, and the time of the install (showActivity()). -->
+        <p class="activity" id="install-activity" hidden><i id="install-led"></i><span id="install-activity-text"></span></p>
+        <p class="small" id="install-awake" hidden>The screen of this computer stays on until the install is done.</p>
         <p class="state" id="install-state" role="status">Nothing is written yet.</p>
         <p class="actions">
           <button class="push go" id="install-go">INSTALL NOW</button>
@@ -11901,6 +11961,7 @@ function showInstallStep(step) {
   const at = step === 'end' ? steps.length : steps.findIndex((item) => item.dataset.step === step);
   steps.forEach((item, i) => { item.className = i < at ? 'done' : i === at ? 'current' : ''; });
   if (step === 'end') return;
+  showAlarm(null);  // the bar of the last install
   for (const part of install.querySelectorAll('section')) part.hidden = part.dataset.step !== step;
   $('install-text').scrollTop = 0;
 }
@@ -12150,9 +12211,174 @@ $('install-ready').onclick = () => {
   $('install-warning').hidden = $('install-go').hidden = false;
   $('install-go').disabled = false;
   $('install-again').hidden = $('install-done').hidden = true;
+  $('install-away').hidden = $('install-activity').hidden = $('install-awake').hidden = true;
+  showStage(null);
   showInstallStep('write');
 };
 $('install-done').onclick = () => install.close();  // the install is done
+
+// ---- During the install: what keeps the user with it ----
+// The installer waits with timers: a pause before each answer of the check (stage 1), and a search for the FM-1
+// once a second, for 30 s or 40 s, each time that the FM-1 starts again. A browser slows down the timers of a page
+// that is not in front (Chrome: to once a second, and after 5 minutes to once a minute): the install can then take
+// much longer, or stop. A computer that goes to sleep can lose the USB connection. Thus, during an install:
+//   - the screen stays on (Screen Wake Lock, which Chrome and Edge give without a question to the user);
+//   - the title of the page shows the progress, and asks the user to come back when the page is not in front;
+//   - when the user comes back, a note tells how long the page was not in front;
+//   - the dialog shows a bar that tells to stay, its border pulses, and it shows the stages of the install and a
+//     light that blinks with the messages of the FM-1.
+
+const PAGE_TITLE = document.title;
+const stay = {
+  part: 0,          // the progress of the install, 0 to 1, for the title
+  result: '',       // the title after an install that ended while the page was not in front, until it is in front
+  awayFrom: 0,      // when the page went out of view during the install (Date.now()), or 0
+  awayMs: 0,        // how long the page was out of view during this install
+  awayCount: 0,     // how many times
+  lock: null,       // the wake lock that keeps the screen on, or null
+  asking: false,    // a wake lock was asked for, and did not come yet
+};
+
+// A time in minutes and seconds: "1:07".
+const minutesSeconds = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
+
+// The title of the page, in its tab and in the taskbar: the progress during an install.
+function showTitle() {
+  const percent = Math.floor(stay.part * 100);
+  document.title = installer.writing
+    ? (document.hidden ? `⚠ ${percent}% INSTALLING – come back to this tab` : `${percent}% INSTALLING · ${PAGE_TITLE}`)
+    : (document.hidden && stay.result) || PAGE_TITLE;
+}
+
+// Keeps the screen on during the install. The browser lets go of the lock when the page is not in front: it is
+// asked for again when the page is in front again.
+async function keepAwake() {
+  if (!installer.writing || document.hidden || stay.lock || stay.asking || !navigator.wakeLock) return;
+  stay.asking = true;
+  try {
+    const lock = await navigator.wakeLock.request('screen');
+    if (installer.writing) {
+      stay.lock = lock;
+      lock.addEventListener('release', () => {
+        if (stay.lock === lock) stay.lock = null;
+        $('install-awake').hidden = !stay.lock;
+      });
+    } else lock.release();  // the install ended in the meantime
+  } catch {
+    // The browser did not give the lock (to save the battery, for example): the screen can go off.
+  }
+  stay.asking = false;
+  $('install-awake').hidden = !stay.lock;
+}
+
+function letSleep() {
+  const lock = stay.lock;
+  stay.lock = null;
+  lock?.release();
+  $('install-awake').hidden = true;
+}
+
+// The note after the page was out of view during the install.
+function showAway() {
+  const time = minutesSeconds(stay.awayMs);
+  $('install-away').textContent = (stay.awayCount === 1 ? `You left this page for ${time} during the install.`
+    : `You left this page ${stay.awayCount} times during the install, for ${time} in all.`) +
+    (installer.writing ? ' The browser slows down a page that is not in front: keep this page in front until the install is done.' : '');
+  $('install-away').hidden = false;
+  $('install-away').scrollIntoView({ block: 'nearest' });
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (installer.writing) {
+      stay.awayFrom = Date.now();
+      stay.awayCount++;
+    }
+  } else {
+    stay.result = '';
+    if (stay.awayFrom) {
+      stay.awayMs += Date.now() - stay.awayFrom;
+      stay.awayFrom = 0;
+      showAway();
+    }
+    keepAwake();
+  }
+  showTitle();
+});
+
+// The bar below the head of the dialog: 'writing' (and the border pulses), 'done', 'failed', or null: no bar.
+const ALARMS = {
+  writing: 'DO NOT DISCONNECT · KEEP THIS PAGE IN FRONT',
+  done: 'DONE · THE FM-1 RUNS THE NEW PROGRAM',
+  failed: 'THE INSTALL DID NOT END AS EXPECTED · READ THE TEXT BELOW',
+};
+function showAlarm(kind) {
+  const bar = $('install-alarm');
+  bar.textContent = ALARMS[kind] ?? '';
+  bar.className = `install-alarm ${kind ?? ''}`;
+  bar.hidden = !kind;
+  install.classList.toggle('writing', kind === 'writing');
+}
+
+// The stages of the install (#install-stages): those before `stage` are done, `stage` runs now (or failed), the
+// others wait. 'end': all are done; null: none started. A stage that an install that continues does not do is
+// 'skipped', and stays so.
+const STAGES = [...$('install-stages').children];
+let installStage = null;  // the stage that runs now
+function showStage(stage, failed = false) {
+  installStage = stage;
+  const at = stage === null ? -1 : stage === 'end' ? STAGES.length : STAGES.findIndex((item) => item.dataset.stage === stage);
+  STAGES.forEach((item, i) => {
+    if (stage === null) item.removeAttribute('title');
+    else if (item.classList.contains('skipped')) return;
+    item.className = i < at ? 'done' : i === at ? (failed ? 'failed' : 'current') : '';
+  });
+}
+
+// The activity of the FM-1 (#install-activity): the messages of the update protocol (SysEx with 00 59 and a
+// command) that come on the MIDI inputs, which the page hears beside the installer. A request (command 0x30) tells
+// how many bytes the FM-1 asks for: the installer sends them.
+const activity = { start: 0, last: 0, messages: 0, seen: 0, bytes: 0, timer: 0 };
+const heard = new Set();  // the MIDI inputs that the page listens to during the install
+const calm = matchMedia('(prefers-reduced-motion: reduce)');
+function hearFm1({ data }) {
+  if (data[0] !== 0xF0 || data[data.length - 1] !== 0xF7) return;
+  const u = installer.code.unpack7(data.subarray(1, -1));
+  if (u[0] !== 0 || u[1] !== 0x59) return;
+  activity.last = Date.now();
+  activity.messages++;
+  if (u[2] === 0x30 && u.length === 15) activity.bytes += u[11] | u[12] << 8 | u[13] << 16;
+}
+// Listens to each MIDI input that is open (the installer opens those that it asks), also to those that come when the
+// FM-1 starts again (with `on`), or stops it. An input that is not open stays so: on Windows, an open input is
+// taken from the other programs. The MIDI access tells when a port opens, before the FM-1 answers on it.
+function listenToFm1(on) {
+  if (on) {
+    installer.access.addEventListener('statechange', portChanged);
+    for (const input of installer.access.inputs.values()) {
+      if (heard.has(input) || input.connection !== 'open') continue;
+      input.addEventListener('midimessage', hearFm1);
+      heard.add(input);
+    }
+  } else {
+    installer.access.removeEventListener('statechange', portChanged);
+    for (const input of heard) input.removeEventListener('midimessage', hearFm1);
+    heard.clear();
+  }
+}
+const portChanged = () => listenToFm1(installer.writing);
+function showActivity() {
+  listenToFm1(installer.writing);
+  const now = Date.now(), kb = Math.round(activity.bytes / 1024), time = minutesSeconds(now - activity.start);
+  const last = activity.last ? `Last message from the FM-1: ${((now - activity.last) / 1000).toFixed(1)} s ago` : 'Looking for the FM-1…';
+  $('install-activity-text').textContent = installer.writing ? `${last} · ${kb} KB sent · ${time}` : `The install took ${time} · ${kb} KB sent`;
+  // After a turn of the timer with a message, the light is on for one turn: it blinks while messages come (it is
+  // on without a blink for a user who asks for less motion).
+  const led = $('install-led');
+  const message = activity.messages !== activity.seen;
+  activity.seen = activity.messages;
+  led.classList.toggle('on', installer.writing && message && (calm.matches || !led.classList.contains('on')));
+}
 
 // INSTALL NOW writes the package to the FM-1.
 $('install-go').onclick = async () => {
@@ -12160,6 +12386,17 @@ $('install-go').onclick = async () => {
   installer.writing = true;
   $('install-go').disabled = $('install-close').disabled = true;
   showFirmware();
+  Object.assign(stay, { part: 0, result: '', awayFrom: 0, awayMs: 0, awayCount: 0 });
+  Object.assign(activity, { start: Date.now(), last: 0, messages: 0, seen: 0, bytes: 0 });
+  $('install-away').hidden = true;
+  $('install-activity').hidden = false;
+  activity.timer = setInterval(showActivity, 100);
+  showActivity();
+  showAlarm('writing');
+  showStage('check');
+  showTitle();
+  keepAwake();
+  $('install-state').scrollIntoView({ block: 'nearest' });  // the stages, the progress and the activity in view
   let updateMode = false;  // the FM-1 went to update mode: an install that stops after this can continue later
   // The progress is the number of bytes that the FM-1 read, against what it reads for this package
   // (as on fm1-base's installer page). Step 1: the head of the package, and the update loader.
@@ -12168,21 +12405,33 @@ $('install-go').onclick = async () => {
   const check = 0x400 + 0x400 + (loader ? loader.len - 0x20 : 0);
   const write = flash && flash.len > 0x4000 && flash.len <= 0x100000 ? 0x400 + 0x20 + flash.len + (flash.len - 0x4000) : image.length;
   const show = (text, part) => {
-    if (part !== undefined) setProgress($('install-progress'), part);
+    if (part !== undefined) {
+      setProgress($('install-progress'), part);
+      stay.part = part;
+    }
     installSay('install-state', text);
     setStatus(`Install: ${text}`);
+    showTitle();
   };
   // The steps that the updater tells. For 'write', `percent` comes from a loader that writes only
   // the parts of the flash that changed.
   const step = (kind, a, bytes, percent) => {
     if (kind === 'start') show(`Starting the install on ${a}…`, 0);
     else if (kind === 'verify') show('The FM-1 checks the package…', Math.min(bytes, check) / (check + write));
-    else if (kind === 'loader') { updateMode = true; show('The FM-1 goes to update mode…'); }
-    else if (kind === 'mode') log(`install: the loader writes ${a === 'fast' ? 'only the parts that changed' : 'the full package'}\n`);
-    else if (kind === 'write') {
+    else if (kind === 'loader') {
+      updateMode = true;
+      showStage('loader');
+      show('The FM-1 goes to update mode…');
+    } else if (kind === 'mode') {
+      showStage('write');
+      log(`install: the loader writes ${a === 'fast' ? 'only the parts that changed' : 'the full package'}\n`);
+    } else if (kind === 'write') {
       const part = Math.min(0.99, (check + (percent === undefined ? bytes : percent / 100 * write)) / (check + write));
       show(`Writing… ${Math.floor(part * 100)}%`, part);
-    } else if (kind === 'reboot') show('The FM-1 starts again…', 0.99);
+    } else if (kind === 'reboot') {
+      showStage('reboot');
+      show('The FM-1 starts again…', 0.99);
+    }
   };
   log(`install of ${name} on ${installer.device.id.text}\n`);
   try {
@@ -12191,6 +12440,11 @@ $('install-go').onclick = async () => {
     if (waiting) {  // the FM-1 is in update mode: finish the install that was not finished
       waiting.link.close();
       updateMode = true;
+      for (const item of STAGES.slice(0, 2)) {
+        item.className = 'skipped';
+        item.title = 'The FM-1 was in update mode already: this install finishes one that did not finish';
+      }
+      showStage('write');
       if (!await updater.resume(image, step, product)) throw installError('stopped');
     } else {
       await updater.install(image, product, step);
@@ -12200,6 +12454,12 @@ $('install-go').onclick = async () => {
     installStopped(error);
   }
   installer.writing = false;
+  clearInterval(activity.timer);
+  showActivity();  // the last numbers, and the page stops listening
+  letSleep();
+  if (!$('install-away').hidden) showAway();  // now without "keep this page in front"
+  if (!document.hidden) stay.result = '';  // the result is in the dialog
+  showTitle();
   $('install-close').disabled = false;
   showFirmware();
 
@@ -12211,6 +12471,9 @@ $('install-go').onclick = async () => {
     $('install-warning').hidden = $('install-go').hidden = true;
     $('install-done').hidden = false;
     showInstallStep('end');
+    showStage('end');
+    showAlarm('done');
+    stay.result = `✓ INSTALLED · ${PAGE_TITLE}`;  // the title while the page is not in front
   }
 
   function installStopped(error) {
@@ -12226,6 +12489,10 @@ $('install-go').onclick = async () => {
     log(`install: ${text}\n`);
     $('install-go').hidden = true;
     $('install-again').hidden = false;
+    // 'mismatch': the FM-1 started again, with another identity
+    showStage(error.code === 'mismatch' ? 'identity' : installStage ?? 'check', true);
+    showAlarm('failed');
+    stay.result = `✕ INSTALL STOPPED · ${PAGE_TITLE}`;  // the title while the page is not in front
   }
 };
 
