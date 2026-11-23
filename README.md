@@ -378,29 +378,91 @@ gets none of them.
 ### fm1project.json
 
 Without this file, each `.c` and `.cpp` file of the project is compiled. With it, a project says how it
-is built. All parts are optional:
+is built. A `main.c` that is dropped or pasted on the page gets the `fm1project.json` of the demo project:
 
 ```json
 {
   "sources": ["main.c"],
-  "include": ["firmware/src"],
-  "define":  ["APP_VER=\"1.0\""],
-  "flags":   ["-Wno-unused-function"],
-  "stack":   1048576,
-  "web":     { },
-  "device":  { "build": "dinghy", "name": "aurora", "product": "FM-1_4747",
-               "sources": ["firmware/src/aurora.c"], "define": ["APP_VER=\"0.9.1\""] }
+  "include": [],
+  "define": [],
+  "flags": [],
+  "stack": 65536
 }
 ```
 
-`web` is for firmware that has its own browser emulator (see "Firmware gallery"). `device` is the build of
-such a firmware for a real FM-1: the firmware compiler then makes its package with the steps of its own
-build. Two builds are known now: `"dinghy"`, the build of AURORA, CS-1, FM-106 and GR!MM, and
-`"felucca"`, the build of Felucca, FMINI-1, SLOOP, SKIFF and JIANT. More options of `device` turn on the
-steps that only some of these builds have: `fm1.h` tells what each option does and which files each build
-takes, the entries of `GITHUB_PROJECTS` in `src/index.html` show which firmware has which, and "The
-gallery's firmware on a real FM-1" tells why. The file list marks the files that the compiler gets with
-BUILD.
+All parts are optional:
+
+| Key | Example | What |
+| --- | --- | --- |
+| `sources` | `["main.c"]` | Compile only these files |
+| `include` | `["firmware/src", "firmware/gen"]` | More folders for `#include` |
+| `define` | `["APP_VER=\"1.0\""]` | Each one as a `#define`: here `#define APP_VER "1.0"` |
+| `flags` | `["-Wno-unused-function"]` | More options for clang |
+| `stack` | `1048576` | The size of the stack in the simulator, in bytes (default 65536). The FM-1 does not use it: its stacks are smaller (see [firmware/README.md](firmware/README.md)) |
+| `web` | `{}` | The program has the `web_` interface (see "web" below) |
+| `device` | `{ "build": "dinghy", ... }` | The program has its own build for a real FM-1 (see "device" below) |
+
+The file list marks the files that the compiler gets with BUILD.
+
+#### web
+
+`web` is for a firmware that has a browser emulator made as Felucca's (`web/emu`): the firmwares of the
+gallery (see "Firmware gallery"). Such a program does not use `fm1.h`. It has its own FM-1 inside, and the
+functions of the `web_` interface (see "Add a firmware to the gallery"). `web` can have:
+
+| Key | Example | What |
+| --- | --- | --- |
+| `buttons` | `[12, 13, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]` | The bit in `web_buttons()` for each button of `fm1.h`, `FM1_BTN_OCT_DOWN` first. Default: the numbers of `fm1.h` |
+| `encoders` | `[0, 1, 3, 4, 5, 6, 2]` | The number in `web_enc()` for each encoder of `fm1.h`, `FM1_ENC_SELECT` first. Default: the numbers of `fm1.h` |
+| `screen` | `"swapped"` | `web_screen()` gives the two bytes of each pixel high byte first |
+
+The examples are those of Felucca.
+
+#### device
+
+`device` is the build of such a firmware for a real FM-1. With it, the firmware compiler (DOWNLOAD and
+INSTALL) makes the package of the project with the steps of the firmware's own `tools/build.py`, from the
+files of the project, with your changes. Without it, DOWNLOAD and INSTALL are off for a project with `web`.
+Two builds are known now: `"dinghy"`, the build of AURORA, CS-1, FM-106 and GR!MM, and `"felucca"`, the
+build of Felucca, FMINI-1, SLOOP, SKIFF and JIANT. More options turn on the steps that only some of these
+builds have:
+
+| Key | Build | Example | What |
+| --- | --- | --- | --- |
+| `build` | both | `"dinghy"` | The steps of which build: `"dinghy"` or `"felucca"` |
+| `name` | both | `"aurora"` | The name of the package: `aurora.fwsc` |
+| `product` | both | `"FM-1_4747"` | The identity of the package |
+| `sources` | both | `["firmware/src/aurora.c"]` | The C files of the firmware |
+| `define` | both | `["APP_VER=\"0.9.1\""]` | More `#define`s for those files |
+| `flags` | both | `["-mcpu=r3"]` | More options for each C file |
+| `loaderFlags` | both | `["-Oz"]` | More options for the C file of the update loader, after those |
+| `loaderMax` | both | `7936` | The most bytes that the update loader (`ota.bin`) can have |
+| `ramFree` | both | `4096` | Bytes of RAM that must stay free. Default: 0 for `"dinghy"`, 4096 for `"felucca"` |
+| `dualCore` | dinghy | `0` | One core. Default 1: two |
+| `stub` | dinghy | `true` | A boot stub in front of the app |
+| `hal` | felucca | `["firmware/hal", "firmware/bsp/chip"]` | The folders of the hardware layer, in the sequence of the build. Default: `firmware/hal` |
+| `appSlot` | felucca | `584336` | The room for the app in the flash, as the XIP region of `app.ld`. Default: 581564 (`0x8DFBC`) |
+| `size` | felucca | `["ui.c", "menu.c"]` | The files (from `firmware/src`) whose functions are built for size, as `tools/size_fns.py` does. Without `size`: all at `-Os`, as `FELUCCA_SIZE=0` |
+| `giants` | felucca, with `size` | `["draw_graph", "ui_input"]` | A function that only one of these calls (one time) also gets `noinline`, as SKIFF's `size_fns.py` does |
+| `keepInline` | felucca, with `giants` | `["midi_pc_poll"]` | But not these |
+| `sizeRoots` | felucca, with `size` | `["fm1_alnk0_irq"]` | The functions where an interrupt starts. Default: those two of `fm1_isr.S`, the sound and the key scan |
+| `sizeGlobals` | felucca, with `size` | `true` | A global that interrupt code names counts as what it holds (a table of functions), as JIANT's `size_fns.py` does |
+| `sizeAttributes` | felucca, with `size` | `true` | An `__attribute__((..))` before the name of a function is skipped (JIANT) |
+| `sizeEvents` | felucca, with `size` | `["midi_", "seq_step"]` | The start of the names of event functions, built for size also when an interrupt reaches them (JIANT) |
+| `sizeEventKeep` | felucca, with `sizeEvents` | `["mo_block"]` | But not these |
+| `hot` | felucca, with `size` | `["mix_block"]` | These functions run from RAM (`.hot_text`), and what an interrupt reaches goes first in the image (JIANT) |
+
+Beside the `sources` of `device`, each build takes these files of the project:
+
+- `"dinghy"`: `firmware/crt0.S`, `firmware/hal/fm1_vec.S`, `firmware/hal/fm1_isr.S`, `firmware/app.ld`
+  and the update loader in `firmware/loader`, with the headers in `firmware/hal`, `firmware/src` and
+  `firmware/gen`. With `stub`, also the boot stub in `firmware/stub`, as FM-106 has it.
+- `"felucca"`: the same files, and also `fm1_cpu1.S` (the second core) when the project has it, with the
+  headers in `build/gen` in place of `firmware/gen`. With `hal`, it takes the assembly files from the
+  first folder of `hal` that has them.
+
+Both builds link the compiler's helper routines. The entries of `GITHUB_PROJECTS` in `src/index.html` show
+which firmware has which options, and "The gallery's firmware on a real FM-1" tells why.
 
 ## Firmware gallery
 

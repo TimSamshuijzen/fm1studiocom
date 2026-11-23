@@ -1459,100 +1459,6 @@ PLAY: BACK</pre>
  *
  * The screen and input functions have the names and signatures of felucca-bsp
  * (fm1_lcd.h, fm1_input.h). The button and encoder names after OCT_UP are ours.
- *
- * ---- The project file fm1project.json (optional) ----
- *
- * Without it, each .c and .cpp file of the project is compiled. With it, a
- * project can say how it is built. All its parts are optional:
- *
- *   {
- *     "sources": ["main.c"],         compile only these files
- *     "include": ["firmware/src", "firmware/gen"], more folders for #include
- *     "define":  ["APP_VER=\"1.0\""],              as #define APP_VER "1.0"
- *     "flags":   ["-Wno-unused-function"],         more options for clang
- *     "stack":   1048576,                          stack size in bytes (default 65536)
- *     "web":     { },                              the program has the web_ interface
- *     "device":  { "build": "dinghy", ... }        its own build for a real FM-1
- *   }
- *
- * "web" is for firmware that has a browser emulator made as Felucca's
- * (web/emu): it does not use this file, it has its own FM-1 inside and the
- * functions web_boot, web_render, web_keys, web_buttons, web_enc, web_master,
- * web_midi, web_screen and web_screen_draws. "web" can have:
- *
- *   "buttons":  [12, 13, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
- *       the bit in web_buttons() for each button below, FM1_BTN_OCT_DOWN first
- *       (default: the numbers below)
- *   "encoders": [0, 1, 3, 4, 5, 6, 2]
- *       the number in web_enc() for each encoder below, FM1_ENC_SELECT first
- *       (default: the numbers below)
- *   "screen":   "swapped"
- *       web_screen() gives the two bytes of each pixel high byte first
- *
- * The examples for "buttons", "encoders" and "screen" are those of Felucca.
- *
- * "device" is for such a firmware too: the firmware compiler (DOWNLOAD, INSTALL)
- * then makes its package for a real FM-1 with the steps of its own build, from
- * the files of the project (with your changes). Without it, DOWNLOAD and INSTALL
- * are off for a project with "web". "device" has:
- *
- *   "build":   "dinghy"                  the steps of tools/build.py of AURORA,
- *                                        CS-1, FM-106 and GR!MM; "felucca": of
- *                                        Felucca, FMINI-1, SLOOP, SKIFF and JIANT
- *                                        (the only two builds known now)
- *   "name":    "aurora"                  the package is aurora.fwsc
- *   "product": "FM-1_4747"               the identity of the package
- *   "sources": ["firmware/src/aurora.c"] the C files of the firmware
- *   "define":  ["APP_VER=\"0.9.1\""]     more #defines for those files
- *   "flags":   ["-mcpu=r3"]              more options for each C file
- *   "loaderFlags": ["-Oz"]               more options for the C file of the
- *                                        update loader, after those
- *   "loaderMax": 7936                    the most bytes that the update loader
- *                                        (ota.bin) can have
- *   "dualCore": 0                        "dinghy": one core (default 1: two)
- *   "stub":    true                      "dinghy": a boot stub in front of the app
- *   "ramFree": 4096                      bytes of RAM that must stay free (default:
- *                                        0 for "dinghy", 4096 for "felucca")
- *   "size":    ["ui.c", "menu.c"]        "felucca": the files (from firmware/src)
- *                                        whose functions are built for size, as
- *                                        tools/size_fns.py does (without "size":
- *                                        all at -Os, as FELUCCA_SIZE=0)
- *   "giants":  ["draw_graph", "ui_input"] with "size": a function that only one
- *                                        of these calls (one time) also gets
- *                                        noinline, as SKIFF's size_fns.py does
- *   "keepInline": ["midi_pc_poll"]       with "giants": but not these
- *   "sizeRoots": ["fm1_alnk0_irq"]       with "size": the functions where an
- *                                        interrupt starts (default: those two of
- *                                        fm1_isr.S, the sound and the key scan)
- *   "sizeGlobals": true                  with "size": a global that interrupt code
- *                                        names counts as what it holds (a table of
- *                                        functions), as JIANT's size_fns.py does
- *   "sizeAttributes": true               with "size": __attribute__((..)) before
- *                                        a function's name is skipped (JIANT)
- *   "sizeEvents": ["midi_", "seq_step"]  with "size": the start of the names of
- *                                        event functions, built for size also
- *                                        when an interrupt reaches them (JIANT)
- *   "sizeEventKeep": ["mo_block"]        with "sizeEvents": but not these
- *   "hot":     ["mix_block"]             with "size": these functions run from RAM
- *                                        (.hot_text), and what an interrupt
- *                                        reaches goes first in the image (JIANT)
- *   "appSlot": 584336                    "felucca": the room for the app in the
- *                                        flash, as app.ld's XIP region (default
- *                                        581564: 0x8DFBC)
- *   "hal":     ["firmware/hal", "firmware/bsp/chip"]
- *                                        "felucca": the folders of the hardware
- *                                        layer, in the sequence of the build
- *                                        (default: firmware/hal)
- *
- * "dinghy" also takes these files of the project: firmware/crt0.S,
- * firmware/hal/fm1_vec.S, firmware/hal/fm1_isr.S, firmware/app.ld and the
- * update loader in firmware/loader, with the headers in firmware/hal,
- * firmware/src and firmware/gen. With "stub", also the boot stub in
- * firmware/stub, as FM-106 has it. "felucca" takes the same files, and also
- * fm1_cpu1.S (the second core) when the project has it, with the headers in
- * build/gen in place of firmware/gen. With "hal", it takes the assembly files
- * from the first folder of "hal" that has them. Both builds link the compiler's helper
- * routines.
  */
 #ifndef FM1_H
 #define FM1_H
@@ -8632,7 +8538,7 @@ async function checkFloat(sources, maps, options) {
 
 // ---- The build ----
 
-// The optional project file fm1project.json (fm1.h tells what it can have).
+// The optional project file fm1project.json ("fm1project.json" in README.md tells what it can have).
 function readManifest(files) {
   if (!(MANIFEST in files)) return {};
   let manifest;
@@ -9357,8 +9263,8 @@ licence = "GPL-3.0-only"
 //   "dinghy"   the build of AURORA, CS-1, FM-106 and GR!MM, on Felucca's platform Dinghy
 //   "felucca"  the build of Felucca, FMINI-1, SLOOP, SKIFF and JIANT: also the headers in build/gen, the
 //              code of the second core, and a pass that builds the functions of the main loop for size
-// The other options of "device" turn on the steps that only some of these firmwares have: fm1.h lists
-// them, and the entries of GITHUB_PROJECTS in the page script show which firmware has which.
+// The other options of "device" turn on the steps that only some of these firmwares have: README.md lists
+// them ("device"), and the entries of GITHUB_PROJECTS in the page script show which firmware has which.
 // The checks that need a disassembly are not done here: reference_device.sh runs those.
 
 // LZ4 blocks, the same bytes as tools/lz4blk.py of AURORA writes: a match is looked for only at the
@@ -10384,7 +10290,7 @@ vibe.onpointerdown = (event) => { if (event.target === vibe) vibe.close(); };
 
 // ---- Project: a name and text files. A file path can have folders, as in "firmware/src/main.c". ----
 
-const MANIFEST = 'fm1project.json';  // the optional file that says how the project is built (fm1.h tells more)
+const MANIFEST = 'fm1project.json';  // the optional file that says how the project is built (README.md tells more)
 const SOURCE_FILE = /\.(c|cc|cpp|cxx)$/i;  // without fm1project.json, the compiler gets each of these files
 // files: path -> text. gallery: the id of the card of the gallery that the project came from, or ''.
 const project = { name: '', files: new Map(), gallery: '' };
@@ -10838,7 +10744,7 @@ function loadDemo(entry) {
 
 // The LOAD button of the card of a firmware loads its code from its repository on GitHub, as text files.
 // Two things are not in such a repository:
-//   - fm1project.json. It is here, as `manifest`. Its "device" (fm1.h tells more) lets the firmware
+//   - fm1project.json. It is here, as `manifest`. Its "device" (README.md tells more) lets the firmware
 //     compiler make the firmware's package for a real FM-1, with the steps of its own build.
 //   - The files that the build of the firmware makes with its own tools: tables, fonts and pictures
 //     as C headers. They are in a script in the folder extras/ next to this page (`extras`). It is a
@@ -10847,7 +10753,7 @@ function loadDemo(entry) {
 // with the words "FM-1 Studio" in a comment.
 
 // The numbers that the emulator of Felucca, and of the firmware made from it, has for the buttons
-// and encoders, and its pixel format (fm1.h tells more).
+// and encoders, and its pixel format ("web" in README.md tells more).
 const FELUCCA_WEB = {
   buttons: [12, 13, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], encoders: [0, 1, 3, 4, 5, 6, 2], screen: 'swapped',
 };
