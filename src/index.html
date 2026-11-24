@@ -344,12 +344,13 @@
   /* ---- Firmware: the buttons that make a package for a real FM-1 and install it, and the progress
      of the build ---- */
 
-  .firmware { display: grid; grid-template-columns: auto auto; justify-content: space-evenly; align-items: center; }
+  .firmware { display: grid; grid-template-columns: auto auto; justify-content: space-evenly; align-content: center; align-items: center; }
   .firmware .transport { grid-template-columns: auto auto; justify-content: center; gap: 14px 20px; }
   /* Left of the buttons: the WebAssembly logo (purple, with its notch and WA). Its hint tells which
-     compiler makes the firmware. */
-  .wasm-badge { display: grid; }
-  .wasm-badge svg { width: 36px; height: 36px; border-radius: 2px; filter: drop-shadow(0 1px 1px #000a); }
+     compiler makes the firmware. Its bottom is level with the bottom of the buttons (40px high, at
+     the top of the row, which is as high as the buttons and the bar): 40 - 29 = 11px above it. */
+  .wasm-badge { display: grid; align-self: start; margin-top: 11px; }
+  .wasm-badge svg { width: 29px; height: 29px; border-radius: 2px; filter: drop-shadow(0 1px 1px #000a); }
   .wasm-badge path, .wasm-logo path { fill: #654ff0; }
   .wasm-badge text, .wasm-logo text { fill: #fff; font: 800 42px var(--font-label); text-anchor: end; }
   /* One bar below the two buttons: each of them starts a build. It is as wide as the two buttons. */
