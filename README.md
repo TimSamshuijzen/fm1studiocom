@@ -158,7 +158,8 @@ gives "project"). An adapter makes the functions of `fm1.h` from
 and no `double`; the LOG panel tells when a program does not fit the FM-1.
 
 **FM-1 Studio was tested on a real FM-1, with all its features**: DOWNLOAD and INSTALL, for `fm1.h`
-programs and for each firmware of the gallery in the table of "The gallery's firmware on a real FM-1".
+programs and for each firmware of the gallery that the table of "The gallery's firmware on a real FM-1"
+marks "Tested".
 "Which FM-1" tells which FM-1, and what was not tried. Read this section to its end before you install a
 package.
 [firmware/README.md](firmware/README.md) tells what a program must keep to on the FM-1.
@@ -276,12 +277,13 @@ files go into the package. The package has the firmware's own update loader and 
 | SLOOP v2.8.5 | `"felucca"`, without the size pass | `sloop-2.8.5.fwsc` | `FM-1_900`, as its releases | Yes | Tested |
 | SKIFF v2.5.1 | `"felucca"`, as its release build (`--release 2.5.1`), with a change for the firmware compiler | `skiff-2.5.1.fwsc` | `FM-1_725`, as its release | Yes | Tested |
 | JIANT v0.9.18 | `"felucca"`, with its hot RAM code and layout, with changes for the firmware compiler and the newer flash chip | `jiant-0.9.18.fwsc` | `FM-1_900`, as its releases | Yes | Tested |
+| X0X v1.3 | `"x0x"`, as its release build (`--release 1.3`) | `x0x-1.3.fwsc` | `FM-1_9010300`, as its release | Yes | Not yet |
 
 These are not the released packages: the authors build with JieLi's compiler, FM-1 Studio with the
 firmware compiler. "Same bytes": unchanged and with a change, the page's package is the same bytes as the
 one that the firmware's own `build.py` makes with the firmware compiler, and that build passes all its
 checks (`firmware/web/reference_device.sh`). "Tested": the page's package was installed and played on the
-FM-1 of "Which FM-1".
+FM-1 of "Which FM-1". "Not yet": the package was not installed on an FM-1.
 
 **The page builds FM-106 without Bluetooth.** FM-106's own build links JieLi's closed Bluetooth libraries
 (with link-time optimisation, in Docker); the page does the build that its `build.py` makes with
@@ -377,7 +379,25 @@ newer flash chip:** JIANT 0.9.18 saves only on the first chip (`project.c`); on 
 SKIFF 2.2 and later have it. Each changed file says so at its top. With the changes, JIANT's own `build.py`
 links and passes all its checks, with 35 KB of its slot free.
 
-Each link of both builds has the compiler's helper routines (`libclang_rt.builtins.a`) at its end, as
+**X0X: the `"x0x"` build.** X0X is a fork of Felucca. Its `tools/build.py` has the files of the `"felucca"`
+build (the headers in `build/gen`, here from the extras file, and the code of the second core) without the
+size pass, and steps of its own, which the `"x0x"` build does: the C files of the app get the options of
+the single-precision FPU, and those of the update loader do not; the sound engine and the sequencer, the
+files of `"o2"` (its `O2_UNITS`), are compiled apart at `-O2`; the link drops what is not used
+(`--gc-sections`); and two more checks: no routine for `double` in the image, and no register access in the
+subfolders of `firmware/src` either. The page builds it as its release (`--release 1.3`: identity
+`FM-1_9010300`, the version string `1.3 BETA`). X0X 1.3 takes both flash chips (`hal/fm1_flash_ok.h`).
+With the firmware compiler, its own `build.py` links and passes all its checks, with 124 bytes of the
+96 KiB of RAM free (its build keeps none free) and 8.7 KB of the pool.
+
+At `-O2`, the firmware compiler makes a division by a constant with a 64-bit multiply (see "Limits" in
+[src/fwsc/README.md](src/fwsc/README.md)). fm1-base's check for such a multiply beside a load
+(`mul64_near_loads` of its `tools/build.py`) finds one in X0X's package, in `master_format`, which writes
+the value of a knob of the master as text for the screen. In the packages of Felucca, FMINI-1, SLOOP,
+SKIFF and JIANT, which were tested on the FM-1, it finds them in 13 to 19 functions, most of them in the
+sound code.
+
+Each link of these builds has the compiler's helper routines (`libclang_rt.builtins.a`) at its end, as
 `opentc.py` gives them to `build.py`: the firmware compiler calls `__udivdi3` for a 64-bit division
 (FMINI-1, GR!MM), where JieLi's compiler needs no library. A link that needs none (AURORA, CS-1, FM-106)
 gets none of them.
@@ -430,25 +450,26 @@ The examples are those of Felucca.
 `device` is the build of such a firmware for a real FM-1. With it, the firmware compiler (DOWNLOAD and
 INSTALL) makes the package of the project with the steps of the firmware's own `tools/build.py`, from the
 files of the project, with your changes. Without it, DOWNLOAD and INSTALL are off for a project with `web`.
-Two builds are known now: `"dinghy"`, the build of AURORA, CS-1, FM-106 and GR!MM, and `"felucca"`, the
-build of Felucca, FMINI-1, SLOOP, SKIFF and JIANT. More options turn on the steps that only some of these
-builds have:
+Three builds are known now: `"dinghy"`, the build of AURORA, CS-1, FM-106 and GR!MM, `"felucca"`, the
+build of Felucca, FMINI-1, SLOOP, SKIFF and JIANT, and `"x0x"`, the build of X0X. More options turn on the
+steps that only some of these builds have:
 
 | Key | Build | Example | What |
 | --- | --- | --- | --- |
-| `build` | both | `"dinghy"` | The steps of which build: `"dinghy"` or `"felucca"` |
-| `name` | both | `"aurora"` | The name of the package: `aurora.fwsc` |
-| `product` | both | `"FM-1_4747"` | The identity of the package |
-| `sources` | both | `["firmware/src/aurora.c"]` | The C files of the firmware |
-| `define` | both | `["APP_VER=\"0.9.1\""]` | More `#define`s for those files |
-| `flags` | both | `["-mcpu=r3"]` | More options for each C file |
-| `loaderFlags` | both | `["-Oz"]` | More options for the C file of the update loader, after those |
-| `loaderMax` | both | `7936` | The most bytes that the update loader (`ota.bin`) can have |
-| `ramFree` | both | `4096` | Bytes of RAM that must stay free. Default: 0 for `"dinghy"`, 4096 for `"felucca"` |
+| `build` | all | `"dinghy"` | The steps of which build: `"dinghy"`, `"felucca"` or `"x0x"` |
+| `name` | all | `"aurora"` | The name of the package: `aurora.fwsc` |
+| `product` | all | `"FM-1_4747"` | The identity of the package |
+| `sources` | all | `["firmware/src/aurora.c"]` | The C files of the firmware |
+| `define` | all | `["APP_VER=\"0.9.1\""]` | More `#define`s for those files |
+| `flags` | all | `["-mcpu=r3"]` | More options for each C file |
+| `loaderFlags` | all | `["-Oz"]` | More options for the C file of the update loader, after those |
+| `loaderMax` | all | `7936` | The most bytes that the update loader (`ota.bin`) can have |
+| `ramFree` | all | `4096` | Bytes of RAM that must stay free. Default: 4096 for `"felucca"`, 0 for the others |
 | `dualCore` | dinghy | `0` | One core. Default 1: two |
 | `stub` | dinghy | `true` | A boot stub in front of the app |
-| `hal` | felucca | `["firmware/hal", "firmware/bsp/chip"]` | The folders of the hardware layer, in the sequence of the build. Default: `firmware/hal` |
-| `appSlot` | felucca | `584336` | The room for the app in the flash, as the XIP region of `app.ld`. Default: 581564 (`0x8DFBC`) |
+| `hal` | felucca, x0x | `["firmware/hal", "firmware/bsp/chip"]` | The folders of the hardware layer, in the sequence of the build. Default: `firmware/hal` |
+| `appSlot` | felucca, x0x | `584336` | The room for the app in the flash, as the XIP region of `app.ld`. Default: 581564 (`0x8DFBC`) |
+| `o2` | x0x | `["dsp/drum909.c", "app/engine.c"]` | More C files (from `firmware/src`), each compiled apart at `-O2`, as `O2_UNITS` of X0X's `build.py` |
 | `size` | felucca | `["ui.c", "menu.c"]` | The files (from `firmware/src`) whose functions are built for size, as `tools/size_fns.py` does. Without `size`: all at `-Os`, as `FELUCCA_SIZE=0` |
 | `giants` | felucca, with `size` | `["draw_graph", "ui_input"]` | A function that only one of these calls (one time) also gets `noinline`, as SKIFF's `size_fns.py` does |
 | `keepInline` | felucca, with `giants` | `["midi_pc_poll"]` | But not these |
@@ -467,8 +488,9 @@ Beside the `sources` of `device`, each build takes these files of the project:
 - `"felucca"`: the same files, and also `fm1_cpu1.S` (the second core) when the project has it, with the
   headers in `build/gen` in place of `firmware/gen`. With `hal`, it takes the assembly files from the
   first folder of `hal` that has them.
+- `"x0x"`: the files of `"felucca"`, and the files of `o2`.
 
-Both builds link the compiler's helper routines. The entries of `GITHUB_PROJECTS` in `src/index.html` show
+All builds link the compiler's helper routines. The entries of `GITHUB_PROJECTS` in `src/index.html` show
 which firmware has which options, and "The gallery's firmware on a real FM-1" tells why.
 
 ## Firmware gallery
@@ -488,6 +510,7 @@ page.
 | FELUCCA | v1.8.2 | a multi-engine synthesizer | [hugelton/Felucca](https://github.com/hugelton/Felucca) |
 | SKIFF | v2.5.1 | a six-track groovebox | [illuminus5/skiff](https://github.com/illuminus5/skiff) |
 | JIANT | v0.9.18 | a bio-synthetic groovebox | [juanjiant-bit/JIANT](https://github.com/juanjiant-bit/JIANT) |
+| X0X | v1.3 | a 909, an 808, two 303s and breaks | [charlesvestal/fm1-x0x](https://github.com/charlesvestal/fm1-x0x) |
 
 A compile takes from a few seconds (CS-1) to more than a minute (SKIFF, JIANT) on a fast computer.
 
@@ -501,8 +524,8 @@ Three things that such a repository does not have come from this one:
 - **`fm1project.json`**: the `manifest` of the entry in `GITHUB_PROJECTS`.
 - **Generated files**: the tables, fonts and pictures that the build of the firmware makes with its own
   tools. They are in `src/extras/<id>.js`. Each file tells at its top where its parts come from. For
-  SLOOP and GR!MM, the file also has the emulator source that FM-1 Studio compiles
-  (`fm1studio/sloop_web.c`, `fm1studio/grimm_web.c`).
+  SLOOP, GR!MM and X0X, the file also has the emulator source that FM-1 Studio compiles
+  (`fm1studio/sloop_web.c`, `fm1studio/grimm_web.c`, `fm1studio/x0x_studio.c`).
 - **Patches**: text changes in a loaded file, for firmware that cannot run here as it is (GR!MM), or not
   on the newer flash chip of the FM-1 (CS-1, GR!MM, JIANT), or not with the firmware compiler (SKIFF,
   JIANT): see "The gallery's firmware on a real FM-1". Each change is marked with "FM-1 Studio" in a
@@ -596,7 +619,8 @@ marker (a CRC-32 of the app) into the package, and compares the stub with `firmw
 the `"felucca"` build it compiles the C file through LLVM IR with the size pass of `tools/size_fns.py`
 (with `"size"`, and the options of SKIFF's and JIANT's passes), with `"hot"` optimises the IR, gives
 sections to the hot and the interrupt code and then generates the code, adds the code of the second core
-to the image, and checks the memory budgets that `firmware/app.ld` gives. Each link has the compiler's
+to the image, and checks the memory budgets that `firmware/app.ld` gives. The `"x0x"` build does the same
+without the size pass, and compiles the files of `"o2"` apart at `-O2`. Each link has the compiler's
 helper routines at its end, as `opentc.py` gives them. Its checks are those of the firmware's `build.py`
 but those that need a disassembly (no calls from RAM code into the flash, no calls in the loop of the
 second core, no address of the chip's ROM, GR!MM's depth of the stacks, and the reach of JIANT's calls
@@ -667,8 +691,8 @@ of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/ma
 - The simulator runs a program compiled at `-O2`; the firmware build, and the check for `double`, compile
   it at `-Os`.
 - web-libc, the C library of the gallery's firmwares in the simulator, has what they use: no files, no
-  clock, no `printf` and no `malloc`. A firmware that is added can need more (see "Add a firmware to the
-  gallery").
+  clock (its time stays 0), no `printf`, and no heap (`malloc` gives `NULL`). A firmware that is added can
+  need more (see "Add a firmware to the gallery"). X0X shows its AUDIO LOAD as 0 % for that reason.
 - A page that is opened from disk loads the compiler from fm1studio.com: COMPILE then needs that site.
 - A project holds text files only.
 - GitHub gives the list of files of a repository 60 times in an hour to one address. The first LOAD of
@@ -677,7 +701,8 @@ of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/ma
 - The LEDs of a firmware of the gallery are as its emulator gives them. AURORA, CS-1 and GR!MM give on
   and off, as they light their LEDs on the FM-1. SLOOP's backlight shows as the glow, though on the FM-1
   it is darker. JIANT's extra level between the mid level and lit is not shown: its emulator does not
-  give it.
+  give it. X0X's emulator gives the LEDs of the buttons without PLAY's two colours and the glow: the
+  page takes them from X0X's own state, as its firmware lights them on the FM-1 (`src/extras/x0x.js`).
 - An LED lights the legend of its key, as on a real FM-1: the text of a button, the text and the line of a
   note key, in white; REC in red; PLAY and STOP in green, in red, or (both LEDs) PLAY green and STOP
   orange. This was compared with one FM-1. On the light skins the legends are dark: a legend at the glow

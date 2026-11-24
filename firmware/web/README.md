@@ -147,6 +147,9 @@ git clone https://github.com/juanjiant-bit/JIANT ~/jiant
 git -C ~/jiant checkout d247fd9c311be4b33bde64d8794d6d83ec8a99b4
 (unzip the project zip of the gallery's JIANT over ~/jiant: see below)
 bash firmware/web/reference_device.sh ~/jiant
+
+git clone --branch v1.3 https://github.com/charlesvestal/fm1-x0x ~/x0x
+bash firmware/web/reference_device.sh ~/x0x --release 1.3
 ```
 
 The arguments after the checkout go to its `build.py`.
@@ -158,8 +161,9 @@ build does (it does not have `splash.png`, and making the header again needs Pil
 For FMINI-1, Felucca, SLOOP, SKIFF and JIANT: their `build.py` makes the headers of `build/gen` with its
 own generators (Pillow; for FMINI-1, Felucca, SKIFF and JIANT also Raqm, and fontTools for the icons); the
 browser build has them from `src/extras/<id>.js` (`fmini-1`, `felucca`, `sloop`, `skiff`, `jiant`), and
-the two must be the same. FMINI-1 shows the date of its build
-(`__DATE__`): make its reference on the same day as the browser's package. Felucca is built as its
+the two must be the same. Felucca, SLOOP, SKIFF and JIANT show the date of their build on their about
+screen (`__DATE__` in `ui_menu.c`), so their package changes each day: make the reference on the same day
+as the browser's package (FMINI-1's `ui_menu.c` has it too, but its image has no date). Felucca is built as its
 releases are (`--release 1.8.2`: the identity `FM-1_918`), as the browser build does.
 
 For GR!MM: the gallery changes five of its files (the flash chip, and `grimm.c` for the browser, in
@@ -181,6 +185,11 @@ missing). The gallery changes three of its files (`memmove` in `firmware/src/lib
 files, from the project zip that FM-1 Studio saves. Its release workflow runs `build.py` without
 arguments, as here.
 
+For X0X: its `build.py` makes the headers of `build/gen` with its own generators (Pillow, and a C compiler
+for the break bank: `tools/gen_builtin_break.sh` compiles a program with X0X's 909 code and runs it); the
+browser build has them from `src/extras/x0x.js`, and the two must be the same. X0X is built as its release
+(`--release 1.3`: the identity `FM-1_9010300`), as the browser build does.
+
 This copies the checkout below `~/.cache/fm1studio/device-ref` and runs the firmware's own
 `tools/build.py` there with `opentc.py`. All checks of that `build.py` run, also those that need a
 disassembly. For a project with changes, unzip its project zip over the checkout first. The name of the
@@ -199,7 +208,9 @@ build for the FM-1. For SLOOP v2.8.5, unchanged and with a changed page name in 
 the hashes are the same, and the headers that its generators made are the same as those of the extras
 file. For SKIFF v2.5.1 (release build) with the gallery's change, unchanged and with a changed menu name in
 `firmware/src/menu_items.c`, the same holds, and for JIANT v0.9.18 (commit `d247fd9c`) with the gallery's
-changes too.
+changes too. For X0X v1.3 (release build), unchanged and with a changed page name in
+`firmware/src/app/ui.c`, the hashes are the same, and the five headers that its generators made are the same
+as those of the extras file.
 
 ## Design choices
 
@@ -225,7 +236,7 @@ changes too.
   Python. The browser build that uses `src/fwsc` (`firmware-worker.js` in `src/index.html`) does them in
   JavaScript. A change in one must be made in the other, or the hashes are not the same. The same holds
   for the `build.py`, `fm1pkg_make.py`, `lz4blk.py` and `size_fns.py` of the firmwares with their own
-  build, and the `"dinghy"` and `"felucca"` builds of the worker.
+  build, and the `"dinghy"`, `"felucca"` and `"x0x"` builds of the worker.
 
 ## Licences
 

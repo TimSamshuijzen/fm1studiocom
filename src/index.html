@@ -2048,6 +2048,7 @@ int fm1_midi_take(uint32_t *packet) {
  * hidden (-fvisibility=hidden): the program does not export it. */
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #define WEAK __attribute__((weak))
 
@@ -2111,6 +2112,30 @@ WEAK char *getenv(const char *name) {
 
 /* Stops the program: the simulator shows that it stopped. */
 WEAK void abort(void) { __builtin_trap(); }
+
+/* There is no heap, as on the FM-1: an allocation fails. */
+WEAK void *malloc(size_t size) {
+  (void)size;
+  return NULL;
+}
+
+WEAK void *calloc(size_t count, size_t size) {
+  (void)count;
+  (void)size;
+  return NULL;
+}
+
+WEAK void free(void *pointer) { (void)pointer; }
+
+/* ---- time.h ---- */
+
+/* A program in the browser has no clock of the computer: the time stays 0. */
+WEAK int clock_gettime(clockid_t clock, struct timespec *time) {
+  (void)clock;
+  time->tv_sec = 0;
+  time->tv_nsec = 0;
+  return 0;
+}
 </script>
 
 <script type="text/plain" id="web-libc/string.h">
@@ -2125,12 +2150,14 @@ void *memmove(void *to, const void *from, size_t n);
 void *memset(void *to, int value, size_t n);
 int memcmp(const void *a, const void *b, size_t n);
 size_t strlen(const char *s);
+int strcmp(const char *a, const char *b);
+int strncmp(const char *a, const char *b, size_t n);
 
 #endif
 </script>
 
 <script type="text/plain" id="web-libc/stdlib.h">
-/* stdlib.h of web-libc (see libc.c). malloc, calloc and free are not there. */
+/* stdlib.h of web-libc (see libc.c). There is no heap: malloc and calloc give NULL. */
 #ifndef FM1_WEB_STDLIB_H
 #define FM1_WEB_STDLIB_H
 
@@ -2138,6 +2165,8 @@ size_t strlen(const char *s);
 
 int abs(int value);
 int atoi(const char *text);
+double atof(const char *text);
+long strtol(const char *text, char **end, int base);
 char *getenv(const char *name);
 __attribute__((noreturn)) void abort(void);
 
@@ -2157,6 +2186,9 @@ void free(void *pointer);
 #include <stddef.h>
 
 #define EOF (-1)
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
 
 typedef struct fm1_web_file FILE;
 extern FILE *const stdout;
@@ -2165,7 +2197,9 @@ extern FILE *const stderr;
 FILE *fopen(const char *path, const char *mode);
 int fclose(FILE *file);
 int fflush(FILE *file);
+size_t fread(void *data, size_t size, size_t count, FILE *file);
 size_t fwrite(const void *data, size_t size, size_t count, FILE *file);
+int fseek(FILE *file, long offset, int whence);
 int fprintf(FILE *file, const char *format, ...);
 int printf(const char *format, ...);
 int snprintf(char *text, size_t size, const char *format, ...);
@@ -2177,15 +2211,19 @@ int remove(const char *path);
 
 <script type="text/plain" id="web-libc/math.h">
 /* math.h of web-libc (see libc.c). The firmwares of the gallery have their own maths, for the FM-1,
- * which has no C library: this header declares nothing. */
+ * which has no C library: this header declares only the names that their browser builds use beside it. */
 #ifndef FM1_WEB_MATH_H
 #define FM1_WEB_MATH_H
+
+float fabsf(float x);
+double log10(double x);
+
 #endif
 </script>
 
 <script type="text/plain" id="web-libc/time.h">
-/* time.h of web-libc (see libc.c). A program in the browser has no clock of the computer: the
- * functions are not there. */
+/* time.h of web-libc (see libc.c). A program in the browser has no clock of the computer:
+ * clock_gettime gives the time 0, and clock is not there. */
 #ifndef FM1_WEB_TIME_H
 #define FM1_WEB_TIME_H
 
@@ -9500,10 +9538,14 @@ licence = "GPL-3.0-only"
 // the steps of that build with the files of the project (with the user's changes), with the same
 // file names and flags. Thus the package is the same bytes as the one that the firmware's own build
 // makes with this compiler (firmware/web/reference_device.sh makes that one, to compare).
-// Two builds are known:
+// Three builds are known:
 //   "dinghy"   the build of AURORA, CS-1, FM-106 and GR!MM, on Felucca's platform Dinghy
 //   "felucca"  the build of Felucca, FMINI-1, SLOOP, SKIFF and JIANT: also the headers in build/gen, the
 //              code of the second core, and a pass that builds the functions of the main loop for size
+//   "x0x"      the build of X0X, a fork of Felucca: the files of "felucca" without the size pass, with the
+//              single-precision FPU for the app, the units of "o2" apart at -O2, a link that drops what is
+//              not used, and two more checks: no routine for double, and no register access in the
+//              subfolders of firmware/src either
 // The other options of "device" turn on the steps that only some of these firmwares have: README.md lists
 // them ("device"), and the entries of GITHUB_PROJECTS in the page script show which firmware has which.
 // The checks that need a disassembly are not done here: reference_device.sh runs those.
@@ -9615,13 +9657,15 @@ function loaderFile(image) {
 // Register access is for the hardware layer only (mmio_check of the build.py of AURORA, FMINI-1 and
 // Felucca): in firmware/src, firmware/engines/src (FMINI-1, Felucca) and firmware/loader, no address of a
 // register or a reserved window, no pointer cast to volatile, no assembly, and no register macro of the
-// headers in the folders `dirs` of the hardware layer.
+// headers in the folders `dirs` of the hardware layer. With `deep` (X0X), also in the subfolders of
+// firmware/src.
 const MMIO_LITERAL = /\b0x0*(1[0-3][0-9a-f]{3}|4[0-3][0-9a-f]{3}|5[01][0-9a-f]{3}|1ee[0-9a-f]{4}|1c7f[0-9a-f]{3}|20[0-9a-f]{5})u?l?\b/i;
-function halErrors(texts, dirs) {
+function halErrors(texts, dirs, deep = false) {
   const header = (path) => dirs.some((dir) => path.startsWith(dir + '/') && /^[^/]+\.h$/.test(path.slice(dir.length + 1)));
   const registers = registerNames(Object.fromEntries([...texts].filter(([path]) => header(path))));
   const errors = [];
-  const checked = [...texts.keys()].filter((path) => /^firmware\/((src|engines\/src)\/[^/]+\.[ch]|loader\/[^/]+\.c)$/.test(path)).sort();
+  const program = deep ? /^firmware\/(src\/.+\.[ch]|loader\/[^/]+\.c)$/ : /^firmware\/((src|engines\/src)\/[^/]+\.[ch]|loader\/[^/]+\.c)$/;
+  const checked = [...texts.keys()].filter((path) => program.test(path)).sort();
   for (const path of checked) {
     stripComments(texts.get(path)).split(/\r\n|\r|\n/).forEach((line, index) => {
       for (const [pattern, what] of [[MMIO_LITERAL, 'register/window address'], [VOLATILE_CAST, 'volatile pointer cast'], [INLINE_ASM, 'inline asm']]) {
@@ -9639,12 +9683,12 @@ function halErrors(texts, dirs) {
 function readDevice(device, texts) {
   const where = `${MANIFEST}: "device"`;
   if (device === null || typeof device !== 'object' || Array.isArray(device)) throw new Error(`${where} must be an object.`);
-  if (!['dinghy', 'felucca'].includes(device.build)) throw new Error(`${where}: "build" must be "dinghy" (the build of AURORA, CS-1, FM-106 and GR!MM) or "felucca" (of Felucca, FMINI-1, SLOOP, SKIFF and JIANT): the only ones known.`);
+  if (!['dinghy', 'felucca', 'x0x'].includes(device.build)) throw new Error(`${where}: "build" must be "dinghy" (the build of AURORA, CS-1, FM-106 and GR!MM), "felucca" (of Felucca, FMINI-1, SLOOP, SKIFF and JIANT) or "x0x" (of X0X): the only ones known.`);
   if (!/^[a-z0-9][a-z0-9._-]*$/.test(device.name ?? '')) throw new Error(`${where}: "name" must be the name of the package, as "aurora".`);
   if (!/^FM-1_\d{3,15}$/.test(device.product ?? '')) throw new Error(`${where}: "product" must be the identity of the package, as "FM-1_4747".`);
   const sizeOptions = ['giants', 'keepInline', 'sizeRoots', 'sizeGlobals', 'sizeAttributes', 'sizeEvents', 'sizeEventKeep', 'hot'];
   for (const key of ['sources', 'define', 'flags', 'loaderFlags', 'size', 'giants', 'keepInline', 'sizeRoots', 'sizeEvents',
-    'sizeEventKeep', 'hot', 'hal']) {
+    'sizeEventKeep', 'hot', 'hal', 'o2']) {
     const list = device[key] ?? [];
     if (!Array.isArray(list) || list.some((item) => typeof item !== 'string')) throw new Error(`${where}: "${key}" must be a list of texts.`);
   }
@@ -9659,11 +9703,15 @@ function readDevice(device, texts) {
     if (device[key] !== undefined && !(Number.isInteger(device[key]) && device[key] >= 0)) throw new Error(`${where}: "${key}" must be a count of bytes.`);
   }
   if (device.appSlot !== undefined && 0x4120 + device.appSlot > FLASH_SIZE) throw new Error(`${where}: "appSlot" is bigger than the flash.`);
-  const others = device.build === 'dinghy' ? ['size', ...sizeOptions, 'hal', 'appSlot'] : ['dualCore', 'stub'];  // the options of the other build
+  const others = { // the options of the other builds
+    dinghy: ['size', ...sizeOptions, 'hal', 'appSlot', 'o2'],
+    felucca: ['dualCore', 'stub', 'o2'],
+    x0x: ['dualCore', 'stub', 'size', ...sizeOptions],
+  }[device.build];
   for (const key of others) if (device[key] !== undefined) throw new Error(`${where}: "${key}" is not for the "${device.build}" build.`);
   if (!device.sources?.length) throw new Error(`${where}: "sources" must name the C file of the firmware.`);
   for (const path of [...device.sources, ...appAssembly(device, texts), 'firmware/app.ld', ...LOADER_FILES,
-    ...(device.stub ? DINGHY_STUB_FILES : []), ...(device.size ?? []).map((file) => tidy(`firmware/src/${file}`))]) {
+    ...(device.stub ? DINGHY_STUB_FILES : []), ...[...(device.size ?? []), ...(device.o2 ?? [])].map((file) => tidy(`firmware/src/${file}`))]) {
     if (!texts.has(path)) throw new Error(`${where}: the project has no file ${path}.`);
   }
   return device;
@@ -9677,16 +9725,18 @@ const LOADER_FILES = ['firmware/loader/crt0_ldr.S', 'firmware/loader/loader.c', 
 const halDirs = (device) => device.hal ?? ['firmware/hal'];
 // The assembly files of the app. With "hal", each one is in the first folder of the hardware layer that has
 // it (hal_file of Felucca's build.py). Without it, crt0.S is in firmware/ and the others in firmware/hal.
-// "felucca" also has the entry of the second core, fm1_cpu1.S (FELUCCA_CPU2, the default), when the project
-// has it (JIANT starts its second core from C: it has no fm1_cpu1.S, and its build links none).
+// "felucca" and "x0x" also have the entry of the second core, fm1_cpu1.S (FELUCCA_CPU2, the default), when the
+// project has it (JIANT starts its second core from C: it has no fm1_cpu1.S, and its build links none).
 function appAssembly(device, texts) {
-  const cpu1 = device.build === 'felucca' && halDirs(device).some((dir) => texts.has(`${dir}/fm1_cpu1.S`));
+  const cpu1 = device.build !== 'dinghy' && halDirs(device).some((dir) => texts.has(`${dir}/fm1_cpu1.S`));
   const names = ['crt0.S', 'fm1_vec.S', 'fm1_isr.S', ...(cpu1 ? ['fm1_cpu1.S'] : [])];
   if (!device.hal) return names.map((name) => (name === 'crt0.S' ? 'firmware/crt0.S' : `firmware/hal/${name}`));
   return names.map((name) => device.hal.map((dir) => `${dir}/${name}`).find((path) => texts.has(path)) ?? `${device.hal[0]}/${name}`);
 }
 const DINGHY_STUB_FILES = ['firmware/stub/crt0_stub.S', 'firmware/stub/stub.c', 'firmware/stub/stub.ld'];
 const DINGHY_FLAGS = ['-Os', '-ffunction-sections', '-fno-builtin', '-Wall', '-Wno-unused-function'];
+// "x0x": the AC79's single-precision FPU, for the app only (FPU of X0X's build.py)
+const X0X_FPU = ['-mcpu=r3', '-mfprev1', '-ffp-contract=off'];
 const DINGHY_RAM = 0x01C00000;  // the internal RAM, where code runs while the flash is off
 
 // The size pass of the "felucca" build (tools/size_fns.py of FMINI-1, Felucca, SKIFF and JIANT, GPL-3.0-only,
@@ -9891,7 +9941,7 @@ async function buildDevice(texts, device) {
     }
   }
 
-  if (device.build === 'felucca') {
+  if (device.build !== 'dinghy') {  // "felucca" and "x0x"
     const image = await buildFeluccaApp();
     return finish(image, image);
   }
@@ -9954,7 +10004,7 @@ async function buildDevice(texts, device) {
   // and Felucca): as the one of an fm1.h program, but with the firmware's own loader, and the boot code in the
   // head as the SDK file is. `app` is app.bin of the package.
   function finish(image, app) {
-    const hal = halErrors(texts, halDirs(device));
+    const hal = halErrors(texts, halDirs(device), device.build === 'x0x');
     errors.push(...hal);
     const engines = [...texts.keys()].some((path) => path.startsWith('firmware/engines/src/'));  // FMINI-1, Felucca
     if (!hal.length) notes.push(`register access: hal/ only (src/, ${engines ? 'engines/src/, ' : ''}loader/ clean)`);
@@ -9977,9 +10027,11 @@ async function buildDevice(texts, device) {
   // 3. and 4. of the "felucca" build: the app (build_app) and its checks (check), but those that need a
   // disassembly. Four assembly files, and the unity C file: through LLVM IR with "size" (as tools/build.py
   // does by default), without it straight to an object (as FELUCCA_SIZE=0). The second core is built in
-  // (FELUCCA_CPU2, the default).
+  // (FELUCCA_CPU2, the default). "x0x" (X0X's tools/build.py): the C files with the FPU, the units of "o2"
+  // apart at -O2, the link with --gc-sections, and the check for double.
   async function buildFeluccaApp() {
-    const flags = [...cflags, ...halIncludes, '-Ifirmware/src', '-Ibuild/gen', `-DFELUCCA_ID="${product}"`,
+    const x0x = device.build === 'x0x';
+    const flags = [...cflags, ...(x0x ? X0X_FPU : []), ...halIncludes, '-Ifirmware/src', '-Ibuild/gen', `-DFELUCCA_ID="${product}"`,
       ...(device.define ?? []).map((define) => '-D' + define)];
     const objects = [];
     for (const file of appAssembly(device, texts)) {
@@ -10019,10 +10071,20 @@ async function buildDevice(texts, device) {
       await cc([...codeFlags, '-Xclang', '-disable-llvm-optzns', '-c', `${stem}_hot.ll`, '-o', `${stem}.o`]);
       work.delete(`${cwd}/${stem}_hot.ll`);
     }
-    const elf = await link('firmware/app.ld', objects, `build/${name}.elf`, false);
+    for (const unit of device.o2 ?? []) {  // "o2" (X0X: O2_UNITS): the sound engine and the sequencer
+      log(`compile firmware/src/${unit}\n`);
+      objects.push(`build/o2/${unit.replaceAll('/', '_').replace(/\.c$/i, '')}.o`);
+      await cc([...flags.map((flag) => (flag === '-Os' ? '-O2' : flag)), '-c', tidy(`firmware/src/${unit}`), '-o', objects.at(-1)]);
+    }
+    const elf = await link('firmware/app.ld', objects, `build/${name}.elf`, x0x);
     const symbols = elfSymbols(elf);
     const symbol = (id) => symbols.get(id) ?? 0;
     const image = programImage(elf, symbol);
+    if (x0x) {  // the FPU is single precision: a routine for double means a double in the code
+      const soft = [...symbols.keys()].filter((id) => SOFT_DOUBLE.test(id)).sort();
+      if (soft.length) errors.push(`soft-double routines linked: ${soft.slice(0, 6).join(', ')} (a double in the code)`);
+      else notes.push('no soft-double routines (single-precision FPU only)');
+    }
     const regions = memoryRegions(texts.get('firmware/app.ld'));  // the budgets, from the linker script
     if (!regions.RAM || !regions.POOL) throw new Error('firmware/app.ld has no MEMORY region RAM or POOL.');
     // "appSlot" (JIANT): the app slot of its packer, which must be the XIP region of app.ld
@@ -10043,8 +10105,8 @@ async function buildDevice(texts, device) {
     notes.push(`image ${image.length} B of ${slot}; RAM .data+.bss ${ram} B of ${ramLength}; pool ${pool} B of ${poolLength}`);
     if (ramOrigin + ramLength !== poolOrigin) errors.push('app.ld: POOL does not start where RAM ends');
     // "ramFree": the RAM that stays free, for what the interrupts use: 4 KiB in the build of FMINI-1 and
-    // Felucca, none in SLOOP's, SKIFF's and JIANT's
-    const ramFree = device.ramFree ?? 4096;
+    // Felucca, none in SLOOP's, SKIFF's and JIANT's, and none in "x0x"
+    const ramFree = device.ramFree ?? (x0x ? 0 : 4096);
     if (ramLength - ram < ramFree) errors.push(`RAM headroom ${ramLength - ram} B < ${ramFree} B`);
     // 8 KiB of the pool spare, after the pool and (JIANT) the second core's stacks there
     const poolSpare = poolOrigin + poolLength - Math.max(symbol('_pool_end'), symbol('_c1_stack_hi'));
@@ -10999,6 +11061,10 @@ const FELUCCA_WEB = {
   buttons: [12, 13, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], encoders: [0, 1, 3, 4, 5, 6, 2], screen: 'swapped',
 };
 const FELUCCA_PATHS = ['firmware/', 'tests/hostsim.c', 'web/emu/', 'LICENSE', 'LICENSING.md', 'README.md'];
+// The units of X0X's sound engine and sequencer, from firmware/src: its browser build compiles them beside its
+// emulator, and its build for the FM-1 apart from x0x.c, at -O2 (O2_UNITS of its tools/build.py).
+const X0X_UNITS = ['dsp/drum909.c', 'dsp/drum808.c', 'dsp/bass303.c', 'dsp/breaks.c', 'dsp/fxbus.c', 'dsp/master.c',
+  'seq/sequencer.c', 'seq/tb3po.c', 'seq/pattern.c', 'seq/motion.c', 'app/engine.c'];
 
 // license: the SPDX name of the licence of the firmware, from its repository. The card shows it.
 // seconds: the time of a compile, measured on a fast computer. The progress bar of the compiler uses it.
@@ -11450,6 +11516,31 @@ const GITHUB_PROJECTS = [
           'perf_gx', 'perf_pick', 'pf_hash'],
         sizeEventKeep: ['mo_block', 'ep1_tx', 'key_latch', 'midi_clock_advance', 'cin_block', 'kb_lat', 'live_q', 'live_adv'],
         hot: ['mix_block', 'mix_part_m0', 'fx_run0', 'perf_begin', 'perf_pre', 'perf_block', 'perf_master', 'slicer_bus'],
+      },
+    },
+  },
+  {
+    id: 'x0x', label: 'X0X', version: 'v1.3', about: 'a 909, an 808, two 303s and breaks', license: 'GPL-3.0-only', seconds: 11,
+    sources: [{
+      repo: 'charlesvestal/fm1-x0x', ref: 'v1.3',
+      paths: ['firmware/', 'host/x0x_host.c', 'web/emu/x0x_web.c', 'docs/MANUAL.md', 'LICENSE', 'LICENSING.md', 'README.md'],
+    }],
+    extras: 'extras/x0x.js',
+    manifest: {
+      // As X0X's own browser build (web/emu/build.sh): its emulator, here with the web_ functions of
+      // extras/x0x.js, and the units of the sound engine and the sequencer
+      sources: ['fm1studio/x0x_studio.c', ...X0X_UNITS.map((unit) => 'firmware/src/' + unit)],
+      include: ['firmware/src', 'firmware/src/dsp', 'build/gen'],
+      define: ['X0X_HOST', 'X0X_WEB', 'X0X_VERSION="1.3 BETA"'],
+      flags: ['-std=gnu99', '-ffp-contract=off', '-Wno-unused-function', '-Wno-unused-parameter', '-Wno-unused-variable'],
+      stack: 1048576,
+      web: FELUCCA_WEB,  // X0X's emulator numbers the buttons and encoders as Felucca's does
+      // The firmware build ("device"): the steps of X0X's tools/build.py for the FM-1, as its releases are made
+      // (--release 1.3: identity FM-1_9010300, the version string 1.3 BETA), with the units that it compiles
+      // apart at -O2 (O2_UNITS)
+      device: {
+        build: 'x0x', name: 'x0x-1.3', product: 'FM-1_9010300', sources: ['firmware/src/x0x.c'],
+        define: ['X0X_VERSION="1.3 BETA"'], o2: X0X_UNITS,
       },
     },
   },
