@@ -1098,7 +1098,7 @@ It runs in a Web Worker; its output is a .fwsc package for a real FM-1.">
           <div class="legend right">
             <!-- The page script adds a swatch for each skin of SKINS. -->
             <span class="skins" id="skins" role="group" aria-label="Colour of the FM-1"></span>
-            <button class="push" id="midi" title="Use the MIDI keyboards and controllers of this computer">MIDI IN: OFF</button>
+            <button class="push" id="midi"></button>
           </div>
           <div class="fm1">
             <svg id="panel" viewBox="0 0 1048 624" role="img" aria-label="FM-1 front panel">
@@ -13185,11 +13185,15 @@ function onMidiMessage({ data }) {
   sendInput('midi', { midi: (kind | status << 8 | data1 << 16 | data2 << 24) >>> 0 });
 }
 
-const midiTitle = $('midi').title;
+function showMidi(text, title = 'Use the MIDI keyboards and controllers of this computer') {
+  $('midi').textContent = text;
+  $('midi').title = title;
+}
+showMidi('MIDI IN: OFF');
+
 $('midi').onclick = async () => {
   if (!navigator.requestMIDIAccess) {
-    $('midi').textContent = 'MIDI IN: N/A';
-    $('midi').title = 'This browser has no Web MIDI, which MIDI IN needs.';
+    showMidi('MIDI IN: N/A', 'This browser has no Web MIDI, which MIDI IN needs.');
     return;
   }
   try {
@@ -13200,15 +13204,13 @@ $('midi').onclick = async () => {
         input.onmidimessage = onMidiMessage;
         count++;
       }
-      $('midi').textContent = `MIDI IN: ${count} ${count === 1 ? 'INPUT' : 'INPUTS'}`;
-      $('midi').title = midiTitle;
+      showMidi(`MIDI IN: ${count} ${count === 1 ? 'INPUT' : 'INPUTS'}`);
       setLamp('lamp-midi', count > 0);
     };
     access.onstatechange = listen; // a device was connected or removed
     listen();
   } catch (error) {
-    $('midi').textContent = 'MIDI IN: BLOCKED';
-    $('midi').title = 'The browser did not allow MIDI devices. Allow them in the site settings, then click again.';
+    showMidi('MIDI IN: BLOCKED', 'The browser did not allow MIDI devices. Allow them in the site settings, then click again.');
   }
 };
 
