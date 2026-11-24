@@ -158,8 +158,7 @@ gives "project"). An adapter makes the functions of `fm1.h` from
 and no `double`; the LOG panel tells when a program does not fit the FM-1.
 
 **FM-1 Studio was tested on a real FM-1, with all its features**: DOWNLOAD and INSTALL, for `fm1.h`
-programs and for each firmware of the gallery that the table of "The gallery's firmware on a real FM-1"
-marks "Tested".
+programs and for each firmware of the gallery in the table of "The gallery's firmware on a real FM-1".
 "Which FM-1" tells which FM-1, and what was not tried. Read this section to its end before you install a
 package.
 [firmware/README.md](firmware/README.md) tells what a program must keep to on the FM-1.
@@ -277,13 +276,13 @@ files go into the package. The package has the firmware's own update loader and 
 | SLOOP v2.8.5 | `"felucca"`, without the size pass | `sloop-2.8.5.fwsc` | `FM-1_900`, as its releases | Yes | Tested |
 | SKIFF v2.5.1 | `"felucca"`, as its release build (`--release 2.5.1`), with a change for the firmware compiler | `skiff-2.5.1.fwsc` | `FM-1_725`, as its release | Yes | Tested |
 | JIANT v0.9.18 | `"felucca"`, with its hot RAM code and layout, with changes for the firmware compiler and the newer flash chip | `jiant-0.9.18.fwsc` | `FM-1_900`, as its releases | Yes | Tested |
-| X0X v1.3 | `"x0x"`, as its release build (`--release 1.3`) | `x0x-1.3.fwsc` | `FM-1_9010300`, as its release | Yes | Not yet |
+| X0X v1.3 | `"x0x"`, as its release build (`--release 1.3`) | `x0x-1.3.fwsc` | `FM-1_9010300`, as its release | Yes | Tested |
 
 These are not the released packages: the authors build with JieLi's compiler, FM-1 Studio with the
 firmware compiler. "Same bytes": unchanged and with a change, the page's package is the same bytes as the
 one that the firmware's own `build.py` makes with the firmware compiler, and that build passes all its
 checks (`firmware/web/reference_device.sh`). "Tested": the page's package was installed and played on the
-FM-1 of "Which FM-1". "Not yet": the package was not installed on an FM-1.
+FM-1 of "Which FM-1".
 
 **The page builds FM-106 without Bluetooth.** FM-106's own build links JieLi's closed Bluetooth libraries
 (with link-time optimisation, in Docker); the page does the build that its `build.py` makes with
