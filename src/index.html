@@ -12157,6 +12157,7 @@ function showInstall() {
   connect.classList.toggle('cue', link === 'current' && !connect.disabled);
   go.classList.toggle('cue', !go.disabled);
   go.classList.toggle('lit', installer.writing);  // it pulses, as the INSTALL button
+  go.lastChild.textContent = installer.writing ? 'INSTALLING' : 'INSTALL NOW';
   go.hidden = installer.result === 'done';
   $('install-done').hidden = !go.hidden;
   $('install-agree').disabled = $('install-licence').disabled = installer.writing;
@@ -12224,8 +12225,12 @@ $('install-open').onclick = async () => {
   showInstall();
 };
 
-// Esc and CLOSE close the dialog, but not during an install. A click outside it does nothing.
+// Esc and CLOSE close the dialog, but not during an install. A click outside it closes it too, but not while the
+// page connects or installs.
 install.oncancel = (event) => { if (installer.writing) event.preventDefault(); };
+install.onpointerdown = (event) => {
+  if (event.target === install && !installer.connecting && !installer.writing) install.close();
+};
 $('install-close').onclick = $('install-done').onclick = () => install.close();
 addEventListener('beforeunload', (event) => { if (installer.writing) event.preventDefault(); });
 
