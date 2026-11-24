@@ -347,8 +347,7 @@
   .firmware { display: grid; grid-template-columns: auto auto; justify-content: space-evenly; align-content: center; align-items: center; }
   .firmware .transport { grid-template-columns: auto auto; justify-content: center; gap: 14px 20px; }
   /* Left of the buttons: the WebAssembly logo (purple, with its notch and WA). Its hint tells which
-     compiler makes the firmware. Its bottom is level with the bottom of the buttons (40px high, at
-     the top of the row, which is as high as the buttons and the bar): 40 - 29 = 11px above it. */
+     compiler makes the firmware. */
   .wasm-badge { display: grid; align-self: start; margin-top: 11px; }
   .wasm-badge svg { width: 29px; height: 29px; border-radius: 2px; filter: drop-shadow(0 1px 1px #000a); }
   .wasm-badge path, .wasm-logo path { fill: #654ff0; }
@@ -359,6 +358,7 @@
   /* ---- Log: a display for the output of the compilers and the messages of the program ---- */
 
   .log-section { display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); }
+  #log-copy { width: 54px; padding: 0; }
   #log {
     margin: 0; padding: 7px 10px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
     font: 10px/1.45 var(--font-mono); color: var(--oled-mid); user-select: text; -webkit-user-select: text;
@@ -384,6 +384,7 @@
     background: linear-gradient(135deg, var(--body) 50%, var(--tray) 50%);
   }
   .swatch[aria-pressed="true"] { box-shadow: 0 0 0 1px #000, 0 0 0 3px var(--silk); }  /* the skin of the FM-1 */
+  #midi { width: 108px; padding: 0; }
   .fm1 { position: relative; }
   #panel { display: block; width: 100%; height: auto; }
   #screen {  /* the 222 x 222 units at (283, 67) of the picture: in the middle of the bezel, 20 from its edges */
@@ -13184,9 +13185,11 @@ function onMidiMessage({ data }) {
   sendInput('midi', { midi: (kind | status << 8 | data1 << 16 | data2 << 24) >>> 0 });
 }
 
+const midiTitle = $('midi').title;
 $('midi').onclick = async () => {
   if (!navigator.requestMIDIAccess) {
-    $('midi').textContent = 'MIDI IN: NOT IN THIS BROWSER';
+    $('midi').textContent = 'MIDI IN: N/A';
+    $('midi').title = 'This browser has no Web MIDI, which MIDI IN needs.';
     return;
   }
   try {
@@ -13198,12 +13201,14 @@ $('midi').onclick = async () => {
         count++;
       }
       $('midi').textContent = `MIDI IN: ${count} ${count === 1 ? 'INPUT' : 'INPUTS'}`;
+      $('midi').title = midiTitle;
       setLamp('lamp-midi', count > 0);
     };
     access.onstatechange = listen; // a device was connected or removed
     listen();
   } catch (error) {
-    $('midi').textContent = 'MIDI IN: NO PERMISSION';
+    $('midi').textContent = 'MIDI IN: BLOCKED';
+    $('midi').title = 'The browser did not allow MIDI devices. Allow them in the site settings, then click again.';
   }
 };
 
