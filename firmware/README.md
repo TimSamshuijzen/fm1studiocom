@@ -231,7 +231,6 @@ The adapter and `make_app.py` are the same for both.
   (November 2026). No package of `build.sh` (JieLi's compiler) was installed on a real FM-1. With
   `build.sh`, the three example projects (NEON REEF, GLOAMING, GWAVE) build to a package, pass the
   checks, and give the right pictures and sound in the host simulator.
-- **`fm1_battery` is not tried on a real FM-1.** `testprograms/battery-test` shows what it gives.
 - **The speed on the FM-1 is not known.** The two example games draw the full screen for each picture,
   and count on 29 pictures a second.
 - **`fm1.h` comes from `src/index.html`.** Without that file, give `make_app.py` another file with the

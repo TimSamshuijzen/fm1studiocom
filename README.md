@@ -262,8 +262,8 @@ The packages of FM-1 Studio were tested on one FM-1: the newer chip (B36014), wi
 2.4-395e6cc, installed with M-Flasher (November 2026). We did not try a package on the first chip, or
 under the boot loader of V15 or V16. The store of `fm1.h` was tested on that FM-1 with
 `testprograms/store-test` (November 2026): all its tests pass, and the data stays after the FM-1 is off.
-The screen stays black at power-on until the program draws. The battery level of `fm1.h` (`fm1_battery`,
-added in November 2026) is not tested on a real FM-1 yet: `testprograms/battery-test` is for that test.
+The screen stays black at power-on until the program draws. The battery level of `fm1.h` (`fm1_battery`)
+was tested on that FM-1 with `testprograms/battery-test` (November 2026), and works.
 
 #### If it goes wrong
 
