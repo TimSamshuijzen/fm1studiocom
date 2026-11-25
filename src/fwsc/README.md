@@ -171,7 +171,7 @@ table of hashes below.
 ```
 c9113eb13497667a7241278ca29b6d6c89f32007ce47ab00b5867c53367cd9ee  llvm.js
 9b3ccb40d5641709c7c408990081a72dc09bda825a314652772506ee7e3bb5c0  llvm.wasm
-ce8b2f76cd856632c0e1d8e33641fc6ab70391f292b97185f4f2dc161f2ed41f  platform.json
+11bb8372d9aa6fa11853816090508a8bdfd2c6a3de788b3653fd6adb5bc0d0eb  platform.json
 ```
 
 `sha256sum -c` with this text, in this directory, checks the three files.

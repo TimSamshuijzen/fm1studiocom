@@ -150,7 +150,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--zip", required=True, type=Path, help="the project zip")
     parser.add_argument("--out", required=True, type=Path, help="the app directory to make (it is replaced)")
-    parser.add_argument("--name", help="the name on the FM-1's start screen (default: the name of the zip)")
+    parser.add_argument("--name", help="the name of the program on the FM-1 (default: the name of the zip)")
     parser.add_argument("--index", type=Path, default=HERE.parent / "src" / "index.html", help="FM-1 Studio's page")
     parser.add_argument("--repo", default="https://github.com/TimSamshuijzen/fm1studiocom", help="the source's address")
     args = parser.parse_args()
@@ -170,7 +170,8 @@ def main():
         if not path.lower().endswith(".c"):
             fail(f"{path}: a real FM-1 build takes C only (the FM-1's compiler has no C++ library)")
 
-    # The names: on the start screen (capitals and digits: the large font has no more), and of the files.
+    # The names: of the FM-1 over USB and on its crash and safe-mode screens (capitals and digits: their fonts
+    # have no more), and of the files.
     shown = re.sub(r"[^A-Z0-9 +-]", " ", (args.name or args.zip.stem).upper())
     shown = re.sub(r" +", " ", shown).strip()[:14].strip() or "PROGRAM"
     file_id = re.sub(r"[^a-z0-9]+", "_", shown.lower()).strip("_") or "program"

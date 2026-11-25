@@ -72,8 +72,9 @@ and runs it. Browsers block sound until a click or a key press, so click the pag
 | MIDI | The MIDI IN button asks the browser for permission |
 
 A project is a name and a set of text files. SAVE downloads it as a zip file and LOAD reads one back.
-The name (NAME) has letters, digits, space, `+` and `-`, 14 characters at most: a real FM-1 shows it in
-capitals on its start screen. It also gives the names of the zip file and of the package. A loaded zip
+The name (NAME) has letters, digits, space, `+` and `-`, 14 characters at most: on a real FM-1 it is the
+name of the FM-1 over USB, and its crash and safe-mode screens show it in capitals. It also gives the names
+of the zip file and of the package. A loaded zip
 file gives its name, with a space for each other character.
 For a firmware of the gallery, SAVE first opens a dialog: CONFIRM that the firmware is the work of its
 authors and that you keep to its licence, and the zip file downloads; CANCEL saves nothing. DOWNLOAD and
@@ -89,7 +90,9 @@ of space sounds and synth bass, with laser shots, a flying saucer and sonar ping
 GAME-1, the third card, loads a game: NEON REEF, a vertical shooter. Fly with the computer keys `A`, `W`, `S` and `D`, and fire with `J`.
 GAME-2, the fourth card, loads SWOOPERS, an arcade shooter with a swarm of aliens that dive at you. Move
 with the computer keys `A` and `D`, and fire with `J`.
-The page keeps nothing between visits: save a project before you close the page.
+The page keeps nothing between visits: save a project before you close the page. The simulator keeps the
+store of the programs (`fm1_store_save`) while the page is open, also for the next program, as an FM-1
+keeps its flash; a reload of the page empties it.
 
 ## Write a program
 
@@ -114,10 +117,12 @@ The API gives the program:
 | Encoders | `fm1_enc_take` |
 | MASTER pot | `fm1_master` |
 | MIDI input | `fm1_midi_take` |
+| Store: data that stays when the FM-1 is off | `fm1_store_load`, `fm1_store_save` |
 
 The screen and input functions have the names and signatures of
-[felucca-bsp](https://github.com/hugelton/felucca-bsp). The demo project `main.c` uses all of the API:
-a small FM synthesizer with an arpeggiator, an echo and its own screen.
+[felucca-bsp](https://github.com/hugelton/felucca-bsp). The demo project `main.c` uses all of the API but
+the store: a small FM synthesizer with an arpeggiator, an echo and its own screen.
+`testprograms/store-test` tests the store, in the simulator and on a real FM-1.
 
 COMPILE compiles a program as the firmware build does, so that a program that runs here also builds for
 a real FM-1:
@@ -144,18 +149,24 @@ from your idea: you describe a synth, a piece or a game, and the AI writes `main
 4. Tell the AI what to change. When a compile fails, copy the text of the LOG panel to the AI.
 
 The rules in the prompt are those of a real FM-1: C, `float` and no `double`, no `malloc` and no
-`printf`, a fast `audio()` that does not draw, a `loop()` that returns soon, and LEDs that show which
-buttons do something. COMPILE refuses a program that breaks one of the first three. An AI makes
+`printf`, a fast `audio()` that does not draw, a `loop()` that returns soon, LEDs that show which
+buttons do something, and a save to the store only when the user asks for it or after a pause. COMPILE refuses a program that breaks one of the first three. An AI makes
 mistakes: test the program in the simulator, and read "On a real FM-1" before you install it.
 
 ### On a real FM-1
 
 The DOWNLOAD button makes a `.fwsc` package of the project with the firmware compiler, and downloads it.
 It uses the compiler that the page loaded for COMPILE: a package takes some seconds. The NAME of the
-project gives the name on the FM-1's start screen, and of the package (a name without a letter or a digit
+project gives the name of the FM-1 over USB, and of the package (a name without a letter or a digit
 gives "project"). An adapter makes the functions of `fm1.h` from
 [fm1-base](https://github.com/charlesvestal/fm1-base) and felucca-bsp. The program must be C, with `float`
 and no `double`; the LOG panel tells when a program does not fit the FM-1.
+
+The FM-1 has no start screen of its own then: the screen stays black until `setup()` draws. The store of
+`fm1.h` is fm1-base's store in the flash, from 0x97000 to 0xB6FFF: two 4 KiB sectors for each slot, which
+a save writes in turn, with a CRC, so that a save that is cut off leaves the save before. An install of a
+package does not change that part of the flash: the next program finds the data there. Other firmwares can
+use the same part, and the firmware of M-VAVE writes all of the flash.
 
 **FM-1 Studio was tested on a real FM-1, with all its features**: DOWNLOAD and INSTALL, for `fm1.h`
 programs and for each firmware of the gallery in the table of "The gallery's firmware on a real FM-1".
@@ -240,7 +251,9 @@ of M-VAVE's.
 
 The packages of FM-1 Studio were tested on one FM-1: the newer chip (B36014), with m-bootloader
 2.4-395e6cc, installed with M-Flasher (November 2026). We did not try a package on the first chip, or
-under the boot loader of V15 or V16.
+under the boot loader of V15 or V16. The store of `fm1.h` was tested on that FM-1 with
+`testprograms/store-test` (November 2026): all its tests pass, and the data stays after the FM-1 is off.
+The screen stays black at power-on until the program draws.
 
 #### If it goes wrong
 
@@ -560,7 +573,8 @@ The application is one file, `src/index.html`, the compiler in `src/fwsc`, and t
 3. The page sends the module to the **audio worklet**, which makes an instance of it. For each block of
    256 frames it calls `loop()` and then `audio()`. The module imports nothing.
 4. The worklet sends the screen, the LEDs, the level and the memory size to the page. The page sends
-   the keys, encoders, MASTER position and MIDI messages to the worklet.
+   the keys, encoders, MASTER position and MIDI messages to the worklet. After a save, the worklet keeps
+   a copy of the store of `fm1_runtime.c`, and puts it in each program that starts.
 
 The page is made so that it also works when `index.html` is opened from disk: the worker and the worklet
 start from text in the page, and the extras are scripts. Such a page cannot fetch the files of its own
@@ -648,6 +662,7 @@ src/staticwebapp.config.json   configuration of the host
 firmware/                      fm1.h on a real FM-1: the adapter, and the build on a computer (not deployed)
 firmware/web/                  the scripts that make src/fwsc
 examples/                      example projects, each with its zip file: PROG-1, NEON REEF, GLOAMING, GWAVE (not deployed)
+testprograms/                  programs that test a part of fm1.h, also on a real FM-1: the LEDs, the store (not deployed)
 vibe-examples/                 programs for the example ideas of VIBE: DRUM-1 (drumsolo-1 to 4), STRING-1 (synth), PIECE-1 (piece), GAME-2 (game: SWOOPERS); and a funk clavinet (clavinet)
 video/                         the promotional video: storyboard, timeline, and the scripts that render it (not deployed)
 img/                           the screenshot at the top of this README (not deployed)
@@ -692,6 +707,8 @@ of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/ma
 - web-libc, the C library of the gallery's firmwares in the simulator, has what they use: no files, no
   clock (its time stays 0), no `printf`, and no heap (`malloc` gives `NULL`). A firmware that is added can
   need more (see "Add a firmware to the gallery"). X0X shows its AUDIO LOAD as 0 % for that reason.
+- The simulator keeps the store while the page is open. A save takes no time there; on a real FM-1 it
+  stops the sound for some tens of milliseconds (the erase of a flash sector).
 - A page that is opened from disk loads the compiler from fm1studio.com: COMPILE then needs that site.
 - A project holds text files only.
 - GitHub gives the list of files of a repository 60 times in an hour to one address. The first LOAD of

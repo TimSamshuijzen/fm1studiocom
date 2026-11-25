@@ -21,3 +21,5 @@
 #define fm1_enc_take fm1x_enc_take
 #define fm1_master fm1x_master
 #define fm1_midi_take fm1x_midi_take
+#define fm1_store_load fm1x_store_load
+#define fm1_store_save fm1x_store_save

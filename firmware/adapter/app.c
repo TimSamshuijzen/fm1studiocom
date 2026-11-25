@@ -21,7 +21,10 @@
  * What is different:
  *   - audio() runs in an interrupt, loop() does not. Draw only from loop().
  *   - The stack of loop() is 24 KB, that of audio() about 7 KB.
- *   - After an update that was cancelled, the FM-1 starts again. */
+ *   - After an update that was cancelled, the FM-1 starts again.
+ *   - The store is in the flash: it stays when the FM-1 is off (the
+ *     simulator keeps it while its page is open), and a save stops the sound
+ *     for some tens of milliseconds (the erase of a flash sector). */
 
 /* The program. */
 void fm1x_setup(void);
@@ -226,6 +229,30 @@ int fm1x_lcd_blit(uint32_t x, uint32_t y, uint32_t w, uint32_t h, const uint16_t
     return 0;
 }
 
+/* ---- Store ----
+ *
+ * The slots are objects of fm1-base's store (storage.c: two flash sectors
+ * each, written in turn, with a CRC), from OBJ_STORE0 (app.h). The store runs
+ * in the main loop only: setup() and loop(), not audio(), an interrupt. */
+
+static volatile uint8_t ad_in_audio;    /* audio() runs */
+
+int fm1x_store_load(uint32_t slot, void *data, uint32_t max)
+{
+    int n;
+    if (slot >= AD_STORE_SLOTS || !data || ad_in_audio)
+        return -2;
+    n = plat_store_load(OBJ_STORE0 + slot, data, max);
+    return n < 0 ? -1 : n;
+}
+
+int fm1x_store_save(uint32_t slot, const void *data, uint32_t len)
+{
+    if (slot >= AD_STORE_SLOTS || len > PLAT_STORE_MAX || !data || ad_in_audio)
+        return -2;
+    return plat_store_save(OBJ_STORE0 + slot, data, len) ? -1 : 0;
+}
+
 /* ---- Program ---- */
 
 static volatile uint8_t ad_running;     /* setup() is done: audio() and loop() run */
@@ -234,11 +261,18 @@ static volatile uint32_t ad_blocks;     /* count of audio blocks */
 
 void app_init(void) {}                  /* setup() waits for the screen: app_ui_init */
 
+/* The first screen at power-on, in place of the platform's (the name of the
+ * program on a light screen): none. The screen stays black, as lcd_init
+ * leaves it, until setup() draws. */
+void app_splash(void) {}
+
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 {
     (void)master_q12;                   /* the program reads MASTER itself: fm1_master() */
     if (ad_running && !ad_silent) {
+        ad_in_audio = 1;
         fm1x_audio(lr, (int)n);
+        ad_in_audio = 0;
     } else {
         uint32_t i;
         for (i = 0; i < 2u * n; i++)

@@ -1216,10 +1216,11 @@ void loop(void) { }                         /* again and again: controls and scr
         <tr><td>Encoders</td><td><code>fm1_enc_take</code></td></tr>
         <tr><td>MASTER pot</td><td><code>fm1_master</code></td></tr>
         <tr><td>MIDI input</td><td><code>fm1_midi_take</code></td></tr>
+        <tr><td>Store: data that stays when the FM-1 is off</td><td><code>fm1_store_load</code>, <code>fm1_store_save</code></td></tr>
       </table>
       <ul>
         <li>COMPILE, or <kbd>Ctrl</kbd> + <kbd>Enter</kbd>, compiles the project and runs the program.</li>
-        <li>The demo project <code>main.c</code> uses all of the API: a small FM synthesizer with an
+        <li>The demo project <code>main.c</code> uses all of the API but the store: a small FM synthesizer with an
           arpeggiator, an echo and its own screen. PROG-1, the first card of the gallery, loads another
           demo: a progressive rock band in an FM-1, vibe-coded by Hans Dam. SPACE-1, the second card, loads space
           funk: a synth bass, a drum machine, and laser shots, a flying saucer and sonar pings on the
@@ -1231,8 +1232,10 @@ void loop(void) { }                         /* again and again: controls and scr
           the project is built: <code>sources</code>, <code>include</code>, <code>define</code> and
           <code>flags</code>.</li>
         <li>The page keeps nothing between visits. SAVE downloads the project as a zip file, and LOAD reads
-          it back. For a firmware of the gallery, SAVE and DOWNLOAD first ask you to confirm that it is the
-          work of its authors, and that you keep to its licence. You can also drop a project zip file on the page. A file
+          it back. The simulator keeps the store of the programs while the page is open, also for the next
+          program, as an FM-1 keeps its flash; a reload of the page empties it. For a firmware of the
+          gallery, SAVE and DOWNLOAD first ask you to confirm that it is the work of its authors, and that
+          you keep to its licence. You can also drop a project zip file on the page. A file
           <code>main.c</code> that you drop on the page makes a new project with it, and so does C code that you
           paste on the page with <kbd>Ctrl</kbd> + <kbd>V</kbd>, outside the editor.</li>
       </ul>
@@ -1500,6 +1503,7 @@ Rules for the program:
 - The LEDs are part of the interface: they show which buttons and note keys do something. The LED of each button that has a use now is on, also while nobody presses it, and the LED of a button without a use is off. When a mode changes what the buttons do (a title screen, a pause, a menu), the LEDs change with it. A button that switches something on and off shows the state by blinking: for example, PLAY is on while the music is stopped, and blinks with the beat while the music plays. Note keys that play notes light up while their notes sound. Note keys with another use, such as game controls, follow the rule of the buttons. An LED can also glow, be at a mid level or breathe (fm1_led_level), and PLAY's red LED (FM1_LED_PLAY_RED) can show a second state, such as recording. Call fm1_led_key() or fm1_led_level() only for an LED that changes.
 - Use fm1_master() as the volume, and keep the sound below full scale.
 - So that the program also runs on a real FM-1: float only (0.5f, sinf, powf; no double), no malloc, no printf, and small tables and buffers (the program and the platform share 464 KB of memory).
+- Settings, sounds or sequences that must stay when the FM-1 is off go to the store (fm1_store_save, fm1_store_load), with a magic number and a version of your own. Save only when the user asks for it (the SAVE button) or after a pause, never in each loop(), and never from audio().
 </script>
 
   <!-- INSTALL: the dialog that the INSTALL button opens. It installs the program of the project. It is a device of
@@ -1853,6 +1857,39 @@ uint32_t fm1_master(void);
  * when there is no message. Call it from one place only: audio() or loop(). */
 int fm1_midi_take(uint32_t *packet);
 
+/* ---- Store: data that stays when the FM-1 is off ----
+ *
+ * The flash memory has FM1_STORE_SLOTS slots for the program's own data, such
+ * as settings, sounds and sequences, each with up to FM1_STORE_MAX bytes. A
+ * slot keeps its bytes when the FM-1 is off, until the next save to it. A save
+ * that is cut off (the power goes) leaves the bytes of the save before.
+ *
+ * Another program, installed before, can have used the slots. Start the data
+ * with a number of your own (a magic number and a version), check it after a
+ * load, and use your defaults when it does not match.
+ *
+ * Call these functions from setup() or loop(), never from audio(). On a real
+ * FM-1 a save stops the sound for about 50 ms, and a slot can be saved about
+ * 200,000 times. So do not save in each loop() or at each turn of a knob: save
+ * when the user asks for it (the SAVE button), or when the data changed and
+ * then stayed the same for some seconds. */
+
+#define FM1_STORE_SLOTS 16u
+#define FM1_STORE_MAX   3840u  /* bytes in one slot */
+
+/* Reads slot `slot` (0 to FM1_STORE_SLOTS - 1) into `data`, at most `max`
+ * bytes. Returns the number of bytes read: the length of the saved data, or
+ * `max` when it is longer. Returns -1 when the slot holds nothing (or its data
+ * is damaged), and -2 when the slot is not valid, `data` is NULL, or the call
+ * comes from audio(). */
+int fm1_store_load(uint32_t slot, void *data, uint32_t max);
+
+/* Writes `len` bytes of `data` to slot `slot`; 0 bytes empty the slot. Returns
+ * 0 when done, -1 when the flash could not be written (the slot keeps what it
+ * had), and -2 when the slot is not valid, `len` is more than FM1_STORE_MAX,
+ * `data` is NULL, or the call comes from audio(). */
+int fm1_store_save(uint32_t slot, const void *data, uint32_t len);
+
 #ifdef __cplusplus
 }
 #endif
@@ -1892,9 +1929,12 @@ int memcmp(const void *a, const void *b, size_t n) {
 /* ---- Audio ---- */
 
 static int32_t block[FM1_AUDIO_BLOCK * FM1_AUDIO_CHANNELS];
+static int in_audio;  /* 1 while audio() runs: the store refuses then, as on the FM-1 */
 
 int32_t *fm1_sim_audio(void) {
+  in_audio = 1;
   audio(block, FM1_AUDIO_BLOCK);
+  in_audio = 0;
   return block;
 }
 
@@ -2027,6 +2067,41 @@ int fm1_midi_take(uint32_t *packet) {
   if (midi_taken == midi_written) return 0;
   *packet = midi_queue[midi_taken++ % MIDI_QUEUE];
   return 1;
+}
+
+/* ---- Store: the slots of the flash. A program starts with an empty store; the worklet puts the bytes of
+ * the store in it before setup() (fm1_sim_store), and keeps a copy after each save (fm1_sim_store_saved). ---- */
+
+static struct {
+  uint32_t len[FM1_STORE_SLOTS];  /* 0: the slot holds nothing */
+  uint8_t data[FM1_STORE_SLOTS][FM1_STORE_MAX];
+} store;
+static int store_saved;
+
+int fm1_store_load(uint32_t slot, void *data, uint32_t max) {
+  if (slot >= FM1_STORE_SLOTS || !data || in_audio) return -2;
+  uint32_t n = store.len[slot];
+  if (!n) return -1;
+  if (n > max) n = max;
+  memcpy(data, store.data[slot], n);
+  return (int)n;
+}
+
+int fm1_store_save(uint32_t slot, const void *data, uint32_t len) {
+  if (slot >= FM1_STORE_SLOTS || len > FM1_STORE_MAX || !data || in_audio) return -2;
+  memcpy(store.data[slot], data, len);
+  store.len[slot] = len;
+  store_saved = 1;
+  return 0;
+}
+
+void *fm1_sim_store(void) { return &store; }
+
+/* 1 when the program saved since the last call. */
+int fm1_sim_store_saved(void) {
+  int saved = store_saved;
+  store_saved = 0;
+  return saved;
 }
 </script>
 
@@ -8604,6 +8679,7 @@ const EXPORTS = [
   'setup', 'audio', 'loop', '__wasm_call_ctors',
   'fm1_sim_audio', 'fm1_sim_screen', 'fm1_sim_screen_changed',
   'fm1_sim_key', 'fm1_sim_leds', 'fm1_sim_led_low', 'fm1_sim_enc', 'fm1_sim_master', 'fm1_sim_midi',
+  'fm1_sim_store', 'fm1_sim_store_saved',
 ];
 
 // A double in the code brings in these routines on the FM-1: it has no hardware for them (as firmware-worker.js).
@@ -9387,7 +9463,8 @@ async function build(files, zip) {
       throw new Error(`${path}: a real FM-1 build takes C only (the FM-1's compiler has no C++ library).`);
     }
   }
-  // The names: on the start screen (capitals and digits: the large font has no more), and of the files.
+  // The names: of the FM-1 over USB and on its crash and safe-mode screens (capitals and digits: their fonts
+  // have no more), and of the files.
   const shown = zip.replace(/\.zip$/i, '').toUpperCase().replace(/[^A-Z0-9 +-]/g, ' ').replace(/ +/g, ' ')
     .trim().slice(0, 14).trim() || 'PROGRAM';
   const name = shown.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'program';
@@ -10171,6 +10248,7 @@ const PLAY_RED = 41;          // FM1_LED_PLAY_RED
 const WEB_GREEN = 14;         // web_ interface: the bit of PLAY's green LED in web_lit_buttons(), as Felucca has it
 const WEB_HOLD_MS = 24;       // web_ interface: a key or button change stays this long, in the time of
                               // the program, before the next one. A shorter press is not seen by the firmware.
+const STORE_BYTES = 16 * 4 + 16 * 3840;  // the store of fm1_runtime.c: FM1_STORE_SLOTS lengths, then the slots
 
 // The light of an LED, as a part of the light of a fully lit LED (the time that it is on), as felucca-bsp's
 // scan makes it (boards/fm1/fm1_input.h): the glow is a pulse of 3.2 us in each frame, where a lit LED is on
@@ -10202,6 +10280,8 @@ class Fm1Processor extends AudioWorkletProcessor {
     this.low = 0;        // 1: the darker levels ("DIM LO"), as the page has it
     this.master = 0;     // position of the MASTER pot: kept here, because it stays when a program starts
     this.keys = new Uint8Array(KEYS); // 1 for each key that is down: kept here for the same reason
+    this.store = null;   // fm1.h interface: the bytes of the store, kept while the page is open, as an FM-1 keeps
+                         // its flash (also for the next program)
     this.peak = 0;       // these three are for the report to the page
     this.count = 0;
     this.quanta = 0;
@@ -10250,6 +10330,7 @@ class Fm1Processor extends AudioWorkletProcessor {
       } else {
         program.fm1_sim_master(this.master);
         this.keys.forEach((down, id) => { if (down) program.fm1_sim_key(id, 1); });
+        if (this.store) new Uint8Array(program.memory.buffer, program.fm1_sim_store(), STORE_BYTES).set(this.store);
         program.setup();
         // Show the screen and the LEDs now. A browser blocks the audio until a click or key press:
         // until then process() does not run, but this function does. Thus loop() runs one time
@@ -10349,9 +10430,11 @@ class Fm1Processor extends AudioWorkletProcessor {
 
   // ---- The fm1.h interface ----
 
-  // Sends the screen and the LEDs to the page when the program changed them.
+  // Sends the screen and the LEDs to the page when the program changed them, and keeps the store after a save
+  // (in setup() or loop(): this runs after them).
   report(program) {
     const memory = program.memory.buffer;
+    if (program.fm1_sim_store_saved()) this.store = new Uint8Array(memory, program.fm1_sim_store(), STORE_BYTES).slice();
     if (++this.blocks >= SCREEN_BLOCKS && program.fm1_sim_screen_changed()) {
       this.blocks = 0;
       const screen = new Uint16Array(memory, program.fm1_sim_screen(), SCREEN_PIXELS).slice();
@@ -10730,15 +10813,15 @@ function newProject() {
 
 const canReplace = () => !changed || confirm('The project has changes that are not saved. Discard them?');
 
-// The name of a project is also the name on the start screen of a real FM-1. The large font there has capitals,
-// digits, space, + and -, and the name has 14 characters at most (build() of firmware-worker.js, as
-// firmware/make_app.py). So the NAME field takes letters, digits, space, + and -: the FM-1 shows the letters as
-// capitals.
+// The name of a project is also the name of a real FM-1 that runs it: over USB, and on its crash and safe-mode
+// screens. The fonts there have capitals, digits, space, + and -, and the name has 14 characters at most
+// (build() of firmware-worker.js, as firmware/make_app.py). So the NAME field takes letters, digits, space, +
+// and -: the FM-1 shows the letters as capitals.
 const NAME_MAX = 14;
 const NAME_OTHER = /[^A-Za-z0-9 +-]/g;  // the characters that a name cannot have
 
 // The name from a file name (LOAD): a space for each character that a name cannot have, as build() of
-// firmware-worker.js makes the name on the start screen, but with the small letters.
+// firmware-worker.js makes the name on the FM-1, but with the small letters.
 const nameOf = (text) => text.replace(NAME_OTHER, ' ').replace(/ +/g, ' ').trim().slice(0, NAME_MAX).trim();
 
 // The name of the files of the project (SAVE) and of its package (DOWNLOAD, INSTALL). A name without a letter or a

@@ -2,7 +2,7 @@
 
 This directory makes firmware for a real M-VAVE FM-1 from a C program that is written against `fm1.h`:
 an API of three functions to write (`setup`, `audio`, `loop`) and a small set to call (screen, keys,
-LEDs, encoders, MASTER, MIDI). It has three parts:
+LEDs, encoders, MASTER, MIDI, store). It has three parts:
 
 - **An adapter**: an app for [fm1-base](https://github.com/charlesvestal/fm1-base), the open platform
   for FM-1 firmware. It gives a program the functions of `fm1.h`.
@@ -51,6 +51,7 @@ program from them:
 
 | fm1-base calls | When | The adapter |
 | --- | --- | --- |
+| `app_splash` | At power-on, for the first screen | Nothing: the screen stays black until `setup()` draws, in place of fm1-base's start screen with the name of the app |
 | `app_ui_init` | When the screen is ready | Clears the screen and calls `setup()`, one time. A second call comes after an update that was cancelled: then the FM-1 starts again |
 | `app_render` | For each audio block of 256 frames, in an interrupt | Calls `audio()`. Before `setup()` is done, and when an update is near, it gives silence |
 | `app_frame`, `app_input_only` | In the main loop | Calls `loop()` one time for each audio block, then sends the LEDs that changed |
@@ -68,6 +69,7 @@ The functions that a program calls go to fm1-base's platform (`plat.h`, `lcd.c`)
 | `fm1_enc_take` | `plat_enc` | The encoder numbers of `fm1.h` |
 | `fm1_master` | `plat_master` | The range 0 to 1023 |
 | `fm1_midi_take` | `plat_midi_in` | Nothing: it is the same USB-MIDI packet |
+| `fm1_store_load`, `fm1_store_save` | `plat_store_load`, `plat_store_save` (`storage.c`: two 4 KiB flash sectors for each object, written in turn, with a CRC) | The 16 slots as the objects from `OBJ_STORE0`, from 0x97000 to 0xB6FFF (`APP_STORE_MAP` in `app.h`); -1 for each error of the store, and -2 for a call from `audio()` |
 
 Two more facts:
 
@@ -86,8 +88,8 @@ firmware\build.cmd examples\neonreef\neonreef.zip          (Windows: it starts t
 firmware/build.sh examples/neonreef/neonreef.zip           (Linux, or inside WSL)
 ```
 
-A second argument gives the name on the FM-1's start screen: `firmware\build.cmd my.zip "MY SYNTH"`.
-Without it, the name of the zip file is the name.
+A second argument gives the name of the program on the FM-1 (over USB, and on its crash and safe-mode
+screens): `firmware\build.cmd my.zip "MY SYNTH"`. Without it, the name of the zip file is the name.
 
 The result is in `build/fwsc/NAME/`:
 
@@ -144,14 +146,14 @@ python3 firmware/make_app.py --zip PROJECT.zip --out APP_DIR [--name NAME] [--in
 | `fm1.toml` | The settings of fm1-base's build |
 | `app.h`, `app.c`, `adapter/` | The adapter |
 | `fm1.h` | The API |
-| `fm1_app_name.h` | `APP_NAME`: the name on the start screen |
+| `fm1_app_name.h` | `APP_NAME`: the name on the crash and safe-mode screens |
 | `fm1_prefix.h` | Put in front of each file of the program: the names, and the `define` of `fm1project.json` |
 | `project/` | The files of the zip |
 | `words.tsv` | For fm1-base's screen reader (no words) |
 | `tests/smoke.txt` | The script for the host simulator |
 | `name.txt` | The name of the build's files |
 
-The name on the start screen has capitals, digits, space, `+` and `-`, and 14 characters at most. The
+The name has capitals, digits, space, `+` and `-`, and 14 characters at most. The
 identity of the package is `FM-1_58`, one digit that is made from the name, and `00`.
 
 ### The project zip
@@ -184,6 +186,7 @@ The build stops with a message for most of these.
 | `audio()` | It is an interrupt, and has 5.8 ms for 256 frames. Do not draw in it |
 | Screen | A draw call takes time. A full screen, 30 times a second, can be too much: draw what changed |
 | `loop()` | One call for each audio block. A call that takes longer makes the next ones late |
+| Store | 16 slots of 3840 bytes. A save erases a 4 KiB flash sector: the sound stops for some tens of milliseconds, and a sector takes about 100,000 erases. Save when the user asks for it, or after a pause; not in each `loop()`, and not from `audio()` |
 | Hardware addresses | The build refuses pointer casts to `volatile` and inline assembly in a program |
 
 `fm1.h` has a second implementation: the simulator of FM-1 Studio (`fm1_runtime.c` in `src/index.html`).
@@ -192,6 +195,8 @@ These things are different on the FM-1:
 - The accuracy of the maths is about six digits (`atan2f`, `asinf`, `acosf`: about five).
 - After an update that was cancelled, the FM-1 starts again.
 - USB audio and Bluetooth are not built in. USB MIDI in works: `fm1_midi_take`.
+- The store stays when the FM-1 is off, and when another package is installed. The simulator keeps it
+  while its page is open.
 
 ## Check a build
 
