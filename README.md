@@ -150,8 +150,9 @@ from your idea: you describe a synth, a piece or a game, and the AI writes `main
 
 The rules in the prompt are those of a real FM-1: C, `float` and no `double`, no `malloc` and no
 `printf`, a fast `audio()` that does not draw, a `loop()` that returns soon, LEDs that show which
-buttons do something, and a save to the store only when the user asks for it or after a pause. COMPILE refuses a program that breaks one of the first three. An AI makes
-mistakes: test the program in the simulator, and read "On a real FM-1" before you install it.
+buttons do something, and a save to the store only when the user asks for it or after a pause. 
+COMPILE refuses a program that breaks one of the first three. An AI makes mistakes: test the program in 
+the simulator, and read "On a real FM-1" before you install it.
 
 ### On a real FM-1
 
