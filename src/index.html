@@ -385,6 +385,7 @@
   }
   .swatch[aria-pressed="true"] { box-shadow: 0 0 0 1px #000, 0 0 0 3px var(--silk); }  /* the skin of the FM-1 */
   #midi { width: 108px; padding: 0; }
+  #battery { width: 92px; padding: 0; }
   .fm1 { position: relative; }
   #panel { display: block; width: 100%; height: auto; }
   #screen {  /* the 222 x 222 units at (283, 67) of the picture: in the middle of the bezel, 20 from its edges */
@@ -1099,6 +1100,7 @@ It runs in a Web Worker; its output is a .fwsc package for a real FM-1.">
           <div class="legend right">
             <!-- The page script adds a swatch for each skin of SKINS. -->
             <span class="skins" id="skins" role="group" aria-label="Colour of the FM-1"></span>
+            <button class="push" id="battery"></button>
             <button class="push" id="midi"></button>
           </div>
           <div class="fm1">
@@ -1197,6 +1199,7 @@ It runs in a Web Worker; the simulator runs its output, fm1.wasm.">
         <tr><td>Notes C4 to F5</td><td>Computer keys <kbd>A</kbd> to <kbd>'</kbd> (white keys) and the row above (black keys)</td></tr>
         <tr><td>OCT- and OCT+</td><td>Computer keys <kbd>Z</kbd> and <kbd>X</kbd></td></tr>
         <tr><td>MIDI</td><td>MIDI IN asks the browser for permission. Then the MIDI keyboards and controllers of this computer play the FM-1</td></tr>
+        <tr><td>Battery</td><td>BATTERY sets the level that the program reads: 3 (full) to 0 (empty), or USB</td></tr>
       </table>
       <p>Browsers block sound until a click or a key press: click the page one time.</p>
 
@@ -1215,12 +1218,13 @@ void loop(void) { }                         /* again and again: controls and scr
         <tr><td>LEDs, with levels, and PLAY's red LED</td><td><code>fm1_led_key</code>, <code>fm1_led_level</code>, <code>fm1_led_dim_low</code></td></tr>
         <tr><td>Encoders</td><td><code>fm1_enc_take</code></td></tr>
         <tr><td>MASTER pot</td><td><code>fm1_master</code></td></tr>
+        <tr><td>Battery level</td><td><code>fm1_battery</code></td></tr>
         <tr><td>MIDI input</td><td><code>fm1_midi_take</code></td></tr>
         <tr><td>Store: data that stays when the FM-1 is off</td><td><code>fm1_store_load</code>, <code>fm1_store_save</code></td></tr>
       </table>
       <ul>
         <li>COMPILE, or <kbd>Ctrl</kbd> + <kbd>Enter</kbd>, compiles the project and runs the program.</li>
-        <li>The demo project <code>main.c</code> uses all of the API but the store: a small FM synthesizer with an
+        <li>The demo project <code>main.c</code> uses all of the API but the battery and the store: a small FM synthesizer with an
           arpeggiator, an echo and its own screen. PROG-1, the first card of the gallery, loads another
           demo: a progressive rock band in an FM-1, vibe-coded by Hans Dam. SPACE-1, the second card, loads space
           funk: a synth bass, a drum machine, and laser shots, a flying saucer and sonar pings on the
@@ -1839,6 +1843,21 @@ int32_t fm1_enc_take(uint32_t e);
 /* The position of the MASTER pot: 0 is fully left, FM1_MASTER_MAX is fully right. */
 uint32_t fm1_master(void);
 
+/* ---- Battery ----
+ *
+ * The FM-1 measures its battery a few times a second. It cannot tell when the
+ * battery charges: while a computer powers it over USB, the level is
+ * FM1_BATTERY_USB. */
+
+#define FM1_BATTERY_FULL 3  /* the highest level */
+#define FM1_BATTERY_USB  4  /* a computer powers the FM-1 over USB */
+
+/* The battery level: 0 (empty) to FM1_BATTERY_FULL (full), FM1_BATTERY_USB
+ * while a computer powers the FM-1 over USB, or -1 when the battery is not
+ * measured yet (the first moments after power-on). A program that shows the
+ * level must handle all six values. Call it from setup() or loop(). */
+int fm1_battery(void);
+
 /* ---- MIDI input ----
  *
  * fm1_midi_take is our own function: felucca-bsp has a queue of such packets
@@ -1930,8 +1949,11 @@ int memcmp(const void *a, const void *b, size_t n) {
 
 static int32_t block[FM1_AUDIO_BLOCK * FM1_AUDIO_CHANNELS];
 static int in_audio;  /* 1 while audio() runs: the store refuses then, as on the FM-1 */
+static uint32_t blocks_done;  /* audio blocks so far, up to BATTERY_BLOCKS (see Battery) */
+#define BATTERY_BLOCKS 86u
 
 int32_t *fm1_sim_audio(void) {
+  if (blocks_done < BATTERY_BLOCKS) blocks_done++;
   in_audio = 1;
   audio(block, FM1_AUDIO_BLOCK);
   in_audio = 0;
@@ -2051,6 +2073,17 @@ void fm1_sim_master(uint32_t position) {
 }
 
 uint32_t fm1_master(void) { return master; }
+
+/* ---- Battery: the level that the page sets. As on the FM-1, the battery is not measured yet in the first
+ * moments: -1 in setup() and for the first BATTERY_BLOCKS audio blocks (half a second). ---- */
+
+static int battery = FM1_BATTERY_FULL;
+
+void fm1_sim_battery(int level) {
+  if (level >= 0 && level <= FM1_BATTERY_USB) battery = level;
+}
+
+int fm1_battery(void) { return blocks_done < BATTERY_BLOCKS ? -1 : battery; }
 
 /* ---- MIDI input: a ring of packets. A message that does not fit is lost. ---- */
 
@@ -8678,7 +8711,7 @@ const FM1_LIBC = '-I/fm1/libc';
 const EXPORTS = [
   'setup', 'audio', 'loop', '__wasm_call_ctors',
   'fm1_sim_audio', 'fm1_sim_screen', 'fm1_sim_screen_changed',
-  'fm1_sim_key', 'fm1_sim_leds', 'fm1_sim_led_low', 'fm1_sim_enc', 'fm1_sim_master', 'fm1_sim_midi',
+  'fm1_sim_key', 'fm1_sim_leds', 'fm1_sim_led_low', 'fm1_sim_enc', 'fm1_sim_master', 'fm1_sim_battery', 'fm1_sim_midi',
   'fm1_sim_store', 'fm1_sim_store_saved',
 ];
 
@@ -10228,6 +10261,7 @@ onmessage = async ({ data }) => {
 //                          { key, down }  a key or button changed (0 to 40, as in fm1.h)
 //                          { enc, steps } an encoder turned
 //                          { master }  the position of the MASTER pot, 0 to 1023
+//                          { battery }  the battery level, 0 to 4 (fm1.h interface only, see fm1.h)
 //                          { midi }  a MIDI message as a 32-bit packet (see fm1.h)
 // Messages to the page:    { reset }, { screen }, { error },
 //                          { leds, low }  the light of each LED (see ledLight), and 1 for the darker
@@ -10279,6 +10313,7 @@ class Fm1Processor extends AudioWorkletProcessor {
     this.leds = new Float32Array(LEDS); // the light of each LED (ledLight), as the page has it
     this.low = 0;        // 1: the darker levels ("DIM LO"), as the page has it
     this.master = 0;     // position of the MASTER pot: kept here, because it stays when a program starts
+    this.battery = 3;    // the battery level (FM1_BATTERY_FULL): kept here for the same reason
     this.keys = new Uint8Array(KEYS); // 1 for each key that is down: kept here for the same reason
     this.store = null;   // fm1.h interface: the bytes of the store, kept while the page is open, as an FM-1 keeps
                          // its flash (also for the next program)
@@ -10288,6 +10323,7 @@ class Fm1Processor extends AudioWorkletProcessor {
     this.port.onmessage = ({ data }) => {
       if ('wasm' in data) { this.load(data.wasm, data.web); return; }
       if ('master' in data) this.master = data.master;
+      if ('battery' in data) this.battery = data.battery;
       if ('key' in data) this.keys[data.key] = data.down ? 1 : 0;
       const program = this.program;
       if (!program) return;
@@ -10295,6 +10331,7 @@ class Fm1Processor extends AudioWorkletProcessor {
       if ('key' in data) program.fm1_sim_key(data.key, data.down);
       else if ('enc' in data) program.fm1_sim_enc(data.enc, data.steps);
       else if ('master' in data) program.fm1_sim_master(data.master);
+      else if ('battery' in data) program.fm1_sim_battery(data.battery);
       else if ('midi' in data) program.fm1_sim_midi(data.midi);
     };
   }
@@ -10329,6 +10366,7 @@ class Fm1Processor extends AudioWorkletProcessor {
         if (this.keys.some(Boolean)) { this.webKeys(true); this.webKeys(false); }
       } else {
         program.fm1_sim_master(this.master);
+        program.fm1_sim_battery(this.battery);
         this.keys.forEach((down, id) => { if (down) program.fm1_sim_key(id, 1); });
         if (this.store) new Uint8Array(program.memory.buffer, program.fm1_sim_store(), STORE_BYTES).set(this.store);
         program.setup();
@@ -12876,6 +12914,7 @@ let fm1 = null;        // the AudioWorkletNode that runs the program
 let analyser = null;   // gives the samples for the scope
 let audioReady = null; // promise: the audio worklet is loaded
 let master = 768;      // position of the MASTER pot, 0 to 1023
+let battery = 3;       // the battery level of fm1_battery(): 0 to 3 (FM1_BATTERY_FULL), 4 (FM1_BATTERY_USB)
 const stats = { blocks: 0, memory: 0 }; // audio blocks in a second, and bytes of program memory
 const BLOCKED = 'Click or press a key to play'; // the status while the browser blocks the audio
 
@@ -12911,8 +12950,9 @@ function startAudio() {
       analyser = audioContext.createAnalyser();
       fm1.connect(analyser);
       drawScope();
-      // The worklet keeps the MASTER position and the keys that are down from here on.
+      // The worklet keeps the MASTER position, the battery level and the keys that are down from here on.
       send({ master });
+      send({ battery });
       keyElements.forEach((key, id) => { if (key.classList.contains('down')) send({ key: id, down: true }); });
     });
   }
@@ -13392,6 +13432,23 @@ $('midi').onclick = async () => {
   } catch (error) {
     showMidi('MIDI IN: BLOCKED', 'The browser did not allow MIDI devices. Allow them in the site settings, then click again.');
   }
+};
+
+// ---- Battery: the level that fm1_battery() gives an fm1.h program ----
+
+// The levels in the sequence of the clicks: full to empty, then USB (FM1_BATTERY_USB: a computer powers the FM-1).
+const BATTERY_LEVELS = [3, 2, 1, 0, 4];
+
+function showBattery() {
+  $('battery').textContent = `BATTERY: ${battery === 4 ? 'USB' : battery}`;
+}
+showBattery();
+$('battery').title = 'The battery level that fm1_battery() gives the program: 3 (full) to 0 (empty), or USB ' +
+  '(a computer powers the FM-1). Click for the next level.';
+$('battery').onclick = () => {
+  battery = BATTERY_LEVELS[(BATTERY_LEVELS.indexOf(battery) + 1) % BATTERY_LEVELS.length];
+  showBattery();
+  send({ battery });
 };
 
 // ---- Knobs ----

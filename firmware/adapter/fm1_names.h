@@ -20,6 +20,7 @@
 #define fm1_led_dim_low fm1x_led_dim_low
 #define fm1_enc_take fm1x_enc_take
 #define fm1_master fm1x_master
+#define fm1_battery fm1x_battery
 #define fm1_midi_take fm1x_midi_take
 #define fm1_store_load fm1x_store_load
 #define fm1_store_save fm1x_store_save

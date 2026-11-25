@@ -70,6 +70,7 @@ and runs it. Browsers block sound until a click or a key press, so click the pag
 | OCT- and OCT+ | Computer keys `Z` and `X` |
 | Compile and run | The COMPILE button, or `Ctrl`+`Enter` |
 | MIDI | The MIDI IN button asks the browser for permission |
+| Battery | The BATTERY button sets the level that the program reads: 3 (full) to 0 (empty), or USB |
 
 A project is a name and a set of text files. SAVE downloads it as a zip file and LOAD reads one back.
 The name (NAME) has letters, digits, space, `+` and `-`, 14 characters at most: on a real FM-1 it is the
@@ -116,13 +117,20 @@ The API gives the program:
 | LEDs, with levels, and PLAY's red LED | `fm1_led_key`, `fm1_led_level`, `fm1_led_dim_low` |
 | Encoders | `fm1_enc_take` |
 | MASTER pot | `fm1_master` |
+| Battery level | `fm1_battery` |
 | MIDI input | `fm1_midi_take` |
 | Store: data that stays when the FM-1 is off | `fm1_store_load`, `fm1_store_save` |
 
 The screen and input functions have the names and signatures of
 [felucca-bsp](https://github.com/hugelton/felucca-bsp). The demo project `main.c` uses all of the API but
-the store: a small FM synthesizer with an arpeggiator, an echo and its own screen.
-`testprograms/store-test` tests the store, in the simulator and on a real FM-1.
+the battery and the store: a small FM synthesizer with an arpeggiator, an echo and its own screen.
+`testprograms/store-test` tests the store, and `testprograms/battery-test` the battery level, in the
+simulator and on a real FM-1.
+
+`fm1_battery()` gives the battery level as the FM-1 measures it: 0 (empty) to 3 (full), 4
+(`FM1_BATTERY_USB`) while a computer powers the FM-1 over USB, and -1 in the first moments after
+power-on, before the first measurement. In the simulator, the BATTERY button sets the level, and
+`fm1_battery()` gives -1 in `setup()` and for the first half second.
 
 COMPILE compiles a program as the firmware build does, so that a program that runs here also builds for
 a real FM-1:
@@ -254,7 +262,8 @@ The packages of FM-1 Studio were tested on one FM-1: the newer chip (B36014), wi
 2.4-395e6cc, installed with M-Flasher (November 2026). We did not try a package on the first chip, or
 under the boot loader of V15 or V16. The store of `fm1.h` was tested on that FM-1 with
 `testprograms/store-test` (November 2026): all its tests pass, and the data stays after the FM-1 is off.
-The screen stays black at power-on until the program draws.
+The screen stays black at power-on until the program draws. The battery level of `fm1.h` (`fm1_battery`,
+added in November 2026) is not tested on a real FM-1 yet: `testprograms/battery-test` is for that test.
 
 #### If it goes wrong
 
@@ -574,7 +583,7 @@ The application is one file, `src/index.html`, the compiler in `src/fwsc`, and t
 3. The page sends the module to the **audio worklet**, which makes an instance of it. For each block of
    256 frames it calls `loop()` and then `audio()`. The module imports nothing.
 4. The worklet sends the screen, the LEDs, the level and the memory size to the page. The page sends
-   the keys, encoders, MASTER position and MIDI messages to the worklet. After a save, the worklet keeps
+   the keys, encoders, MASTER position, battery level and MIDI messages to the worklet. After a save, the worklet keeps
    a copy of the store of `fm1_runtime.c`, and puts it in each program that starts.
 
 The page is made so that it also works when `index.html` is opened from disk: the worker and the worklet
@@ -663,7 +672,7 @@ src/staticwebapp.config.json   configuration of the host
 firmware/                      fm1.h on a real FM-1: the adapter, and the build on a computer (not deployed)
 firmware/web/                  the scripts that make src/fwsc
 examples/                      example projects, each with its zip file: PROG-1, NEON REEF, GLOAMING, GWAVE (not deployed)
-testprograms/                  programs that test a part of fm1.h, also on a real FM-1: the LEDs, the store (not deployed)
+testprograms/                  programs that test a part of fm1.h, also on a real FM-1: the LEDs, the store, the battery (not deployed)
 vibe-examples/                 programs for the example ideas of VIBE: DRUM-1 (drumsolo-1 to 4), STRING-1 (synth), PIECE-1 (piece), GAME-2 (game: SWOOPERS); and a funk clavinet (clavinet)
 video/                         the promotional video: storyboard, timeline, and the scripts that render it (not deployed)
 img/                           the screenshot at the top of this README (not deployed)
@@ -710,6 +719,8 @@ of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/ma
   need more (see "Add a firmware to the gallery"). X0X shows its AUDIO LOAD as 0 % for that reason.
 - The simulator keeps the store while the page is open. A save takes no time there; on a real FM-1 it
   stops the sound for some tens of milliseconds (the erase of a flash sector).
+- The FM-1 cannot tell when its battery charges: while a computer powers it, `fm1_battery()` gives
+  `FM1_BATTERY_USB`, not the level of the battery.
 - A page that is opened from disk loads the compiler from fm1studio.com: COMPILE then needs that site.
 - A project holds text files only.
 - GitHub gives the list of files of a repository 60 times in an hour to one address. The first LOAD of

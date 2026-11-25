@@ -2,7 +2,7 @@
 
 This directory makes firmware for a real M-VAVE FM-1 from a C program that is written against `fm1.h`:
 an API of three functions to write (`setup`, `audio`, `loop`) and a small set to call (screen, keys,
-LEDs, encoders, MASTER, MIDI, store). It has three parts:
+LEDs, encoders, MASTER, battery, MIDI, store). It has three parts:
 
 - **An adapter**: an app for [fm1-base](https://github.com/charlesvestal/fm1-base), the open platform
   for FM-1 firmware. It gives a program the functions of `fm1.h`.
@@ -68,6 +68,7 @@ The functions that a program calls go to fm1-base's platform (`plat.h`, `lcd.c`)
 | `fm1_led_dim_low` | `plat_lights` | The low glow (1), which also makes the mid level and the breath darker |
 | `fm1_enc_take` | `plat_enc` | The encoder numbers of `fm1.h` |
 | `fm1_master` | `plat_master` | The range 0 to 1023 |
+| `fm1_battery` | `plat_battery` (the battery's voltage divider, read ten times a second with a slow average, in the levels of M-VAVE's firmware) | Nothing: the same levels. 0 to 3, 4 when a USB host powers the FM-1, -1 before the first measurement |
 | `fm1_midi_take` | `plat_midi_in` | Nothing: it is the same USB-MIDI packet |
 | `fm1_store_load`, `fm1_store_save` | `plat_store_load`, `plat_store_save` (`storage.c`: two 4 KiB flash sectors for each object, written in turn, with a CRC) | The 16 slots as the objects from `OBJ_STORE0`, from 0x97000 to 0xB6FFF (`APP_STORE_MAP` in `app.h`); -1 for each error of the store, and -2 for a call from `audio()` |
 
@@ -197,6 +198,7 @@ These things are different on the FM-1:
 - USB audio and Bluetooth are not built in. USB MIDI in works: `fm1_midi_take`.
 - The store stays when the FM-1 is off, and when another package is installed. The simulator keeps it
   while its page is open.
+- `fm1_battery()` measures the battery. In the simulator, its page sets the level.
 
 ## Check a build
 
@@ -229,6 +231,7 @@ The adapter and `make_app.py` are the same for both.
   (November 2026). No package of `build.sh` (JieLi's compiler) was installed on a real FM-1. With
   `build.sh`, the three example projects (NEON REEF, GLOAMING, GWAVE) build to a package, pass the
   checks, and give the right pictures and sound in the host simulator.
+- **`fm1_battery` is not tried on a real FM-1.** `testprograms/battery-test` shows what it gives.
 - **The speed on the FM-1 is not known.** The two example games draw the full screen for each picture,
   and count on 29 pictures a second.
 - **`fm1.h` comes from `src/index.html`.** Without that file, give `make_app.py` another file with the

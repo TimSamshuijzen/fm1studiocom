@@ -24,7 +24,9 @@
  *   - After an update that was cancelled, the FM-1 starts again.
  *   - The store is in the flash: it stays when the FM-1 is off (the
  *     simulator keeps it while its page is open), and a save stops the sound
- *     for some tens of milliseconds (the erase of a flash sector). */
+ *     for some tens of milliseconds (the erase of a flash sector).
+ *   - fm1_battery() gives the measured level (the simulator: the level that
+ *     its page sets). */
 
 /* The program. */
 void fm1x_setup(void);
@@ -166,7 +168,7 @@ static void ad_leds(void)
 #endif
 }
 
-/* ---- Encoders, MASTER, MIDI ---- */
+/* ---- Encoders, MASTER, battery, MIDI ---- */
 
 int32_t fm1x_enc_take(uint32_t e)
 {
@@ -179,6 +181,11 @@ uint32_t fm1x_master(void)
 {
     uint32_t position = plat_master() * 1023u / 4096u;   /* plat.h: 0 to 4096; fm1.h: 0 to 1023 */
     return position > 1023u ? 1023u : position;
+}
+
+int fm1x_battery(void)
+{
+    return plat_battery();   /* the levels of fm1.h: 0 to 3, 4 with a USB host, -1 not measured yet */
 }
 
 int fm1x_midi_take(uint32_t *packet)
