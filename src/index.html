@@ -13411,6 +13411,18 @@ function showMidi(text, title = 'Use the MIDI keyboards and controllers of this 
 }
 showMidi('MIDI IN: OFF');
 
+let midiAccess = null;  // the MIDI access of the last click that the browser allowed: the page listens to its inputs
+
+// Stops the listening to the inputs of midiAccess. The browser does not take back an access that it gave: without
+// this, a click that the browser blocks leaves the page listening, and a second access gives each message two times.
+function stopMidi() {
+  if (!midiAccess) return;
+  midiAccess.onstatechange = null;
+  for (const input of midiAccess.inputs.values()) input.onmidimessage = null;
+  midiAccess = null;
+  setLamp('lamp-midi', false);
+}
+
 $('midi').onclick = async () => {
   if (!navigator.requestMIDIAccess) {
     showMidi('MIDI IN: N/A', 'This browser has no Web MIDI, which MIDI IN needs.');
@@ -13418,6 +13430,8 @@ $('midi').onclick = async () => {
   }
   try {
     const access = await navigator.requestMIDIAccess();
+    stopMidi();
+    midiAccess = access;
     const listen = () => {
       let count = 0;
       for (const input of access.inputs.values()) {
@@ -13430,6 +13444,7 @@ $('midi').onclick = async () => {
     access.onstatechange = listen; // a device was connected or removed
     listen();
   } catch (error) {
+    stopMidi();
     showMidi('MIDI IN: BLOCKED', 'The browser did not allow MIDI devices. Allow them in the site settings, then click again.');
   }
 };
