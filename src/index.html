@@ -13411,10 +13411,8 @@ function showMidi(text, title = 'Use the MIDI keyboards and controllers of this 
 }
 showMidi('MIDI IN: OFF');
 
-let midiAccess = null;  // the MIDI access of the last click that the browser allowed: the page listens to its inputs
+let midiAccess = null;
 
-// Stops the listening to the inputs of midiAccess. The browser does not take back an access that it gave: without
-// this, a click that the browser blocks leaves the page listening, and a second access gives each message two times.
 function stopMidi() {
   if (!midiAccess) return;
   midiAccess.onstatechange = null;
