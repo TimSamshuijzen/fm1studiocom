@@ -13421,8 +13421,6 @@ function stopMidi() {
   setLamp('lamp-midi', false);
 }
 
-// The button is a switch. Off: a click asks the browser for MIDI access (a browser that keeps its answer for the
-// site does not ask the user again), and the page listens. On: a click stops the listening.
 $('midi').onclick = async () => {
   if (midiAccess) {
     stopMidi();
