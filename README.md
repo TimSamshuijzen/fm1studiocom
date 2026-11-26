@@ -69,7 +69,7 @@ and runs it. Browsers block sound until a click or a key press, so click the pag
 | Notes C4 to F5 | Computer keys `A` to `'` (white keys) and the row above (black keys) |
 | OCT- and OCT+ | Computer keys `Z` and `X` |
 | Compile and run | The COMPILE button, or `Ctrl`+`Enter` |
-| MIDI | The MIDI IN button asks the browser for permission |
+| MIDI | The MIDI IN button asks the browser for permission. A second click switches MIDI IN off |
 | Battery | The BATTERY button sets the level that the program reads: 3 (full) to 0 (empty), or USB |
 
 A project is a name and a set of text files. SAVE downloads it as a zip file and LOAD reads one back.

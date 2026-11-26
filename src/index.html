@@ -1198,7 +1198,7 @@ It runs in a Web Worker; the simulator runs its output, fm1.wasm.">
         <tr><td>Encoders, MASTER</td><td>Mouse wheel, or drag up and down</td></tr>
         <tr><td>Notes C4 to F5</td><td>Computer keys <kbd>A</kbd> to <kbd>'</kbd> (white keys) and the row above (black keys)</td></tr>
         <tr><td>OCT- and OCT+</td><td>Computer keys <kbd>Z</kbd> and <kbd>X</kbd></td></tr>
-        <tr><td>MIDI</td><td>MIDI IN asks the browser for permission. Then the MIDI keyboards and controllers of this computer play the FM-1</td></tr>
+        <tr><td>MIDI</td><td>MIDI IN asks the browser for permission. Then the MIDI keyboards and controllers of this computer play the FM-1. A second click switches MIDI IN off</td></tr>
         <tr><td>Battery</td><td>BATTERY sets the level that the program reads: 3 (full) to 0 (empty), or USB</td></tr>
       </table>
       <p>Browsers block sound until a click or a key press: click the page one time.</p>
@@ -13421,7 +13421,14 @@ function stopMidi() {
   setLamp('lamp-midi', false);
 }
 
+// The button is a switch. Off: a click asks the browser for MIDI access (a browser that keeps its answer for the
+// site does not ask the user again), and the page listens. On: a click stops the listening.
 $('midi').onclick = async () => {
+  if (midiAccess) {
+    stopMidi();
+    showMidi('MIDI IN: OFF');
+    return;
+  }
   if (!navigator.requestMIDIAccess) {
     showMidi('MIDI IN: N/A', 'This browser has no Web MIDI, which MIDI IN needs.');
     return;
@@ -13436,7 +13443,8 @@ $('midi').onclick = async () => {
         input.onmidimessage = onMidiMessage;
         count++;
       }
-      showMidi(`MIDI IN: ${count} ${count === 1 ? 'INPUT' : 'INPUTS'}`);
+      showMidi(`MIDI IN: ${count} ${count === 1 ? 'INPUT' : 'INPUTS'}`,
+        'The MIDI keyboards and controllers of this computer play the FM-1. Click to switch MIDI IN off');
       setLamp('lamp-midi', count > 0);
     };
     access.onstatechange = listen; // a device was connected or removed
