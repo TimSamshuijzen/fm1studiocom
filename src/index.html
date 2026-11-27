@@ -255,7 +255,7 @@
   .project-controls { display: grid; align-content: space-between; }
   .buttons { display: flex; gap: 7px; }
   .buttons .file-buttons { margin-left: auto; }
-  /* SAVE: a download, with the symbol of DOWNLOAD (an arrow down to a line) before its name */
+  /* SAVE, and DOWNLOAD of CODE and LOG: a download, with the symbol of DOWNLOAD (an arrow down to a line) before its name */
   .push.down { display: inline-flex; align-items: center; gap: 5px; }
   .push.down svg { flex: none; width: 10px; height: 10px; fill: currentColor; }
   /* The gallery: a tray with a card for each demo project of this page, then for each firmware on GitHub.
@@ -1055,7 +1055,10 @@
 
         <section class="section editor-section" style="--accent: var(--stripe-2)">
           <h2 class="legend">CODE</h2>
-          <div class="legend right"><button class="push" id="code-copy" title="Copy the text of the file in the editor">COPY</button></div>
+          <div class="legend right">
+            <button class="push" id="code-copy" title="Copy the text of the file in the editor">COPY</button>
+            <button class="push down" id="code-download" title="Download the file in the editor, with its name"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2h8L6 7z"/><rect x="1" y="9" width="10" height="1.8"/></svg>DOWNLOAD</button>
+          </div>
           <div class="module-bar">
             <input class="oled-input" id="file-path" aria-label="Path of the file in the editor" title="Change the path to rename or move the file" spellcheck="false" autocomplete="off">
             <span class="oled-chip warn" id="file-lock" title="This file is part of FM-1 Studio: it cannot be changed" hidden>READ ONLY</span>
@@ -1090,7 +1093,10 @@ It runs in a Web Worker; its output is a .fwsc package for a real FM-1.">
 
         <section class="section log-section" style="--accent: var(--stripe-4)">
           <h2 class="legend">LOG</h2>
-          <div class="legend right"><button class="push" id="log-copy" title="Copy the text of the log">COPY</button></div>
+          <div class="legend right">
+            <button class="push" id="log-copy" title="Copy the text of the log">COPY</button>
+            <button class="push down" id="log-download" title="Download the log as a text file: fm1studio-log-YYYYMMDD.txt, with the date of today"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2h8L6 7z"/><rect x="1" y="9" width="10" height="1.8"/></svg>DOWNLOAD</button>
+          </div>
           <pre class="oled" id="log" aria-label="Log"></pre>
         </section>
 
@@ -11111,13 +11117,18 @@ async function zipRead(buffer) {
   return files;
 }
 
-// Downloads the project as a zip file.
-function saveZip() {
+// Downloads `blob` as a file with the name `name`.
+function downloadFile(name, blob) {
   const link = document.createElement('a');
-  link.href = URL.createObjectURL(zipWrite(project.files));
-  link.download = `${fileName()}.zip`;
+  link.href = URL.createObjectURL(blob);
+  link.download = name;
   link.click();
   setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+}
+
+// Downloads the project as a zip file.
+function saveZip() {
+  downloadFile(`${fileName()}.zip`, zipWrite(project.files));
   setChanged(false);
 }
 
@@ -12064,6 +12075,10 @@ $('source').onkeydown = (event) => {
 
 // COPY: all of the text in the editor (also fm1.h, when the editor shows it).
 copyButton($('code-copy'), () => $('source').value);
+// DOWNLOAD: the same text, as a file with the name of the file in the editor, without its folders. As bytes
+// (application/octet-stream), so that the browser does not add ".txt" to a name such as "LICENSE".
+$('code-download').onclick = () => downloadFile((current ?? 'fm1.h').split('/').pop(),
+  new Blob([$('source').value], { type: 'application/octet-stream' }));
 
 // ---- Log ----
 
@@ -12073,6 +12088,12 @@ function log(text) {
 }
 
 copyButton($('log-copy'), () => $('log').textContent);
+// DOWNLOAD: the log as fm1studio-log-YYYYMMDD.txt, with the date of today on this computer.
+$('log-download').onclick = () => {
+  const now = new Date(), two = (n) => String(n).padStart(2, '0');
+  downloadFile(`fm1studio-log-${now.getFullYear()}${two(now.getMonth() + 1)}${two(now.getDate())}.txt`,
+    new Blob([$('log').textContent], { type: 'text/plain;charset=utf-8' }));
+};
 
 // ---- Compiler ----
 
@@ -12382,11 +12403,7 @@ $('download').onclick = () => askDownload(downloadFirmware, 'DOWNLOAD', 'FIRMWAR
 async function downloadFirmware() {
   const made = await makeFirmware(true);
   if (!made) return;
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(new Blob([made.fwsc], { type: 'application/octet-stream' }));
-  link.download = made.name;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+  downloadFile(made.name, new Blob([made.fwsc], { type: 'application/octet-stream' }));
   log('Before you install this package, read "If it goes wrong" in README.md of\n' +
     'github.com/TimSamshuijzen/fm1studiocom, and keep M-VAVE\'s FM-1.fwsc.\n');
 }
