@@ -13,7 +13,8 @@
  *   PLAY/STOP   start or stop the band (it starts from the INTRO)
  *   FX          rotating speaker fast or slow (each part also sets it)
  *   OCT- OCT+   octave of the note keys
- *   Note keys   play the organ with the band (a MIDI keyboard too)
+ *   Note keys   play the organ with the band (a MIDI keyboard too), and send
+ *               their notes to a computer as MIDI
  *   SELECT      tempo, 80 to 184 BPM
  *   ALGORITHM   the part to jump to after the current bar
  *   PRESETS     organ drawbars: ROCK, JAZZ, FLUTE, FULL, CHURCH
@@ -690,18 +691,35 @@ static uint32_t scope_pos, audio_blocks;
 
 static uint32_t last_keys;
 
+/* MIDI out: the note keys go to the computer as notes on channel 1. key_sent[n] is the note
+ * that key n holds there (0: none): its note off has that note, also after an octave change.
+ * A message that did not go out is not lost: a note on is left out, a note off goes later. */
+static uint8_t key_sent[FM1_NOTE_KEYS];
+
+static void send_note_off(int n) {
+    if (key_sent[n] && fm1_midi_send(FM1_MIDI_PACKET(0x80, key_sent[n], 0))) key_sent[n] = 0;
+}
+
+static void send_note_on(int n, int note) {
+    send_note_off(n);
+    if (!key_sent[n] && fm1_midi_send(FM1_MIDI_PACKET(0x90, note, 100))) key_sent[n] = (uint8_t)note;
+}
+
 static void read_keys(void) {
     uint32_t keys = fm1_in.notes;
     uint32_t pressed = fm1_input_note_edges() | (keys & ~last_keys);
     uint32_t released = last_keys & ~keys;
     for (int n = 0; n < (int)FM1_NOTE_KEYS; n++) {
         if ((pressed >> n) & 1u) {
+            int note = 53 + 12 * octave + n;
             organ_release(n);
             /* A press that already ended still sounds for a moment */
-            organ_on(53 + 12 * octave + n, 1.0f, (keys >> n) & 1u ? 0 : (int)(0.25f * RATE), n);
+            organ_on(note, 1.0f, (keys >> n) & 1u ? 0 : (int)(0.25f * RATE), n);
+            send_note_on(n, note);
         } else if ((released >> n) & 1u) {
             organ_release(n);
         }
+        if (!((keys >> n) & 1u)) send_note_off(n);
     }
     last_keys = keys;
 }

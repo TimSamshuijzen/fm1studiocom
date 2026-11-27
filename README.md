@@ -132,7 +132,8 @@ the battery and the store: a small FM synthesizer with an arpeggiator, an echo a
 there. It sends the channel messages, and clock, start, continue and stop. An FM-1 with an `fm1.h` program
 sends nothing on its own: a note key sends a note only when the program sends one. The demo project sends
 its note keys as notes on channel 1 (F3 to G5, the notes that it takes from a MIDI keyboard), so an FM-1
-with the demo plays the demo in the simulator when MIDI IN is on. In the simulator, the MIDI OUT lane of
+with the demo plays the demo in the simulator when MIDI IN is on. PROG-1 sends its note keys too, with
+its octave (OCT- and OCT+). In the simulator, the MIDI OUT lane of
 the FM-1 API shows each message; the page does not send it to a MIDI device of the computer.
 
 `fm1_battery()` gives the battery level as the FM-1 measures it: 0 (empty) to 3 (full), 4
