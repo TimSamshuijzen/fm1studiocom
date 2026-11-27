@@ -70,6 +70,7 @@ The functions that a program calls go to fm1-base's platform (`plat.h`, `lcd.c`)
 | `fm1_master` | `plat_master` | The range 0 to 1023 |
 | `fm1_battery` | `plat_battery` (the battery's voltage divider, read ten times a second with a slow average, in the levels of M-VAVE's firmware) | Nothing: the same levels. 0 to 3, 4 when a USB host powers the FM-1, -1 before the first measurement |
 | `fm1_midi_take` | `plat_midi_in` | Nothing: it is the same USB-MIDI packet |
+| `fm1_midi_send` | `plat_midi_out`, `plat_midi_out_room` | The check of the message (channel messages, and clock, start, continue and stop), the low byte of the packet (the code of the message in the USB-MIDI form), and 0 when no computer is connected or the queue of 64 is full |
 | `fm1_store_load`, `fm1_store_save` | `plat_store_load`, `plat_store_save` (`storage.c`: two 4 KiB flash sectors for each object, written in turn, with a CRC) | The 16 slots as the objects from `OBJ_STORE0`, from 0x97000 to 0xB6FFF (`APP_STORE_MAP` in `app.h`); -1 for each error of the store, and -2 for a call from `audio()` |
 
 Two more facts:
@@ -195,7 +196,9 @@ These things are different on the FM-1:
 
 - The accuracy of the maths is about six digits (`atan2f`, `asinf`, `acosf`: about five).
 - After an update that was cancelled, the FM-1 starts again.
-- USB audio and Bluetooth are not built in. USB MIDI in works: `fm1_midi_take`.
+- USB audio and Bluetooth are not built in. USB MIDI works, in and out: `fm1_midi_take`, `fm1_midi_send`.
+- A MIDI message that the program sends goes to the computer. In the simulator, its page shows it and
+  sends it to no device.
 - The store stays when the FM-1 is off, and when another package is installed. The simulator keeps it
   while its page is open.
 - `fm1_battery()` measures the battery. In the simulator, its page sets the level.

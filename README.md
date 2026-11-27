@@ -119,13 +119,21 @@ The API gives the program:
 | MASTER pot | `fm1_master` |
 | Battery level | `fm1_battery` |
 | MIDI input | `fm1_midi_take` |
+| MIDI output | `fm1_midi_send` |
 | Store: data that stays when the FM-1 is off | `fm1_store_load`, `fm1_store_save` |
 
 The screen and input functions have the names and signatures of
 [felucca-bsp](https://github.com/hugelton/felucca-bsp). The demo project `main.c` uses all of the API but
 the battery and the store: a small FM synthesizer with an arpeggiator, an echo and its own screen.
-`testprograms/store-test` tests the store, and `testprograms/battery-test` the battery level, in the
-simulator and on a real FM-1.
+`testprograms/store-test` tests the store, `testprograms/battery-test` the battery level, and
+`testprograms/midi-test` the MIDI input and output, in the simulator and on a real FM-1.
+
+`fm1_midi_send()` sends a MIDI message to the computer, over the USB cable: the FM-1 is a USB MIDI device
+there. It sends the channel messages, and clock, start, continue and stop. An FM-1 with an `fm1.h` program
+sends nothing on its own: a note key sends a note only when the program sends one. The demo project sends
+its note keys as notes on channel 1 (F3 to G5, the notes that it takes from a MIDI keyboard), so an FM-1
+with the demo plays the demo in the simulator when MIDI IN is on. In the simulator, the MIDI OUT lane of
+the FM-1 API shows each message; the page does not send it to a MIDI device of the computer.
 
 `fm1_battery()` gives the battery level as the FM-1 measures it: 0 (empty) to 3 (full), 4
 (`FM1_BATTERY_USB`) while a computer powers the FM-1 over USB, and -1 in the first moments after
@@ -263,7 +271,8 @@ The packages of FM-1 Studio were tested on one FM-1: the newer chip (B36014), wi
 under the boot loader of V15 or V16. The store of `fm1.h` was tested on that FM-1 with
 `testprograms/store-test` (November 2026): all its tests pass, and the data stays after the FM-1 is off.
 The screen stays black at power-on until the program draws. The battery level of `fm1.h` (`fm1_battery`)
-was tested on that FM-1 with `testprograms/battery-test` (November 2026), and works.
+was tested on that FM-1 with `testprograms/battery-test` (November 2026), and works. The MIDI output of
+`fm1.h` (`fm1_midi_send`) was not tried on an FM-1 yet: `testprograms/midi-test` is the program for that.
 
 #### If it goes wrong
 
@@ -582,9 +591,10 @@ The application is one file, `src/index.html`, the compiler in `src/fwsc`, and t
    firmware build does, for the check for `double`. Then it links the WebAssembly objects to `fm1.wasm`.
 3. The page sends the module to the **audio worklet**, which makes an instance of it. For each block of
    256 frames it calls `loop()` and then `audio()`. The module imports nothing.
-4. The worklet sends the screen, the LEDs, the level and the memory size to the page. The page sends
-   the keys, encoders, MASTER position, battery level and MIDI messages to the worklet. After a save, the worklet keeps
-   a copy of the store of `fm1_runtime.c`, and puts it in each program that starts.
+4. The worklet sends the screen, the LEDs, the MIDI messages of the program, the level and the memory
+   size to the page. The page sends the keys, encoders, MASTER position, battery level and MIDI messages
+   to the worklet. After a save, the worklet keeps a copy of the store of `fm1_runtime.c`, and puts it in
+   each program that starts.
 
 The page is made so that it also works when `index.html` is opened from disk: the worker and the worklet
 start from text in the page, and the extras are scripts. Such a page cannot fetch the files of its own
@@ -672,7 +682,7 @@ src/staticwebapp.config.json   configuration of the host
 firmware/                      fm1.h on a real FM-1: the adapter, and the build on a computer (not deployed)
 firmware/web/                  the scripts that make src/fwsc
 examples/                      example projects, each with its zip file: PROG-1, NEON REEF, GLOAMING, GWAVE (not deployed)
-testprograms/                  programs that test a part of fm1.h, also on a real FM-1: the LEDs, the store, the battery (not deployed)
+testprograms/                  programs that test a part of fm1.h, also on a real FM-1: the LEDs, the store, the battery, MIDI (not deployed)
 vibe-examples/                 programs for the example ideas of VIBE: DRUM-1 (drumsolo-1 to 4), STRING-1 (synth), PIECE-1 (piece), GAME-2 (game: SWOOPERS); and a funk clavinet (clavinet)
 video/                         the promotional video: storyboard, timeline, and the scripts that render it (not deployed)
 img/                           the screenshot at the top of this README (not deployed)
@@ -740,7 +750,7 @@ of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/ma
   "The gallery's firmware on a real FM-1". The other firmwares of the gallery have their own builds in
   their repositories: DOWNLOAD and INSTALL are off for them, and their hints tell why. INSTALL installs
   the program of the project only, not other files such as M-VAVE's firmware. The package of an `fm1.h`
-  program has no USB audio and no Bluetooth; USB MIDI in works.
+  program has no USB audio and no Bluetooth; USB MIDI works, in and out.
 - Some firmwares of the gallery are not as their own builds make them: CS-1, GR!MM and JIANT have a change
   for the newer flash chip, SKIFF and JIANT a change for the firmware compiler, JIANT is v0.9.18 and not
   its release V10.7.23, FM-106 has no Bluetooth and another boot stub, and the build of SLOOP does not

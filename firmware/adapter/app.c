@@ -194,6 +194,19 @@ int fm1x_midi_take(uint32_t *packet)
     return plat_midi_in(packet, &port);   /* the same 32-bit USB-MIDI packet as in fm1.h */
 }
 
+/* To the computer, over USB. As fm1_midi_take gives them: the channel messages, and clock, start, continue and
+ * stop. The low byte of the packet is made here: the code of the message in the USB-MIDI form. */
+int fm1x_midi_send(uint32_t packet)
+{
+    uint32_t status = (packet >> 8) & 0xFFu, channel = status >= 0x80u && status < 0xF0u;
+    if (!channel && status != 0xF8u && status != 0xFAu && status != 0xFBu && status != 0xFCu)
+        return 0;
+    if (!plat_midi_out_room(TO_USB))      /* no computer is connected, or the queue of 64 is full */
+        return 0;
+    plat_midi_out((packet & 0x7F7FFF00u) | (channel ? status >> 4 : 0xFu));
+    return 1;
+}
+
 /* ---- Screen ---- */
 
 /* The panel takes each pixel high byte first, and it reads the pixels while
