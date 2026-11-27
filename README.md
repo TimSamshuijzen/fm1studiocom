@@ -308,8 +308,8 @@ was tested on that FM-1 with `testprograms/battery-test` (November 2026), and wo
 The USB audio input of the packages (see "USB audio") was tested on that FM-1 with
 `testprograms/usb-audio-test` (November 2026), on Windows 11: both sines arrive on their own sides, at their
 level, with no frame lost or repeated in 60 seconds. Windows changes the samples by one or two steps of
-16 bits, too little to hear. That test was with the program setting the volume; MASTER as the FM-1's own
-volume (see "USB audio") was not tried on an FM-1 yet.
+16 bits, too little to hear. MASTER as the FM-1's own volume (see "USB audio") was tried on that FM-1 with
+the demo project and a recording in Audacity (November 2026), and works.
 
 #### If it goes wrong
 
