@@ -317,6 +317,7 @@
   /* ---- Code editor: a transparent text box on top of the same text with colours ---- */
 
   .editor-section { display: grid; grid-template-rows: 22px minmax(0, 1fr); gap: 10px; }
+  #code-copy { width: 54px; padding: 0; }  /* as COPY of the log: COPIED fits */
   .module-bar { display: flex; align-items: center; gap: 9px; min-width: 0; }
   .editor { display: grid; grid-template: minmax(0, 1fr) / auto minmax(0, 1fr); }
   .editor pre, .editor textarea {
@@ -1054,6 +1055,7 @@
 
         <section class="section editor-section" style="--accent: var(--stripe-2)">
           <h2 class="legend">CODE</h2>
+          <div class="legend right"><button class="push" id="code-copy" title="Copy the text of the file in the editor">COPY</button></div>
           <div class="module-bar">
             <input class="oled-input" id="file-path" aria-label="Path of the file in the editor" title="Change the path to rename or move the file" spellcheck="false" autocomplete="off">
             <span class="oled-chip warn" id="file-lock" title="This file is part of FM-1 Studio: it cannot be changed" hidden>READ ONLY</span>
@@ -10775,6 +10777,16 @@ async function copyText(value) {
   }
 }
 
+// A COPY button on the border of a panel (CODE, LOG): it puts `value()` on the clipboard, and tells for a moment if
+// that worked.
+function copyButton(button, value) {
+  button.onclick = async () => {
+    button.textContent = (await copyText(value())) ? 'COPIED' : 'FAILED';
+    clearTimeout(button.timer);
+    button.timer = setTimeout(() => { button.textContent = 'COPY'; }, 2000);
+  };
+}
+
 // COPY: the text of the prompt, with the data-copy parts filled in. The key tells for a moment if that worked.
 const vibeCopy = $('vibe-copy');
 vibeCopy.onclick = async () => {
@@ -12050,6 +12062,9 @@ $('source').onkeydown = (event) => {
   }
 };
 
+// COPY: all of the text in the editor (also fm1.h, when the editor shows it).
+copyButton($('code-copy'), () => $('source').value);
+
 // ---- Log ----
 
 function log(text) {
@@ -12057,12 +12072,7 @@ function log(text) {
   $('log').scrollTop = $('log').scrollHeight;
 }
 
-const logCopy = $('log-copy');
-logCopy.onclick = async () => {
-  logCopy.textContent = (await copyText($('log').textContent)) ? 'COPIED' : 'FAILED';
-  clearTimeout(logCopy.timer);
-  logCopy.timer = setTimeout(() => { logCopy.textContent = 'COPY'; }, 2000);
-};
+copyButton($('log-copy'), () => $('log').textContent);
 
 // ---- Compiler ----
 
