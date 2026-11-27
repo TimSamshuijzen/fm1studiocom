@@ -448,6 +448,7 @@
     --stop: color-mix(in srgb, color-mix(in srgb, var(--red), var(--orange) calc(clamp(0, var(--t) * 2, 1) * 100%)),
       var(--green) calc(clamp(0, var(--t) * 2 - 1, 1) * 100%));
   }
+  [data-skin="black-green"] .btn.play { --green: #10a838; }  /* darker: the caps of this skin are green too */
   .btn.play text:first-of-type { --lit: var(--play); }
   .btn.play text:last-of-type { --lit: var(--stop); }
   .btn.play .rule { --lit: color-mix(in srgb, var(--play), var(--stop)); }
