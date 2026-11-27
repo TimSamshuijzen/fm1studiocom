@@ -3,7 +3,8 @@
  *
  * Note key 7 (A) and note key 11 (D) move the ship, note key 18 (J) fires.
  * On the title screen PLAY or the fire key starts a game. PLAY pauses.
- * MASTER is the volume.
+ * MASTER is the volume, set by the FM-1 itself: a USB recording
+ * gets the full level.
  */
 #include "fm1.h"
 #include <math.h>
@@ -524,7 +525,7 @@ static volatile uint32_t g_blocks;          /* audio blocks so far: the game clo
 static volatile uint32_t snd_req[NSN];
 static volatile float snd_pan[NSN];
 static volatile int snd_hum, snd_paused;
-static volatile float snd_rate = 1.6f, snd_pitch = 1.f, snd_vol = 0.5f, beat_ph;
+static volatile float snd_rate = 1.6f, snd_pitch = 1.f, beat_ph;
 
 typedef struct { float ph, f, t, gl, gr; int on; } whis_t;
 typedef struct { float env, dec, lp, cut, cdec, vol, gl, gr; int on; } noise_t;
@@ -534,7 +535,7 @@ static float nfreq[64];                     /* MIDI notes 36..99 */
 static float k_wh, k_zap, k_nds, k_ndb, k_ncs, k_ncb;
 static whis_t wh[2];
 static noise_t nz[3];
-static float hum_p1, hum_p2, hum_lfo, hum_lp, hum_amp, vib_ph, mvol;
+static float hum_p1, hum_p2, hum_lfo, hum_lp, hum_amp, vib_ph;
 static float zap_ph, zap_f, zap_t;
 static int zap_on;
 static int tune_on, tune_step, tune_cnt, mel_i, mel_left;
@@ -624,8 +625,7 @@ void audio(int32_t *out, int frames) {
   f1 = 55.f * snd_pitch * INV_SR;
   f2 = f1 * 1.5f;
   rate = snd_rate * INV_SR;
-  mvol += (snd_vol - mvol) * 0.25f;
-  g = mvol * 0.6f;
+  g = 0.6f; /* the full level: the FM-1 puts MASTER on the speaker itself */
   for (k = 0; k < 3; k++) any_nz |= nz[k].on;
 
   for (i = 0; i < frames; i++) {
@@ -1231,8 +1231,6 @@ void loop(void) {
   uint32_t ne = fm1_input_note_edges();
   uint32_t now;
   int n = 0;
-
-  snd_vol = (float)fm1_master() * (1.f / (float)FM1_MASTER_MAX);
 
   if (be & (1u << FM1_BTN_PLAY)) {
     if (mode == M_TITLE) {

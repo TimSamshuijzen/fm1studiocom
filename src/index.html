@@ -1217,7 +1217,7 @@ void loop(void) { }                         /* again and again: controls and scr
         <tr><td>Keys and buttons</td><td><code>fm1_in</code>, <code>fm1_input_edges</code>, <code>fm1_input_note_edges</code></td></tr>
         <tr><td>LEDs, with levels, and PLAY's red LED</td><td><code>fm1_led_key</code>, <code>fm1_led_level</code>, <code>fm1_led_dim_low</code></td></tr>
         <tr><td>Encoders</td><td><code>fm1_enc_take</code></td></tr>
-        <tr><td>MASTER pot</td><td><code>fm1_master</code></td></tr>
+        <tr><td>MASTER pot: the volume, which the FM-1 sets itself</td><td><code>fm1_master</code></td></tr>
         <tr><td>Battery level</td><td><code>fm1_battery</code></td></tr>
         <tr><td>MIDI input</td><td><code>fm1_midi_take</code></td></tr>
         <tr><td>MIDI output</td><td><code>fm1_midi_send</code></td></tr>
@@ -1507,7 +1507,7 @@ Rules for the program:
 - loop() reads the keys, the buttons and the encoders, and draws. It must return soon: no endless loop, no waiting.
 - On a real FM-1 the screen is slow (a full screen takes about 77 ms): draw only what changed. fm1.h has no text function: for text, put a small bitmap font in main.c.
 - The LEDs are part of the interface: they show which buttons and note keys do something. The LED of each button that has a use now is on, also while nobody presses it, and the LED of a button without a use is off. When a mode changes what the buttons do (a title screen, a pause, a menu), the LEDs change with it. A button that switches something on and off shows the state by blinking: for example, PLAY is on while the music is stopped, and blinks with the beat while the music plays. Note keys that play notes light up while their notes sound. Note keys with another use, such as game controls, follow the rule of the buttons. An LED can also glow, be at a mid level or breathe (fm1_led_level), and PLAY's red LED (FM1_LED_PLAY_RED) can show a second state, such as recording. Call fm1_led_key() or fm1_led_level() only for an LED that changes.
-- Use fm1_master() as the volume, and keep the sound below full scale.
+- Write audio() at full level, and keep it below full scale. The FM-1 sets the volume of its speaker from MASTER itself, and a computer that records the FM-1 over USB gets the full level: do not scale the sound by fm1_master().
 - So that the program also runs on a real FM-1: float only (0.5f, sinf, powf; no double), no malloc, no printf, and small tables and buffers (the program and the platform share 464 KB of memory).
 - Settings or sequences that must stay when the FM-1 is off go to the store (fm1_store_save, fm1_store_load), with a magic number and a version of your own. Save only when the user asks for it (the SAVE button) or after a pause, never in each loop(), never on every knob step, and never from audio(). Only implement store if the program needs it.
 </script>
@@ -1833,16 +1833,21 @@ enum {
 /* The clicks of encoder `e` since the last call. Clockwise is positive. */
 int32_t fm1_enc_take(uint32_t e);
 
-/* ---- MASTER pot ----
+/* ---- MASTER pot: the volume ----
  *
  * fm1_master is our own function: felucca-bsp gives this value as
  * fm1_an.master or fm1_adc_read(FM1_ADC_MASTER).
  *
- * The pot is an input only. It changes the volume when the program uses it. */
+ * MASTER is the volume of the FM-1. The FM-1 itself scales the sound of the
+ * speaker and the headphones by it: by the square of its position, so half way
+ * gives a quarter of the level. Write audio() at full level, and do not scale
+ * it by fm1_master(). A computer that records the FM-1 over the USB cable gets
+ * the sound as audio() writes it, whatever MASTER is. */
 
 #define FM1_MASTER_MAX 1023u
 
-/* The position of the MASTER pot: 0 is fully left, FM1_MASTER_MAX is fully right. */
+/* The position of the MASTER pot: 0 is fully left, FM1_MASTER_MAX is fully right.
+ * The FM-1 uses it as the volume already, so a program only reads it to show it. */
 uint32_t fm1_master(void);
 
 /* ---- Battery ----
@@ -1975,11 +1980,17 @@ static int in_audio;  /* 1 while audio() runs: the store refuses then, as on the
 static uint32_t blocks_done;  /* audio blocks so far, up to BATTERY_BLOCKS (see Battery) */
 #define BATTERY_BLOCKS 86u
 
+static uint32_t master;  /* the position of the MASTER pot (see MASTER pot) */
+
 int32_t *fm1_sim_audio(void) {
   if (blocks_done < BATTERY_BLOCKS) blocks_done++;
   in_audio = 1;
   audio(block, FM1_AUDIO_BLOCK);
   in_audio = 0;
+  /* MASTER is the volume of the FM-1's speaker: the square of its position, after the USB recording */
+  float gain = (float)master / (float)FM1_MASTER_MAX;
+  gain *= gain;
+  for (uint32_t i = 0; i < FM1_AUDIO_BLOCK * FM1_AUDIO_CHANNELS; i++) block[i] = (int32_t)((float)block[i] * gain);
   return block;
 }
 
@@ -2088,8 +2099,6 @@ int32_t fm1_enc_take(uint32_t e) {
 }
 
 /* ---- MASTER pot ---- */
-
-static uint32_t master;
 
 void fm1_sim_master(uint32_t position) {
   master = position < FM1_MASTER_MAX ? position : FM1_MASTER_MAX;
@@ -2462,7 +2471,8 @@ typedef long long clock_t;
  *   KNOB 2 BRIGHT   depth of the modulation
  *   KNOB 3 DECAY    how long a note rings
  *   KNOB 4 ECHO     amount of echo
- *   MASTER          volume
+ *   MASTER          volume, set by the FM-1 itself: a computer that
+ *                   records the FM-1 over USB gets the full level
  *   Other buttons   the LED is on while the button is down
  *
  * The screen, from top to bottom: the sound, the arpeggiator and the octave;
@@ -2527,7 +2537,7 @@ static voice_t voice[NOTES];
 static float step[NOTES];        /* carrier phase increase for each sample */
 static uint32_t midi_notes;      /* notes held on a MIDI keyboard, same bits as fm1_in.notes */
 static uint32_t last_gates;      /* the notes that were on in the last block */
-static float gain;               /* follows MASTER smoothly, to prevent clicks */
+#define LEVEL 0.25f              /* the full level of the sound: 12 dB below full scale, room for many notes */
 
 #define SINE_SIZE 4096
 static float sine_table[SINE_SIZE];
@@ -2650,8 +2660,6 @@ void audio(int32_t *out, int frames) {
     float decay = expf(-6.9f / (decay_time * FM1_AUDIO_RATE));         /* down to 1/1000 in decay_time */
     float release = expf(-6.9f / (fminf(decay_time, 0.4f) * FM1_AUDIO_RATE)); /* after the key is up */
     float echo = knob[FM1_ENC_KNOB4] / 12.0f;
-    float master = fm1_master() / (float)FM1_MASTER_MAX;
-    float target_gain = master * master * master * 0.25f; /* audio taper, max 12 dB quieter */
     for (int i = 0; i < frames; i++) {
         float left = 0.0f, right = 0.0f;
         for (int n = 0; n < (int)NOTES; n++) {
@@ -2697,10 +2705,10 @@ void audio(int32_t *out, int frames) {
         left += echo_left * echo * 0.6f;
         right += echo_right * echo * 0.6f;
 
-        /* tanhf: many notes together are squashed softly instead of clipped */
-        gain += (target_gain - gain) * 0.002f;
-        out[2 * i] = (int32_t)(tanhf(left) * gain * FM1_AUDIO_MAX);
-        out[2 * i + 1] = (int32_t)(tanhf(right) * gain * FM1_AUDIO_MAX);
+        /* tanhf: many notes together are squashed softly instead of clipped. The full level: the FM-1 puts
+         * MASTER on the speaker itself */
+        out[2 * i] = (int32_t)(tanhf(left) * LEVEL * FM1_AUDIO_MAX);
+        out[2 * i + 1] = (int32_t)(tanhf(right) * LEVEL * FM1_AUDIO_MAX);
     }
     audio_blocks++;
 }
@@ -2998,7 +3006,8 @@ void loop(void) {
  *   KNOB 2      LEAD   brightness of the lead synth
  *   KNOB 3      SPACE  reverb
  *   KNOB 4      DRUMS  drum level
- *   MASTER      volume
+ *   MASTER      volume, set by the FM-1 itself: a USB recording
+ *               gets the full level
  *
  * The screen: the sound and tempo; the part, metre and bar; a light for each
  * 16th note of the bar; an oscilloscope; a level meter for each instrument
@@ -3657,7 +3666,7 @@ static void advance(void) {
  * Audio
  * ====================================================================== */
 
-static int knob[FM1_NENC] = { [FM1_ENC_KNOB1] = 5, [FM1_ENC_KNOB2] = 7, [FM1_ENC_KNOB3] = 5, [FM1_ENC_KNOB4] = 9 }; static int octave; static float gain; /* follows MASTER smoothly */
+static int knob[FM1_NENC] = { [FM1_ENC_KNOB1] = 5, [FM1_ENC_KNOB2] = 7, [FM1_ENC_KNOB3] = 5, [FM1_ENC_KNOB4] = 9 }; static int octave;
 
 enum { M_ORGAN, M_BASS, M_LEAD, M_KICK, M_SNARE, M_HATS, M_OUT, METERS }; static float meter[METERS];
 
@@ -3730,8 +3739,6 @@ void audio(int32_t *out, int frames) {
     lead_bright = knob[FM1_ENC_KNOB2] / 12.0f;
     float space = knob[FM1_ENC_KNOB3] / 12.0f * 1.5f;
     float drums = knob[FM1_ENC_KNOB4] / 12.0f;
-    float master = fm1_master() / (float)FM1_MASTER_MAX;
-    float target_gain = master * master * 0.5f;
     float sum[M_OUT] = { 0 };
     float peak = 0.0f;
 
@@ -3784,9 +3791,9 @@ void audio(int32_t *out, int frames) {
         if (fabsf(right) > peak) peak = fabsf(right);
 
         /* tanhf: a soft limiter instead of clipping */
-        gain += (target_gain - gain) * 0.002f;
-        out[2 * i] = (int32_t)(tanhf(left * 0.5f) * gain * FM1_AUDIO_MAX);
-        out[2 * i + 1] = (int32_t)(tanhf(right * 0.5f) * gain * FM1_AUDIO_MAX);
+        /* the full level: the FM-1 puts MASTER on the speaker itself */
+        out[2 * i] = (int32_t)(tanhf(left * 0.5f) * 0.5f * FM1_AUDIO_MAX);
+        out[2 * i + 1] = (int32_t)(tanhf(right * 0.5f) * 0.5f * FM1_AUDIO_MAX);
 
         scope_ring[scope_pos] = tanhf((left + right) * 0.5f);
         scope_pos = (scope_pos + 1) & (SCOPE_RING - 1);
@@ -4120,7 +4127,8 @@ void loop(void) {
  *   KNOB 2      SPACE   the reverb and the space sounds
  *   KNOB 3      ECHO    the ping-pong echo
  *   KNOB 4      DRUMS   the level of the drums
- *   MASTER      volume
+ *   MASTER      volume, set by the FM-1 itself: a USB recording
+ *               gets the full level
  *
  * The screen: a flight through the stars, with the ships of the space sounds;
  * the part, the chord and the bar; a light for each 16th note; the bass line of
@@ -4964,7 +4972,7 @@ static void do_step(void) {
  * ====================================================================== */
 
 static volatile float space = 0.6f, echo_amount = 0.5f, drums_level = 0.75f;
-static float gain, phaser_a[2], bass_low;
+static float phaser_a[2], bass_low;
 
 void audio(int32_t *out, int frames) {
     if (play_request) {
@@ -4986,8 +4994,6 @@ void audio(int32_t *out, int frames) {
     samples_per_step = RATE * 60.0f / (tempo * 4.0f);
     echo_delay = (int)(samples_per_step * 3.0f); /* a dotted 8th */
     if (echo_delay > ECHO_MAX - 1) echo_delay = ECHO_MAX - 1;
-    /* MASTER: the square of its position, as an audio pot and as PROG-1 */
-    float position = (float)fm1_master() * (1.0f / FM1_MASTER_MAX), target = position * position;
     float feedback = 0.25f + 0.45f * echo_amount, echo_out = 0.12f + 0.5f * echo_amount;
     float sp = space, dr = drums_level;
 
@@ -5041,10 +5047,10 @@ void audio(int32_t *out, int frames) {
         float left = b * 0.6f + dl * dr + pl * 0.9f + cv * 0.62f + ld * 0.3f + el * echo_out * 0.45f + (fl + rl * 2.0f) * sp;
         float right = b * 0.6f + drr * dr + pr * 0.9f + cv * 0.38f + ld * 0.3f + er * echo_out * 0.45f + (fr + rr * 2.0f) * sp;
 
-        gain += (target - gain) * 0.0005f;
-        /* 0.72 after the limiter (which keeps its sound): about 3 dB below PROG-1 at each MASTER position */
-        out[2 * i] = (int32_t)(soft(left * 0.44f) * 0.72f * gain * FM1_AUDIO_MAX);
-        out[2 * i + 1] = (int32_t)(soft(right * 0.44f) * 0.72f * gain * FM1_AUDIO_MAX);
+        /* 0.72 after the limiter (which keeps its sound): about 3 dB below PROG-1. The full level: the FM-1
+         * puts MASTER on the speaker itself */
+        out[2 * i] = (int32_t)(soft(left * 0.44f) * 0.72f * FM1_AUDIO_MAX);
+        out[2 * i + 1] = (int32_t)(soft(right * 0.44f) * 0.72f * FM1_AUDIO_MAX);
     }
 }
 
@@ -5727,7 +5733,8 @@ void loop(void) {
  *   W   S        C#4  D4    up, down
  *   J  or  K     B4   C5    fire (hold it)
  *                PLAY       start, pause
- *                MASTER     volume
+ *                MASTER     volume, set by the FM-1 itself: a USB
+ *                           recording gets the full level
  *
  * In the air     DARTS weave, MANTAS swoop at you, JELLIES sink and shoot,
  *                DIVERS fall fast, URCHINS (from zone 2) take three hits,
@@ -6089,8 +6096,6 @@ static void start_sfx(uint32_t command) {
 }
 
 void audio(int32_t *out, int frames) {
-    static float gain;
-
     while (sfx_taken != sfx_written) {
         start_sfx(sfx_queue[sfx_taken % SFX_QUEUE]);
         sfx_taken++;
@@ -6099,8 +6104,6 @@ void audio(int32_t *out, int frames) {
         start_song(music_wanted);
         music_wanted = -1;
     }
-    float master = fm1_master() / (float)FM1_MASTER_MAX;
-    float target_gain = master * master * master * 0.25f; /* audio taper, max 12 dB quieter */
     float step_samples = FM1_AUDIO_RATE * 15.0f / songs[song].tempo; /* a 16th note */
     int playing = song != SONG_NONE && !music_paused;
     float waver = 1.0f + 0.006f * sinf(audio_blocks * 0.22f); /* 6 times a second */
@@ -6173,9 +6176,9 @@ void audio(int32_t *out, int frames) {
             if (e->t >= 1.0f) e->on = 0;
         }
 
-        gain += (target_gain - gain) * 0.002f;
-        out[2 * i] = (int32_t)(tanhf(left) * gain * FM1_AUDIO_MAX);
-        out[2 * i + 1] = (int32_t)(tanhf(right) * gain * FM1_AUDIO_MAX);
+        /* 12 dB below full scale, the full level: the FM-1 puts MASTER on the speaker itself */
+        out[2 * i] = (int32_t)(tanhf(left) * 0.25f * FM1_AUDIO_MAX);
+        out[2 * i + 1] = (int32_t)(tanhf(right) * 0.25f * FM1_AUDIO_MAX);
     }
     audio_blocks++;
 }
@@ -7486,7 +7489,8 @@ void loop(void) {
  *
  * Note key 7 (A) and note key 11 (D) move the ship, note key 18 (J) fires.
  * On the title screen PLAY or the fire key starts a game. PLAY pauses.
- * MASTER is the volume.
+ * MASTER is the volume, set by the FM-1 itself: a USB recording
+ * gets the full level.
  */
 #include "fm1.h"
 #include <math.h>
@@ -8007,7 +8011,7 @@ static volatile uint32_t g_blocks;          /* audio blocks so far: the game clo
 static volatile uint32_t snd_req[NSN];
 static volatile float snd_pan[NSN];
 static volatile int snd_hum, snd_paused;
-static volatile float snd_rate = 1.6f, snd_pitch = 1.f, snd_vol = 0.5f, beat_ph;
+static volatile float snd_rate = 1.6f, snd_pitch = 1.f, beat_ph;
 
 typedef struct { float ph, f, t, gl, gr; int on; } whis_t;
 typedef struct { float env, dec, lp, cut, cdec, vol, gl, gr; int on; } noise_t;
@@ -8017,7 +8021,7 @@ static float nfreq[64];                     /* MIDI notes 36..99 */
 static float k_wh, k_zap, k_nds, k_ndb, k_ncs, k_ncb;
 static whis_t wh[2];
 static noise_t nz[3];
-static float hum_p1, hum_p2, hum_lfo, hum_lp, hum_amp, vib_ph, mvol;
+static float hum_p1, hum_p2, hum_lfo, hum_lp, hum_amp, vib_ph;
 static float zap_ph, zap_f, zap_t;
 static int zap_on;
 static int tune_on, tune_step, tune_cnt, mel_i, mel_left;
@@ -8107,8 +8111,7 @@ void audio(int32_t *out, int frames) {
   f1 = 55.f * snd_pitch * INV_SR;
   f2 = f1 * 1.5f;
   rate = snd_rate * INV_SR;
-  mvol += (snd_vol - mvol) * 0.25f;
-  g = mvol * 0.6f;
+  g = 0.6f; /* the full level: the FM-1 puts MASTER on the speaker itself */
   for (k = 0; k < 3; k++) any_nz |= nz[k].on;
 
   for (i = 0; i < frames; i++) {
@@ -8715,8 +8718,6 @@ void loop(void) {
   uint32_t now;
   int n = 0;
 
-  snd_vol = (float)fm1_master() * (1.f / (float)FM1_MASTER_MAX);
-
   if (be & (1u << FM1_BTN_PLAY)) {
     if (mode == M_TITLE) {
       start_game();
@@ -8800,8 +8801,8 @@ const log = (text) => postMessage({ type: 'log', text });
 // A failed step: its text is in the log already.
 class Stopped extends Error {}
 
-async function fetchOk(url) {
-  const response = await fetch(url);
+async function fetchOk(url, options) {
+  const response = await fetch(url, options);
   if (!response.ok) throw new Error(`Cannot load ${url} (HTTP ${response.status})`);
   return response;
 }
@@ -8815,7 +8816,9 @@ const builtins = new Map(); // compiler-rt's builtins for the FM-1, for the chec
 let webLibc = null;        // promise of the files of web-libc: its headers and libc.o
 
 async function load(module) {
-  const platform = await (await fetchOk(BASE + 'platform.json')).json();
+  // platform.json must be the one of this page: its adapter has the functions of the page's fm1.h. So the
+  // browser asks the server whether its copy is still the current one ("no-cache"), and does not use an old copy.
+  const platform = await (await fetchOk(BASE + 'platform.json', { cache: 'no-cache' })).json();
   for (const [key, text] of Object.entries(platform.text)) {
     if (key.startsWith('res/')) base.set('/' + key, encoder.encode(text));
     else if (key.startsWith('app/adapter/libc/')) base.set('/fm1/libc/' + key.slice(17), encoder.encode(text));
@@ -9127,15 +9130,17 @@ let about = {};
 let llvmModule = null;     // llvm.wasm, compiled: from the page ({ module }: the simulator compiler loaded it), or loaded here
 let loading = null;
 
-async function fetchOk(url) {
-  const response = await fetch(url);
+async function fetchOk(url, options) {
+  const response = await fetch(url, options);
   if (!response.ok) throw new Error(`Cannot load ${url} (HTTP ${response.status})`);
   return response;
 }
 
 const load = () => (loading ||= (async () => {
   log('load the platform\n');
-  const platform = await (await fetchOk(BASE + 'platform.json')).json();
+  // platform.json must be the one of this page: its adapter has the functions of the page's fm1.h. So the
+  // browser asks the server whether its copy is still the current one ("no-cache"), and does not use an old copy.
+  const platform = await (await fetchOk(BASE + 'platform.json', { cache: 'no-cache' })).json();
   about = platform.about;
   for (const [key, text] of Object.entries(platform.text)) {
     const bytes = encoder.encode(text);
@@ -13143,7 +13148,7 @@ function drawBoard() {
   const top = 46;
   const size = Math.min(110, h - top - 24, (x1 - x0) * 0.28); // side of the CPU
   const cx = (x0 + x1) / 2, cy = (top + h) / 2;
-  const pitch = size / 9;                           // 8 pins on each side
+  const pitch = size / 9;                           // 8 pins on the left and right sides
   const pin = (i) => -size / 2 + pitch * (i + 1);   // position of pin i, from the centre
 
   // J2: a pad below each API lane, and a trace to a pin on the top side of the CPU. A pad that is
@@ -13152,13 +13157,16 @@ function drawBoard() {
     const { left, width } = lane.getBoundingClientRect();
     return { id: lane.dataset.lane, up: lane.classList.contains('up'), x: (left + width / 2 - box.left) / deviceScale };
   });
-  const leftCount = lanes.filter((lane, i) => lane.x < cx + pin(i)).length; // these pads are left of their pins
+  // The top and bottom sides of the CPU have a pin for each lane (at least 8).
+  const topCount = Math.max(8, lanes.length);
+  const topPin = (i) => -size / 2 + size / (topCount + 1) * (i + 1);
+  const leftCount = lanes.filter((lane, i) => lane.x < cx + topPin(i)).length; // these pads are left of their pins
   const step = Math.min(5, 22 / Math.max(1, leftCount - 1, lanes.length - leftCount - 1));
   lanes.forEach((lane, i) => {
     const y = 16 + step * (i < leftCount ? leftCount - 1 - i : i - leftCount);
     svg(traces, 'path', {
       class: lane.up ? 'trace up' : 'trace', 'data-lane': lane.id,
-      d: `M${lane.x} 8V${y}H${cx + pin(i)}V${cy - size / 2 - 4}`,
+      d: `M${lane.x} 8V${y}H${cx + topPin(i)}V${cy - size / 2 - 4}`,
     });
     svg(board, 'rect', { class: 'pad', x: lane.x - 4, y: 0, width: 8, height: 9, rx: 1 });
   });
@@ -13219,10 +13227,12 @@ function drawBoard() {
     'on its audio thread (an AudioWorklet). For each block of 256 frames it calls loop() and then audio()\n' +
     '(a firmware of the gallery: web_render()).\n' +
     'J1: the module from COMPILE. ROM: the module. RAM: its memory. J2: the FM-1 API.');
-  for (let i = 0; i < 8; i++) {
-    for (const side of [-1, 1]) {
-      const edge = side * (size / 2 + 2.5);
-      svg(cpu, 'rect', { class: 'chip-pin', x: cx + pin(i) - 1.5, y: cy + edge - 2.5, width: 3, height: 5 });
+  for (const side of [-1, 1]) {
+    const edge = side * (size / 2 + 2.5);
+    for (let i = 0; i < topCount; i++) {  // top and bottom
+      svg(cpu, 'rect', { class: 'chip-pin', x: cx + topPin(i) - 1.5, y: cy + edge - 2.5, width: 3, height: 5 });
+    }
+    for (let i = 0; i < 8; i++) {  // left and right
       svg(cpu, 'rect', { class: 'chip-pin', x: cx + edge - 2.5, y: cy + pin(i) - 1.5, width: 5, height: 3 });
     }
   }

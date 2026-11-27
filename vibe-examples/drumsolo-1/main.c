@@ -221,7 +221,7 @@ void setup(void) {
     build_kit();
     kit_picture();
     tempo_display(bpm);
-    master = fm1_master() / (float)FM1_MASTER_MAX;
+    master = 1.0f; /* MASTER is the FM-1's own volume (on the speaker): the full level here */
     fm1_led_level(FM1_BTN_PLAY,FM1_LED_ON);
 }
 
@@ -240,7 +240,7 @@ void loop(void) {
             tempo_display(value);
         }
     }
-    master = fm1_master() / (float)FM1_MASTER_MAX;
+    master = 1.0f; /* MASTER is the FM-1's own volume (on the speaker): the full level here */
     uint32_t keys_on = lit, shown = flash;
     if (shown & (1u << OPEN)) shown |= 1u << CLOSED;
     for (int d=0; d<DRUMS; ++d) {

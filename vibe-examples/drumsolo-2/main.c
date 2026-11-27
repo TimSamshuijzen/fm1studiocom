@@ -1444,7 +1444,7 @@ void loop(void) {
   }
 
   /* MASTER is the volume */
-  float m = (float)fm1_master() * (1.0f / (float)FM1_MASTER_MAX);
+  float m = 1.0f; /* MASTER is the FM-1's own volume (on the speaker): the full level here */
   g_vol = m * m;
 
   /* loop mode: prepare the next take while the last one rings out */

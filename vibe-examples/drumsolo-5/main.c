@@ -891,9 +891,7 @@ void audio(int32_t *out, int frames)
 
     float wet = (float)room * 0.0045f;
 
-    float master_target =
-        (float)fm1_master() /
-        (float)FM1_MASTER_MAX;
+    float master_target = 1.0f; /* MASTER is the FM-1's own volume (on the speaker): the full level here */
 
     master_target *= master_target;
 

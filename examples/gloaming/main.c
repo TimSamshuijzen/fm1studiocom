@@ -12,7 +12,8 @@
  *   J            B4         fire (hold it)
  *   K            C5         pulse: a ring that clears all near you (you have few)
  *                PLAY       start, pause
- *                MASTER     volume
+ *                MASTER     volume, set by the FM-1 itself: a USB recording
+ *                           gets the full level
  *
  * The LEDs of these note keys are on. REC blinks while a moth drinks.
  *
@@ -213,7 +214,7 @@ static void start_sfx(uint32_t command) {
 }
 
 void audio(int32_t *out, int frames) {
-    static float gain, thrust_level, thrust_lp;
+    static float thrust_level, thrust_lp;
     static int alarm_wait, alarm_step;
 
     while (sfx_taken != sfx_written) {
@@ -233,8 +234,6 @@ void audio(int32_t *out, int frames) {
         alarm_wait = 0;
     }
 
-    float master = fm1_master() / (float)FM1_MASTER_MAX;
-    float target_gain = master * master * master * 0.25f; /* audio taper, max 12 dB quieter */
     float target_thrust = snd_thrust ? 0.11f : 0.0f;
 
     for (int i = 0; i < frames; i++) {
@@ -274,9 +273,9 @@ void audio(int32_t *out, int frames) {
         left += engine;
         right += engine;
 
-        gain += (target_gain - gain) * 0.002f;
-        out[2 * i] = (int32_t)(tanhf(left) * gain * FM1_AUDIO_MAX);
-        out[2 * i + 1] = (int32_t)(tanhf(right) * gain * FM1_AUDIO_MAX);
+        /* 12 dB below full scale, the full level: the FM-1 puts MASTER on the speaker itself */
+        out[2 * i] = (int32_t)(tanhf(left) * 0.25f * FM1_AUDIO_MAX);
+        out[2 * i + 1] = (int32_t)(tanhf(right) * 0.25f * FM1_AUDIO_MAX);
     }
     audio_blocks++;
 }

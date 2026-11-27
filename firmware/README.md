@@ -51,6 +51,7 @@ program from them:
 
 | fm1-base calls | When | The adapter |
 | --- | --- | --- |
+| `app_init` | At power-on, before the sound and USB start | Turns on fm1-base's "USB audio full": MASTER is the volume of the speaker and the headphones, after the USB recording |
 | `app_splash` | At power-on, for the first screen | Nothing: the screen stays black until `setup()` draws, in place of fm1-base's start screen with the name of the app |
 | `app_ui_init` | When the screen is ready | Clears the screen and calls `setup()`, one time. A second call comes after an update that was cancelled: then the FM-1 starts again |
 | `app_render` | For each audio block of 256 frames, in an interrupt | Calls `audio()`. Before `setup()` is done, and when an update is near, it gives silence |
@@ -68,6 +69,7 @@ The functions that a program calls go to fm1-base's platform (`plat.h`, `lcd.c`)
 | `fm1_led_dim_low` | `plat_lights` | The low glow (1), which also makes the mid level and the breath darker |
 | `fm1_enc_take` | `plat_enc` | The encoder numbers of `fm1.h` |
 | `fm1_master` | `plat_master` | The range 0 to 1023 |
+| MASTER as the volume | `plat_usb_audio_full(1)` in `app_init` ("USB audio full": the USB audio input takes the render as the program wrote it, then the platform scales the speaker and headphones by MASTER, `APP_GAIN`: the square of its position) | `app_render` does not use the gain that the platform gives it |
 | `fm1_battery` | `plat_battery` (the battery's voltage divider, read ten times a second with a slow average, in the levels of M-VAVE's firmware) | Nothing: the same levels. 0 to 3, 4 when a USB host powers the FM-1, -1 before the first measurement |
 | `fm1_midi_take` | `plat_midi_in` | Nothing: it is the same USB-MIDI packet |
 | `fm1_midi_send` | `plat_midi_out`, `plat_midi_out_room` | The check of the message (channel messages, and clock, start, continue and stop), the low byte of the packet (the code of the message in the USB-MIDI form), and 0 when no computer is connected or the queue of 64 is full |
@@ -197,8 +199,8 @@ These things are different on the FM-1:
 - The accuracy of the maths is about six digits (`atan2f`, `asinf`, `acosf`: about five).
 - After an update that was cancelled, the FM-1 starts again.
 - USB MIDI works, in and out: `fm1_midi_take`, `fm1_midi_send`. The FM-1 is also a USB audio input (fm1-base's
-  `usb_audio_in`): a computer records the output of `audio()`, 16-bit stereo at 44.1 kHz. There is no USB audio
-  output (`usb_audio_out`: the computer plays through the FM-1) and no Bluetooth.
+  `usb_audio_in`): a computer records the output of `audio()`, 16-bit stereo at 44.1 kHz, before MASTER. There
+  is no USB audio output (`usb_audio_out`: the computer plays through the FM-1) and no Bluetooth.
 - A MIDI message that the program sends goes to the computer. In the simulator, its page shows it and
   sends it to no device.
 - The store stays when the FM-1 is off, and when another package is installed. The simulator keeps it

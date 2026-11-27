@@ -279,7 +279,14 @@ static volatile uint8_t ad_running;     /* setup() is done: audio() and loop() r
 static volatile uint8_t ad_silent;      /* an update is near: no sound */
 static volatile uint32_t ad_blocks;     /* count of audio blocks */
 
-void app_init(void) {}                  /* setup() waits for the screen: app_ui_init */
+/* Before the sound and USB start. setup() waits for the screen: app_ui_init.
+ * MASTER is the volume (fm1.h): fm1-base's "USB audio full". The USB audio input takes the render as the program
+ * wrote it, and the platform then scales the sound of the speaker and the headphones by MASTER (APP_GAIN: the square
+ * of its position; main_fm1.c render_block, device/uac_mix.h). */
+void app_init(void)
+{
+    plat_usb_audio_full(1);
+}
 
 /* The first screen at power-on, in place of the platform's (the name of the
  * program on a light screen): none. The screen stays black, as lcd_init
@@ -288,7 +295,7 @@ void app_splash(void) {}
 
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 {
-    (void)master_q12;                   /* the program reads MASTER itself: fm1_master() */
+    (void)master_q12;                   /* 4096: the platform puts MASTER on after the render (app_init) */
     if (ad_running && !ad_silent) {
         ad_in_audio = 1;
         fm1x_audio(lr, (int)n);

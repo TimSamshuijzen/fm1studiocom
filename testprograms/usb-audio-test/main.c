@@ -3,13 +3,14 @@
  *
  * Over USB, an FM-1 with an fm1.h program is also a USB audio device (UAC1, class compliant): a computer records
  * the sound of audio(), 16-bit stereo at 44.1 kHz, as from a microphone. This program plays a known sound for that
- * test, at a fixed level (MASTER does not change it):
+ * test:
  *
  *    LEFT    a sine with a period of 64 frames: 689.0625 Hz at 44100 frames a second
  *    RIGHT   a sine with a period of 100 frames: 441 Hz
- *    LEVEL   about 0.003 of full scale: -50 dBFS at its peaks, -53 dBFS RMS (quiet on the FM-1's speaker; loud
- *            enough for the check)
- *    PLAY    switches the sound off and on (its LED is on while the sound plays)
+ *    LEVEL   0.1 of full scale: -20 dBFS at its peaks, -23 dBFS RMS, in the recording, whatever MASTER is
+ *    MASTER  the volume of the speaker and the headphones only: the FM-1 applies it after the USB recording.
+ *            Turn it down before PLAY, because a sine at the full level is very loud on the speaker.
+ *    PLAY    switches the sound on and off (its LED is on while the sound plays). It starts off.
  *
  * Each frame of the sound is the same as the frame 64 frames before it on the left, and 100 frames before it on
  * the right. So in a recording, a frame that was lost or sent two times shows exactly. On Windows,
@@ -17,7 +18,7 @@
  * their levels, and that no frame was lost or repeated. With the FM-1's own clock (about 44118 frames a second),
  * the sines are about 0.04 % higher than the frequencies above.
  *
- * In the simulator, the program plays the same sound; the simulator has no USB. */
+ * In the simulator, the program plays the same sound, at MASTER's volume; the simulator has no USB. */
 
 #include <math.h>
 
@@ -25,11 +26,11 @@ enum { GREY = 0x8410, GREEN = 0x07E0, RED = 0xF800, CYAN = 0x07FF, WHITE = 0xFFF
 
 #define LEFT_PERIOD  64u             /* frames */
 #define RIGHT_PERIOD 100u
-#define LEVEL        26527.0f        /* -50 dBFS: 0.00316 of FM1_AUDIO_MAX + 1 (8388608); 104 at 16 bits */
+#define LEVEL        838861.0f       /* -20 dBFS: 0.1 of FM1_AUDIO_MAX + 1 (8388608); 3277 at 16 bits */
 
 static int32_t left_wave[LEFT_PERIOD], right_wave[RIGHT_PERIOD];
 static uint32_t left_at, right_at;   /* the next frame of each sine */
-static volatile int sound_on = 1;    /* PLAY: loop() writes it, audio() reads it */
+static volatile int sound_on = 0;    /* PLAY: loop() writes it, audio() reads it */
 static int changed = 1;              /* the line of the sound must be drawn */
 
 /* ---- a 3 x 5 font ---- */
@@ -64,17 +65,19 @@ static void text(uint32_t x, uint32_t y, uint32_t scale, const char *s, uint16_t
 
 void setup(void) {
   for (uint32_t n = 0; n < LEFT_PERIOD; n++)
-    left_wave[n] = (int32_t)(LEVEL * sinf(2.0f * M_PI * (float)n / (float)LEFT_PERIOD));
+    left_wave[n] = (int32_t)(LEVEL * sinf(6.2831853f * (float)n / (float)LEFT_PERIOD));
   for (uint32_t n = 0; n < RIGHT_PERIOD; n++)
-    right_wave[n] = (int32_t)(LEVEL * sinf(2.0f * M_PI * (float)n / (float)RIGHT_PERIOD));
+    right_wave[n] = (int32_t)(LEVEL * sinf(6.2831853f * (float)n / (float)RIGHT_PERIOD));
   fm1_lcd_fill_rect(0, 0, 240, 240, BLACK);
   text(8, 8, 4, "USB AUDIO TEST", WHITE);
   text(8, 44, 3, "LEFT   689 HZ", CYAN);
   text(8, 64, 3, "RIGHT  441 HZ", CYAN);
-  text(8, 84, 3, "LEVEL  -50 DBFS", CYAN);
-  text(8, 150, 2, "RECORD THE FM-1 OVER USB:", GREY);
-  text(8, 164, 2, "44.1 KHZ, 16 BIT, STEREO", GREY);
-  text(8, 192, 2, "PLAY: SOUND OFF AND ON", GREY);
+  text(8, 84, 3, "LEVEL  -20 DBFS", CYAN);
+  text(8, 146, 2, "RECORD THE FM-1 OVER USB:", GREY);
+  text(8, 160, 2, "44.1 KHZ, 16 BIT, STEREO", GREY);
+  text(8, 184, 2, "MASTER: SPEAKER VOLUME ONLY", GREY);
+  text(8, 198, 2, "TURN IT DOWN, THEN PRESS", GREY);
+  text(8, 212, 2, "PLAY: SOUND ON AND OFF", GREY);
 }
 
 void audio(int32_t *out, int frames) {

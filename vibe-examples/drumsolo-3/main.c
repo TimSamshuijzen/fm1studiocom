@@ -507,7 +507,7 @@ void setup(void)
         pan_l[d] = kit[d].level * sqrtf(.5f * (1.f - kit[d].pan));
         pan_r[d] = kit[d].level * sqrtf(.5f * (1.f + kit[d].pan));
     }
-    master = fm1_master();
+    master = FM1_MASTER_MAX; /* MASTER is the FM-1's own volume (on the speaker): the full level here */
 
     fm1_lcd_fill_rect(0, 0, FM1_LCD_WIDTH, FM1_LCD_HEIGHT, bg);
     canvas(STRIP_W, STRIP_H, bg);
@@ -541,7 +541,7 @@ void loop(void)
     else if (delta > 172 - bpm) bpm = 172;
     else bpm += (int)delta;
     want_bpm = (uint32_t)bpm;
-    master = fm1_master();
+    master = FM1_MASTER_MAX; /* MASTER is the FM-1's own volume (on the speaker): the full level here */
 
     uint32_t state = transport;
     update_leds(lit_notes, state);

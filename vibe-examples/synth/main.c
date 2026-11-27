@@ -463,7 +463,7 @@ void setup(void)
   rv_set(p_knob[2]);
   rv_last = p_knob[2];
   cur_t60 = 0.25f * powf(80.f, (float)p_knob[1] * 0.01f);
-  p_master = fm1_master();
+  p_master = FM1_MASTER_MAX; /* MASTER is the FM-1's own volume (on the speaker): the full level here */
 }
 
 void audio(int32_t *out, int frames)
@@ -1085,7 +1085,7 @@ void loop(void)
         }
       }
   }
-  p_master = fm1_master();
+  p_master = FM1_MASTER_MAX; /* MASTER is the FM-1's own volume (on the speaker): the full level here */
 
   leds();
   ui_draw();

@@ -116,7 +116,7 @@ The API gives the program:
 | Keys and buttons | `fm1_in`, `fm1_input_edges`, `fm1_input_note_edges` |
 | LEDs, with levels, and PLAY's red LED | `fm1_led_key`, `fm1_led_level`, `fm1_led_dim_low` |
 | Encoders | `fm1_enc_take` |
-| MASTER pot | `fm1_master` |
+| MASTER pot: the volume, which the FM-1 sets itself | `fm1_master` |
 | Battery level | `fm1_battery` |
 | MIDI input | `fm1_midi_take` |
 | MIDI output | `fm1_midi_send` |
@@ -202,22 +202,29 @@ that SAVE gives), with JieLi's own compiler: `firmware\build.cmd PROJECT.zip` on
 Over the USB cable, the FM-1 with the package of an `fm1.h` program is also a USB audio device (UAC1, class
 compliant: no driver to install). A computer, or a tablet or phone that takes USB audio, records the sound of
 `audio()` from it as from a microphone: 16-bit stereo at 44.1 kHz. This is fm1-base's USB audio input
-(`usb_audio_in` in its `fm1.toml`). The recording has the level that the program gives its sound: a program
-that follows MASTER changes the recording too. The other direction, fm1-base's USB audio output (a computer
-plays through the FM-1), is not built in. Windows tells the two apart by the revision in the hardware ID of
-the FM-1: `REV_0390` with USB audio, `REV_0300` for an older package without it. At the first connection of
-a package with USB audio, Windows sets the FM-1 up again, as a new device.
+(`usb_audio_in` in its `fm1.toml`). The other direction, fm1-base's USB audio output (a computer plays
+through the FM-1), is not built in. Windows tells the two apart by the revision in the hardware ID of the
+FM-1: `REV_0390` with USB audio, `REV_0300` for an older package without it. At the first connection of a
+package with USB audio, Windows sets the FM-1 up again, as a new device.
+
+MASTER is the volume of the FM-1, and the FM-1 sets it itself: a program writes its sound at full level, and
+the FM-1 scales the sound of the speaker and the headphones by MASTER, by the square of its position. The
+recording is taken before that, so it gets the full level, whatever MASTER is. This is fm1-base's "USB audio
+full" (`plat_usb_audio_full`), which the adapter turns on at the start. In the simulator, MASTER scales the
+sound in the same way. A program that also scales its sound by `fm1_master()` gets MASTER two times: it is
+quieter, and its recording follows MASTER.
 
 `testprograms/usb-audio-test` tests it. Drop its `main.c` on the page, and INSTALL it on the FM-1. The
-program plays a sine of 689 Hz on the left and one of 441 Hz on the right, quietly (-50 dBFS). Then, on
-Windows:
+program plays a sine of 689 Hz on the left and one of 441 Hz on the right, at -20 dBFS in the recording;
+MASTER sets the speaker only. The sound starts off: turn MASTER down, then press PLAY. Then, on Windows:
 
 ```
 powershell -ExecutionPolicy Bypass -File testprograms\usb-audio-test\check_usb_audio.ps1
 ```
 
 The script finds the FM-1 and its recording device, records 10 seconds, saves them as `usb-audio-test.wav`,
-and checks the two sines, their level, and that no frame was lost or repeated. It sends nothing to the FM-1.
+and checks the two sines, their level (the same at each position of MASTER), and that no frame was lost or
+repeated. It sends nothing to the FM-1.
 On another computer, record the FM-1 with a recording program, and look for the same two sines.
 
 #### Install the package
@@ -301,7 +308,8 @@ was tested on that FM-1 with `testprograms/battery-test` (November 2026), and wo
 The USB audio input of the packages (see "USB audio") was tested on that FM-1 with
 `testprograms/usb-audio-test` (November 2026), on Windows 11: both sines arrive on their own sides, at their
 level, with no frame lost or repeated in 60 seconds. Windows changes the samples by one or two steps of
-16 bits, too little to hear.
+16 bits, too little to hear. That test was with the program setting the volume; MASTER as the FM-1's own
+volume (see "USB audio") was not tried on an FM-1 yet.
 
 #### If it goes wrong
 

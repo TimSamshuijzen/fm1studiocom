@@ -350,7 +350,7 @@ void loop(void)
     if (delta > 190 - bpm) delta = 190 - bpm;
     bpm += (int)delta;
     controls = ((uint32_t)playing << 8) | (uint32_t)bpm;
-    master = fm1_master();
+    master = FM1_MASTER_MAX; /* MASTER is the FM-1's own volume (on the speaker): the full level here */
 
     uint32_t state = transport;
     uint32_t note_lights = sounding;

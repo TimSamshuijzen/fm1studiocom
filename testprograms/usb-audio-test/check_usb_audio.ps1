@@ -12,7 +12,7 @@ with a USB cable that carries data. The script:
   3. records it (10 seconds; -Seconds), as 16-bit stereo at 44100 Hz, and saves the recording
      (usb-audio-test.wav in the current folder; -Out);
   4. checks the recording: a 689 Hz sine on the left and a 441 Hz sine on the right (periods of 64 and 100
-     frames), their level (-53 dBFS RMS), and that no frame was lost or repeated (each frame equals the frame one
+     frames), their level (-23 dBFS RMS, whatever MASTER is), and that no frame was lost or repeated (each frame equals the frame one
      period before it).
 
 It sends nothing to the FM-1. -WavFile FILE checks a recording that was made before (steps 1 to 3 do not run).
@@ -250,8 +250,9 @@ if ($WavFile) {
     $samples = [Fm1UsbAudio]::ReadWav((Resolve-Path $WavFile).Path)
     $rate = 0
 } else {
-    # 1. The FM-1 on USB: fm1-base's identity. bcdDevice (REV_xxxx) codes the USB functions of the firmware: 0x10 in its
-    # low byte is the USB audio input (BCD_LO in felucca-bsp's chip/usb.c). An FM-1 Studio package without it: REV_0300.
+    # 1. The FM-1 on USB: fm1-base's identity. bcdDevice (REV_xxxx) codes the USB functions of the firmware (BCD_LO in
+    # felucca-bsp's chip/usb.c): an FM-1 Studio package has REV_0390 with its USB audio input, REV_0300 without it.
+    # Other firmwares code more parts in it, so the test is the recording device that Windows has (step 2).
     Write-Host 'the FM-1 on USB'
     $fm1 = @(Get-PnpDevice -PresentOnly | Where-Object { $_.InstanceId -match '^USB\\VID_1209&PID_0001\\' })
     if (-not $fm1) {
@@ -263,18 +264,13 @@ if ($WavFile) {
     $hardware = (Get-PnpDeviceProperty -InstanceId $id -KeyName DEVPKEY_Device_HardwareIds).Data -join ' '
     $rev = if ($hardware -match 'REV_([0-9A-Fa-f]{4})') { [Convert]::ToInt32($Matches[1], 16) } else { -1 }
     $revText = if ($rev -ge 0) { 'REV_{0:X4}' -f $rev } else { 'no REV' }
-    if ($rev -ge 0 -and ($rev -band 0x10)) {
-        Say-Ok "`"$name`" ($revText): its firmware has a USB audio input"
-    } else {
-        Say-Fail "`"$name`" ($revText): its firmware has no USB audio input. Install a new package of testprograms/usb-audio-test (it gives REV_0390)."
-        exit 1
-    }
+    Say-Ok "`"$name`" ($revText)"
 
     # 2. Its recording device: WinMM gives the device interface path of each one, with the USB identity in it.
     $devices = [Fm1UsbAudio]::Devices()
     $device = $devices | Where-Object { $_[2] -match 'VID_1209&PID_0001' } | Select-Object -First 1
     if (-not $device) {
-        Say-Fail 'Windows has no recording device of the FM-1. Its recording devices:'
+        Say-Fail 'Windows has no recording device of the FM-1: its firmware has no USB audio input (an FM-1 Studio package without it: REV_0300). Its recording devices:'
         foreach ($d in $devices) { Write-Host "          $($d[1])  $($d[2])" }
         exit 1
     }
@@ -318,8 +314,8 @@ foreach ($side in $sides) {
     }
     $checked++
     Say-Ok ("{0}: the {1} sine ({2:P1} of the sound), {3:N1} dBFS RMS, peak {4}" -f $side.Name, $side.Tone, $own, $db, $peak)
-    if ([Math]::Abs($db + 53.0) -gt 1.0) {
-        Say-Note ("{0}: the level is {1:N1} dBFS RMS, not -53.0 as the program plays it. Is the recording level of the FM-1 100 % (Windows sound settings)?" -f $side.Name, $db)
+    if ([Math]::Abs($db + 23.0) -gt 1.0) {
+        Say-Note ("{0}: the level is {1:N1} dBFS RMS, not -23.0 as the program plays it. Is the recording level of the FM-1 100 % (Windows sound settings)?" -f $side.Name, $db)
     }
     if ($events -eq 1) {
         Say-Fail ("{0}: a frame was lost or repeated at {1:N3} s" -f $side.Name, ($first / 44100))

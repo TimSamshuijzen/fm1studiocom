@@ -22,7 +22,8 @@
  *   KNOB 2      LEAD   brightness of the lead synth
  *   KNOB 3      SPACE  reverb
  *   KNOB 4      DRUMS  drum level
- *   MASTER      volume
+ *   MASTER      volume, set by the FM-1 itself: a USB recording
+ *               gets the full level
  *
  * The screen: the sound and tempo; the part, metre and bar; a light for each
  * 16th note of the bar; an oscilloscope; a level meter for each instrument
@@ -681,7 +682,7 @@ static void advance(void) {
  * Audio
  * ====================================================================== */
 
-static int knob[FM1_NENC] = { [FM1_ENC_KNOB1] = 5, [FM1_ENC_KNOB2] = 7, [FM1_ENC_KNOB3] = 5, [FM1_ENC_KNOB4] = 9 }; static int octave; static float gain; /* follows MASTER smoothly */
+static int knob[FM1_NENC] = { [FM1_ENC_KNOB1] = 5, [FM1_ENC_KNOB2] = 7, [FM1_ENC_KNOB3] = 5, [FM1_ENC_KNOB4] = 9 }; static int octave;
 
 enum { M_ORGAN, M_BASS, M_LEAD, M_KICK, M_SNARE, M_HATS, M_OUT, METERS }; static float meter[METERS];
 
@@ -754,8 +755,6 @@ void audio(int32_t *out, int frames) {
     lead_bright = knob[FM1_ENC_KNOB2] / 12.0f;
     float space = knob[FM1_ENC_KNOB3] / 12.0f * 1.5f;
     float drums = knob[FM1_ENC_KNOB4] / 12.0f;
-    float master = fm1_master() / (float)FM1_MASTER_MAX;
-    float target_gain = master * master * 0.5f;
     float sum[M_OUT] = { 0 };
     float peak = 0.0f;
 
@@ -808,9 +807,9 @@ void audio(int32_t *out, int frames) {
         if (fabsf(right) > peak) peak = fabsf(right);
 
         /* tanhf: a soft limiter instead of clipping */
-        gain += (target_gain - gain) * 0.002f;
-        out[2 * i] = (int32_t)(tanhf(left * 0.5f) * gain * FM1_AUDIO_MAX);
-        out[2 * i + 1] = (int32_t)(tanhf(right * 0.5f) * gain * FM1_AUDIO_MAX);
+        /* the full level: the FM-1 puts MASTER on the speaker itself */
+        out[2 * i] = (int32_t)(tanhf(left * 0.5f) * 0.5f * FM1_AUDIO_MAX);
+        out[2 * i + 1] = (int32_t)(tanhf(right * 0.5f) * 0.5f * FM1_AUDIO_MAX);
 
         scope_ring[scope_pos] = tanhf((left + right) * 0.5f);
         scope_pos = (scope_pos + 1) & (SCOPE_RING - 1);

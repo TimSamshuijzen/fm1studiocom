@@ -961,7 +961,7 @@ void loop(void)
   if (d) { v = clampi(ui_tempo + (int)d, TEMPO_MIN, TEMPO_MAX); if (v != ui_tempo) { ui_tempo = v; apply_params(); MARK(DI_VAL6); } }
 
   /* ---- MASTER ---- */
-  m = (float)fm1_master() * (1.0f / (float)FM1_MASTER_MAX);
+  m = 1.0f; /* MASTER is the FM-1's own volume (on the speaker): the full level here */
   p_master = m * m;
 
   /* ---- LEDs ---- */

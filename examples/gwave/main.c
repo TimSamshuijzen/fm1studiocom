@@ -22,7 +22,8 @@
  * SELECT       choose a game sound (a timed series of commands), SEQ plays it
  * HOME         SOUND OFF: stops everything, also the background loops
  * KNOB 1       TONE: a low pass after the DAC (12 is open)
- * MASTER       volume
+ * MASTER       volume, set by the FM-1 itself: a USB recording gets the full
+ *              level
  * MIDI         the same as the note keys (MIDI note 53 is note key 0)
  *
  * The background sounds (15 BACKGROUND, 16 TURBINE STEP) keep running under
@@ -544,7 +545,6 @@ static uint8_t carry_value;
 static float gap_left; /* cycles until the next command may go */
 static float hp_x, hp_y, hp_coef; /* the 25 Hz high pass of the output capacitor */
 static float lp_y; /* TONE */
-static float gain;
 static volatile int tone_knob = 12;
 
 #define SCOPE_RING 2048
@@ -612,8 +612,6 @@ static float next_sample(void) {
 }
 
 void audio(int32_t *out, int frames) {
-    float master = fm1_master() / (float)FM1_MASTER_MAX;
-    float target_gain = master * master * master * 0.25f; /* audio taper, max 12 dB quieter */
     /* TONE: from about 1.5 kHz (0) to open (12) */
     int tk = tone_knob;
     float lp_coef = tk >= 12 ? 1.0f : 1.0f - expf(-6.2831853f * 1500.0f * powf(1.3f, (float)tk) / FM1_AUDIO_RATE);
@@ -628,8 +626,8 @@ void audio(int32_t *out, int frames) {
         hp_x = x;
         lp_y += (hp_y - lp_y) * lp_coef;
 
-        gain += (target_gain - gain) * 0.002f;
-        float s = lp_y * 0.8f * gain;
+        /* 12 dB below full scale, the full level: the FM-1 puts MASTER on the speaker itself */
+        float s = lp_y * 0.8f * 0.25f;
         if (s > 1.0f) s = 1.0f;
         if (s < -1.0f) s = -1.0f;
         int32_t v = (int32_t)(s * FM1_AUDIO_MAX);

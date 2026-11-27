@@ -760,8 +760,7 @@ void audio(int32_t *out, int frames)
     uint32_t read_l;
     uint32_t read_r;
 
-    target_volume =
-        (float)fm1_master() / (float)FM1_MASTER_MAX;
+    target_volume = 1.0f; /* MASTER is the FM-1's own volume (on the speaker): the full level here */
 
     target_volume *= target_volume;
 

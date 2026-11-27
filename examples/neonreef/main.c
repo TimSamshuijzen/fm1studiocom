@@ -9,7 +9,8 @@
  *   W   S        C#4  D4    up, down
  *   J  or  K     B4   C5    fire (hold it)
  *                PLAY       start, pause
- *                MASTER     volume
+ *                MASTER     volume, set by the FM-1 itself: a USB
+ *                           recording gets the full level
  *
  * In the air     DARTS weave, MANTAS swoop at you, JELLIES sink and shoot,
  *                DIVERS fall fast, URCHINS (from zone 2) take three hits,
@@ -371,8 +372,6 @@ static void start_sfx(uint32_t command) {
 }
 
 void audio(int32_t *out, int frames) {
-    static float gain;
-
     while (sfx_taken != sfx_written) {
         start_sfx(sfx_queue[sfx_taken % SFX_QUEUE]);
         sfx_taken++;
@@ -381,8 +380,6 @@ void audio(int32_t *out, int frames) {
         start_song(music_wanted);
         music_wanted = -1;
     }
-    float master = fm1_master() / (float)FM1_MASTER_MAX;
-    float target_gain = master * master * master * 0.25f; /* audio taper, max 12 dB quieter */
     float step_samples = FM1_AUDIO_RATE * 15.0f / songs[song].tempo; /* a 16th note */
     int playing = song != SONG_NONE && !music_paused;
     float waver = 1.0f + 0.006f * sinf(audio_blocks * 0.22f); /* 6 times a second */
@@ -455,9 +452,9 @@ void audio(int32_t *out, int frames) {
             if (e->t >= 1.0f) e->on = 0;
         }
 
-        gain += (target_gain - gain) * 0.002f;
-        out[2 * i] = (int32_t)(tanhf(left) * gain * FM1_AUDIO_MAX);
-        out[2 * i + 1] = (int32_t)(tanhf(right) * gain * FM1_AUDIO_MAX);
+        /* 12 dB below full scale, the full level: the FM-1 puts MASTER on the speaker itself */
+        out[2 * i] = (int32_t)(tanhf(left) * 0.25f * FM1_AUDIO_MAX);
+        out[2 * i + 1] = (int32_t)(tanhf(right) * 0.25f * FM1_AUDIO_MAX);
     }
     audio_blocks++;
 }
