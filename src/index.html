@@ -1354,8 +1354,9 @@ void loop(void) { }                         /* again and again: controls and scr
           firmware of M-VAVE back, use a tool of M-VAVE or another installer. CS-1 0.3.4 and GR!MM 2.0.2
           know only the first flash chip of the FM-1: the page changes them when it loads them, so that they
           also take the newer chip, as AURORA does. The package of FM-106 has no Bluetooth: its Bluetooth needs closed
-          libraries of JieLi. A package of an <code>fm1.h</code> program has no USB audio and no Bluetooth;
-          USB MIDI works, in and out.</li>
+          libraries of JieLi. Over USB, a package of an <code>fm1.h</code> program has MIDI, in and out, and
+          a USB audio input: a computer records the sound of the program (16-bit stereo, 44.1 kHz). It has no
+          USB audio output (the computer cannot play through the FM-1) and no Bluetooth.</li>
         <li>INSTALL needs Chrome or Edge on a computer, and the page from a web server.</li>
       </ul>
 
@@ -9613,7 +9614,7 @@ device_include = ["adapter/libc"]
 mmio_skip = ["project/"]
 words = "words.tsv"
 ram_layout = "packed"
-usb_audio_in = false
+usb_audio_in = true
 usb_audio_out = false
 tagline = "an FM-1 Studio program"
 repo = "https://github.com/TimSamshuijzen/fm1studiocom"
@@ -9649,7 +9650,7 @@ licence = "GPL-3.0-only"
     '-Wno-unused-function', '-mcpu=r3', '-ffp-contract=off',
     '-Ifm1-base/bsp/chip', '-Ifm1-base/bsp/boards/fm1', '-Ifm1-base/device', '-Ifm1-base/include', '-Ifm1-base/lib',
     `-I${APP}`, `-I${OUT}/gen`, ...include.map((folder) => `-I${tidy(`${APP}/${folder}`)}`), `-I${APP}/adapter/libc`,
-    '-DFM1B_UAC=0', '-DFM1B_UAC_OUT=0', '-DFELUCCA_UAC_MIDI_LAST=1', `-DFELUCCA_ID="${product}"`,
+    '-DFM1B_UAC=1', '-DFM1B_UAC_OUT=0', '-DFELUCCA_UAC_MIDI_LAST=1', `-DFELUCCA_ID="${product}"`,
     '-DFELUCCA_USB_MANUFACTURER="FM-1 Studio"', `-DFELUCCA_USB_PRODUCT="${shown}"`, `-DFM1B_BUILD=0x${buildHex}u`];
   const objects = [];
   for (const unit of ['crt0', 'fm1_vec', 'fm1_isr']) {

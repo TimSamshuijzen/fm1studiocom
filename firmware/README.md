@@ -196,7 +196,9 @@ These things are different on the FM-1:
 
 - The accuracy of the maths is about six digits (`atan2f`, `asinf`, `acosf`: about five).
 - After an update that was cancelled, the FM-1 starts again.
-- USB audio and Bluetooth are not built in. USB MIDI works, in and out: `fm1_midi_take`, `fm1_midi_send`.
+- USB MIDI works, in and out: `fm1_midi_take`, `fm1_midi_send`. The FM-1 is also a USB audio input (fm1-base's
+  `usb_audio_in`): a computer records the output of `audio()`, 16-bit stereo at 44.1 kHz. There is no USB audio
+  output (`usb_audio_out`: the computer plays through the FM-1) and no Bluetooth.
 - A MIDI message that the program sends goes to the computer. In the simulator, its page shows it and
   sends it to no device.
 - The store stays when the FM-1 is off, and when another package is installed. The simulator keeps it

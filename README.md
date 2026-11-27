@@ -127,6 +127,7 @@ The screen and input functions have the names and signatures of
 the battery and the store: a small FM synthesizer with an arpeggiator, an echo and its own screen.
 `testprograms/store-test` tests the store, `testprograms/battery-test` the battery level, and
 `testprograms/midi-test` the MIDI input and output, in the simulator and on a real FM-1.
+`testprograms/usb-audio-test` tests the USB audio of a real FM-1 (see "USB audio").
 
 `fm1_midi_send()` sends a MIDI message to the computer, over the USB cable: the FM-1 is a USB MIDI device
 there. It sends the channel messages, and clock, start, continue and stop. An FM-1 with an `fm1.h` program
@@ -195,6 +196,29 @@ package.
 The folder `firmware` builds the same kind of package on your own computer, from a project zip (the file
 that SAVE gives), with JieLi's own compiler: `firmware\build.cmd PROJECT.zip` on Windows (in WSL),
 `firmware/build.sh PROJECT.zip` on Linux. That build also runs the program in fm1-base's host simulator.
+
+#### USB audio
+
+Over the USB cable, the FM-1 with the package of an `fm1.h` program is also a USB audio device (UAC1, class
+compliant: no driver to install). A computer, or a tablet or phone that takes USB audio, records the sound of
+`audio()` from it as from a microphone: 16-bit stereo at 44.1 kHz. This is fm1-base's USB audio input
+(`usb_audio_in` in its `fm1.toml`). The recording has the level that the program gives its sound: a program
+that follows MASTER changes the recording too. The other direction, fm1-base's USB audio output (a computer
+plays through the FM-1), is not built in. Windows tells the two apart by the revision in the hardware ID of
+the FM-1: `REV_0390` with USB audio, `REV_0300` for an older package without it. At the first connection of
+a package with USB audio, Windows sets the FM-1 up again, as a new device.
+
+`testprograms/usb-audio-test` tests it. Drop its `main.c` on the page, and INSTALL it on the FM-1. The
+program plays a sine of 689 Hz on the left and one of 441 Hz on the right, quietly (-50 dBFS). Then, on
+Windows:
+
+```
+powershell -ExecutionPolicy Bypass -File testprograms\usb-audio-test\check_usb_audio.ps1
+```
+
+The script finds the FM-1 and its recording device, records 10 seconds, saves them as `usb-audio-test.wav`,
+and checks the two sines, their level, and that no frame was lost or repeated. It sends nothing to the FM-1.
+On another computer, record the FM-1 with a recording program, and look for the same two sines.
 
 #### Install the package
 
@@ -274,6 +298,10 @@ under the boot loader of V15 or V16. The store of `fm1.h` was tested on that FM-
 The screen stays black at power-on until the program draws. The battery level of `fm1.h` (`fm1_battery`)
 was tested on that FM-1 with `testprograms/battery-test` (November 2026), and works. The MIDI output of
 `fm1.h` (`fm1_midi_send`) was not tried on an FM-1 yet: `testprograms/midi-test` is the program for that.
+The USB audio input of the packages (see "USB audio") was tested on that FM-1 with
+`testprograms/usb-audio-test` (November 2026), on Windows 11: both sines arrive on their own sides, at their
+level, with no frame lost or repeated in 60 seconds. Windows changes the samples by one or two steps of
+16 bits, too little to hear.
 
 #### If it goes wrong
 
@@ -683,7 +711,7 @@ src/staticwebapp.config.json   configuration of the host
 firmware/                      fm1.h on a real FM-1: the adapter, and the build on a computer (not deployed)
 firmware/web/                  the scripts that make src/fwsc
 examples/                      example projects, each with its zip file: PROG-1, NEON REEF, GLOAMING, GWAVE (not deployed)
-testprograms/                  programs that test a part of fm1.h, also on a real FM-1: the LEDs, the store, the battery, MIDI (not deployed)
+testprograms/                  programs that test a part of fm1.h, also on a real FM-1: the LEDs, the store, the battery, MIDI, USB audio (not deployed)
 vibe-examples/                 programs for the example ideas of VIBE: DRUM-1 (drumsolo-1 to 4), STRING-1 (synth), PIECE-1 (piece), GAME-2 (game: SWOOPERS); and a funk clavinet (clavinet)
 video/                         the promotional video: storyboard, timeline, and the scripts that render it (not deployed)
 img/                           the screenshot at the top of this README (not deployed)
@@ -751,7 +779,8 @@ of `src/index.html` whose id is the `id`, a slash and a file path, as `prog-1/ma
   "The gallery's firmware on a real FM-1". The other firmwares of the gallery have their own builds in
   their repositories: DOWNLOAD and INSTALL are off for them, and their hints tell why. INSTALL installs
   the program of the project only, not other files such as M-VAVE's firmware. The package of an `fm1.h`
-  program has no USB audio and no Bluetooth; USB MIDI works, in and out.
+  program has USB MIDI, in and out, and a USB audio input (a computer records the FM-1), but no USB audio
+  output (a computer cannot play through the FM-1) and no Bluetooth.
 - Some firmwares of the gallery are not as their own builds make them: CS-1, GR!MM and JIANT have a change
   for the newer flash chip, SKIFF and JIANT a change for the firmware compiler, JIANT is v0.9.18 and not
   its release V10.7.23, FM-106 has no Bluetooth and another boot stub, and the build of SLOOP does not
