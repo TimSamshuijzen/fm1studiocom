@@ -157,7 +157,7 @@ a real FM-1:
 You do not have to write the program yourself. The VIBE button makes a prompt for an AI chat
 from your idea: you describe a synth, a piece or a game, and the AI writes `main.c`.
 
-1. Write the idea in the dialog, or start from one of its examples: DRUM-1, STRING-1 or GAME-2.
+1. Write the idea in the dialog, or start from one of its examples: DRUM, STRING or GAME.
 2. COPY the prompt, and give it to an AI chat. Use a strong AI model: a weaker one makes more mistakes.
    The prompt has the idea, the rules for a program on the FM-1, and all of `fm1.h`.
 3. Copy the code of the answer, and paste it on the page with `Ctrl`+`V`, outside the editor. The page
@@ -719,7 +719,7 @@ firmware/                      fm1.h on a real FM-1: the adapter, and the build 
 firmware/web/                  the scripts that make src/fwsc
 examples/                      example projects, each with its zip file: PROG-1, NEON REEF, GLOAMING, GWAVE (not deployed)
 testprograms/                  programs that test a part of fm1.h, also on a real FM-1: the LEDs, the store, the battery, MIDI, USB audio (not deployed)
-vibe-examples/                 programs for the example ideas of VIBE: DRUM-1 (drumsolo-1 to 4), STRING-1 (synth), GAME-2 (game: SWOOPERS); and a demoscene intro (piece) and a funk clavinet (clavinet)
+vibe-examples/                 programs for the example ideas of VIBE: DRUM (drumsolo-1 to 4), STRING (synth), GAME (game: SWOOPERS, the GAME-2 card); and a demoscene intro (piece) and a funk clavinet (clavinet)
 video/                         the promotional video: storyboard, timeline, and the scripts that render it (not deployed)
 img/                           the screenshot at the top of this README (not deployed)
 ```
