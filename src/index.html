@@ -904,12 +904,13 @@
     background: repeating-linear-gradient(-45deg, #1d1600 0 4px, #0000 4px 8px) 9px 7px / 15px calc(100% - 14px) no-repeat, var(--stripe-1);
     box-shadow: inset 0 0 0 1px #0003;
   }
-  .install-list { display: grid; gap: 7px; padding: 0; list-style: none; }
+  .install-list { display: grid; gap: 7px; padding: 0; list-style: none; font-size: 12px; }
   .install-list li { position: relative; padding-left: 16px; }
   .install-list li::before {
-    content: ""; position: absolute; left: 2px; top: 7px; width: 6px; height: 6px; border-radius: 1px; background: var(--accent);
+    content: ""; position: absolute; left: 2px; top: 6px; width: 6px; height: 6px; border-radius: 1px; background: var(--accent);
     box-shadow: 0 0 0 1px #0002;
   }
+  .install-list code { white-space: nowrap; }  /* FM-1.fwsc: no break at the hyphen */
   ol.install-list { counter-reset: item; }
   ol.install-list li { padding-left: 27px; counter-increment: item; }
   ol.install-list li::before {
@@ -918,7 +919,7 @@
     font: 700 10px/1 var(--font-panel); color: var(--vink);
   }
   #install-read .install-list { min-height: 0; overflow-y: auto; }  /* with a font that takes more room: the boxes stay */
-  .install-checks { display: grid; gap: 10px; margin-top: auto; }
+  .install-checks { display: grid; gap: 10px; margin-top: auto; margin-bottom: 6px; }  /* the last box at the middle of CONNECT */
   .install-check { display: flex; align-items: baseline; gap: 9px; font-weight: 700; cursor: pointer; }
   .install-check input { flex: none; width: 16px; height: 16px; margin: 0; translate: 0 3px; accent-color: var(--stripe-2); cursor: inherit; }
   .install-check:has(input:disabled) { color: var(--vink-dim); cursor: default; }
