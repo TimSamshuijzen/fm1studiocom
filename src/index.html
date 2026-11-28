@@ -86,7 +86,6 @@
     font: 12px/22px var(--font-mono); letter-spacing: 0.03em; color: var(--oled); white-space: nowrap;
   }
   .oled-chip { flex: none; font-size: 11px; color: var(--oled-mid); }
-  .oled-chip.warn { color: var(--stripe-1); }
   .oled-input { width: 100%; min-width: 0; user-select: text; -webkit-user-select: text; }
   .oled-input:disabled { color: var(--oled-mid); }
 
@@ -325,11 +324,19 @@
 
   .editor-section { display: grid; grid-template-rows: 22px minmax(0, 1fr); gap: 10px; }
   #code-copy { width: 54px; padding: 0; }  /* as COPY of the log: COPIED fits */
-  .module-bar { display: flex; align-items: center; gap: 9px; min-width: 0; }
+  /* The path, SEARCH, READ ONLY, the type and the cursor. Each has a width of its own, so that each stays in its
+     place, whatever its text: the path gets the rest. READ ONLY is always there, unlit (as a part of a display
+     that is off) when the file can be changed. */
+  .module-bar { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .module-bar .oled-chip { overflow: hidden; text-overflow: ellipsis; text-align: center; }
+  #file-lock { width: 72px; color: #14232a; }
+  #file-lock.on { color: var(--stripe-1); }
+  #file-type { width: 80px; }
+  #cursor { width: 116px; text-align: left; }  /* "LN 99999 COL 999"; LN stays in its place */
   /* SEARCH: the text to find in the file in the editor, how many times it is there, PREVIOUS and NEXT. A
      display as the path field, with the yellow edge of a field that has the keyboard. */
   .find {
-    flex: none; width: 250px; height: 22px; display: flex; align-items: center; border-radius: 3px; cursor: text;
+    flex: none; width: 220px; height: 22px; display: flex; align-items: center; border-radius: 3px; cursor: text;
     background: var(--oled-bg); box-shadow: 0 0 0 1px #000, 0 0 0 2px #2b2926;
   }
   .find:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -1096,7 +1103,7 @@
               <button id="find-prev" title="Previous (Shift+Enter)" aria-label="Previous match" disabled><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 6.5 5 3.5 8 6.5"/></svg></button>
               <button id="find-next" title="Next (Enter)" aria-label="Next match" disabled><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.5 5 6.5 8 3.5"/></svg></button>
             </div>
-            <span class="oled-chip warn" id="file-lock" title="This file is part of FM-1 Studio: it cannot be changed" hidden>READ ONLY</span>
+            <span class="oled-chip" id="file-lock">READ ONLY</span>
             <span class="oled-chip" id="file-type" title="The type of the file in the editor"></span>
             <span class="oled-chip" id="cursor"></span>
           </div>
@@ -11955,8 +11962,8 @@ function workOfOthers(entry, shared) {
 // shows as the end of the name itself.
 const FILE_TYPES = {
   c: 'C', cc: 'C++', cpp: 'C++', cxx: 'C++', h: 'C HEADER', hh: 'C++ HEADER', hpp: 'C++ HEADER', hxx: 'C++ HEADER',
-  s: 'ASSEMBLY', asm: 'ASSEMBLY', ld: 'LINKER SCRIPT', json: 'JSON', md: 'MARKDOWN', txt: 'TEXT',
-  py: 'PYTHON', js: 'JAVASCRIPT', mjs: 'JAVASCRIPT', html: 'HTML', css: 'CSS', sh: 'SHELL SCRIPT',
+  s: 'ASSEMBLY', asm: 'ASSEMBLY', ld: 'LD SCRIPT', json: 'JSON', md: 'MARKDOWN', txt: 'TEXT',
+  py: 'PYTHON', js: 'JAVASCRIPT', mjs: 'JAVASCRIPT', html: 'HTML', css: 'CSS', sh: 'SHELL',
   yml: 'YAML', yaml: 'YAML',
 };
 function fileType(path) {
@@ -12036,7 +12043,11 @@ function showSource() {
     $('gutter').textContent = numbers;
   }
   $('file-type').textContent = fileType(path);
-  $('file-lock').hidden = current !== null;
+  $('file-type').title = `The type of the file in the editor: ${fileType(path)}`;  // also when it does not fit
+  const readOnly = current === null, lock = $('file-lock');
+  lock.classList.toggle('on', readOnly);
+  lock.setAttribute('aria-hidden', String(!readOnly));
+  lock.title = readOnly ? 'This file is part of FM-1 Studio: it cannot be changed' : '';
   findMatches();
   painted = null;
   moveSource();
