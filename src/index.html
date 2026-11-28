@@ -1721,7 +1721,7 @@ PLAY: BACK</pre>
       <h2 class="logo" id="save-title">SAVE</h2>
       <p class="brand-text">
         <span class="model" id="save-model">PROJECT FILE</span>
-        <span class="tagline">work of others</span>
+        <span class="tagline">with work of other authors</span>
       </p>
       <div class="stripes"><i></i><i></i><i></i><i></i></div>
     </header>
@@ -8872,6 +8872,23 @@ async function fetchOk(url, options) {
   return response;
 }
 
+// llvm.wasm, compiled. When the first try fails, the second downloads the file again, past the cache of the
+// browser, and compiles its bytes: for a server that does not say that the file is WebAssembly, and for a
+// download that did not come whole (a broken copy in the cache, or a site in the middle of a deployment).
+// Its error tells how many bytes came.
+async function compileLLVM() {
+  try {
+    return await WebAssembly.compileStreaming(fetchOk(BASE + 'llvm.wasm'));
+  } catch (first) {
+    const bytes = await (await fetchOk(BASE + 'llvm.wasm', { cache: 'reload' })).arrayBuffer();
+    try {
+      return await WebAssembly.compile(bytes);
+    } catch (error) {
+      throw new Error(`${BASE}llvm.wasm did not load (${bytes.byteLength} bytes): ${first.message}; ${error.message}`);
+    }
+  }
+}
+
 // ---- The files, loaded one time ----
 
 let llvmModule = null;     // llvm.wasm, compiled
@@ -8890,14 +8907,7 @@ async function load(module) {
   }
   base.set('/fm1/fm1.h', encoder.encode(FILES['fm1.h']));
   builtins.set('/rt/libclang_rt.builtins.a', Uint8Array.from(atob(platform.binary['rt/libclang_rt.builtins.a']), (c) => c.charCodeAt(0)));
-  if (module) llvmModule = module;
-  else {
-    try {
-      llvmModule = await WebAssembly.compileStreaming(fetchOk(BASE + 'llvm.wasm'));
-    } catch (error) { // a server that does not say that the file is WebAssembly
-      llvmModule = await WebAssembly.compile(await (await fetchOk(BASE + 'llvm.wasm')).arrayBuffer());
-    }
-  }
+  llvmModule = module ?? await compileLLVM();
   postMessage({ type: 'module', module: llvmModule });
   // The simulator side of fm1.h, and the C library of the adapter (with fastmath.h of fm1-base, which it includes).
   const files = new Map([
@@ -9224,12 +9234,23 @@ const load = () => (loading ||= (async () => {
   importScripts(BASE + 'llvm.js'); // defines createLLVM
   if (llvmModule) return;
   log('load the compiler (53 MB the first time)\n');
-  try {
-    llvmModule = await WebAssembly.compileStreaming(fetchOk(BASE + 'llvm.wasm'));
-  } catch (error) { // a server that does not say that the file is WebAssembly
-    llvmModule = await WebAssembly.compile(await (await fetchOk(BASE + 'llvm.wasm')).arrayBuffer());
-  }
+  llvmModule = await compileLLVM();
 })());
+
+// llvm.wasm, compiled, as in compiler-worker.js: a second try downloads the file again, past the cache of the
+// browser, and its error tells how many bytes came.
+async function compileLLVM() {
+  try {
+    return await WebAssembly.compileStreaming(fetchOk(BASE + 'llvm.wasm'));
+  } catch (first) {
+    const bytes = await (await fetchOk(BASE + 'llvm.wasm', { cache: 'reload' })).arrayBuffer();
+    try {
+      return await WebAssembly.compile(bytes);
+    } catch (error) {
+      throw new Error(`${BASE}llvm.wasm did not load (${bytes.byteLength} bytes): ${first.message}; ${error.message}`);
+    }
+  }
+}
 
 // ---- One run of a tool ----
 
