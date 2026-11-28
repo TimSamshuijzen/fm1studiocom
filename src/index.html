@@ -326,6 +326,28 @@
   .editor-section { display: grid; grid-template-rows: 22px minmax(0, 1fr); gap: 10px; }
   #code-copy { width: 54px; padding: 0; }  /* as COPY of the log: COPIED fits */
   .module-bar { display: flex; align-items: center; gap: 9px; min-width: 0; }
+  /* SEARCH: the text to find in the file in the editor, how many times it is there, PREVIOUS and NEXT. A
+     display as the path field, with the yellow edge of a field that has the keyboard. */
+  .find {
+    flex: none; width: 250px; height: 22px; display: flex; align-items: center; border-radius: 3px; cursor: text;
+    background: var(--oled-bg); box-shadow: 0 0 0 1px #000, 0 0 0 2px #2b2926;
+  }
+  .find:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .find-icon { flex: none; width: 11px; height: 11px; margin: 0 5px 0 7px; fill: none; stroke: var(--oled-mid); stroke-width: 1.5; stroke-linecap: round; }
+  #find {
+    flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; background: none;
+    font: 12px/22px var(--font-mono); letter-spacing: 0.03em; color: var(--oled); user-select: text; -webkit-user-select: text;
+  }
+  #find:focus-visible { outline: none; }
+  #find::placeholder { color: #3f6170; letter-spacing: 0.08em; }
+  #find-count { flex: none; padding: 0 3px 0 6px; font: 11px/22px var(--font-mono); color: var(--oled-mid); white-space: nowrap; }
+  #find-count.none { color: var(--stripe-1); }
+  .find button { flex: none; display: grid; place-items: center; width: 18px; height: 22px; color: var(--oled-mid); }
+  .find button:last-child { width: 22px; padding-right: 4px; }
+  .find button:hover:not(:disabled) { color: var(--oled); }
+  .find button:disabled { opacity: 0.3; cursor: default; }
+  .find button:focus-visible { outline-offset: -2px; }
+  .find button svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
   .editor { display: grid; grid-template: minmax(0, 1fr) / auto minmax(0, 1fr); }
   .editor pre, .editor textarea {
     margin: 0; border: 0; padding: 8px 10px; font: 12px/1.5 var(--font-mono); letter-spacing: 0;
@@ -335,6 +357,11 @@
   #gutter { min-width: 42px; padding-right: 8px; text-align: right; color: #3f6170; }
   .code { position: relative; overflow: hidden; }
   #highlight { position: absolute; top: 0; left: 0; min-width: 100%; color: #d6e6ec; pointer-events: none; }
+  /* Below the text with colours: a box around each match of SEARCH, in the amber of the panel. The current
+     match also has an edge that glows, as a lit LED: its box stays light, so that its text stays clear. */
+  #marks { position: absolute; top: 0; left: 0; min-width: 100%; color: transparent; pointer-events: none; }
+  #marks mark { border-radius: 2px; background: #f6b31b2e; color: transparent; }
+  #marks mark.current { box-shadow: 0 0 0 1.5px var(--stripe-1), 0 0 7px 1px #f6b31b80; }
   #source {
     position: absolute; inset: 0; width: 100%; height: 100%; resize: none; overflow: auto;
     background: transparent; color: transparent; caret-color: #fff;
@@ -1062,6 +1089,13 @@
           </div>
           <div class="module-bar">
             <input class="oled-input" id="file-path" aria-label="Path of the file in the editor" title="Change the path to rename or move the file" spellcheck="false" autocomplete="off">
+            <div class="find" role="search">
+              <svg class="find-icon" viewBox="0 0 12 12" aria-hidden="true"><circle cx="5" cy="5" r="3.5"/><path d="M7.6 7.6 10.8 10.8"/></svg>
+              <input id="find" placeholder="SEARCH" aria-label="Search the file in the editor" title="Search the file in the editor (Ctrl+F). Enter: next, Shift+Enter: previous, Esc: back to the code" spellcheck="false" autocomplete="off">
+              <span id="find-count" aria-live="polite"></span>
+              <button id="find-prev" title="Previous (Shift+Enter)" aria-label="Previous match" disabled><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 6.5 5 3.5 8 6.5"/></svg></button>
+              <button id="find-next" title="Next (Enter)" aria-label="Next match" disabled><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.5 5 6.5 8 3.5"/></svg></button>
+            </div>
             <span class="oled-chip warn" id="file-lock" title="This file is part of FM-1 Studio: it cannot be changed" hidden>READ ONLY</span>
             <span class="oled-chip" id="file-type" title="The type of the file in the editor"></span>
             <span class="oled-chip" id="cursor"></span>
@@ -1069,6 +1103,7 @@
           <div class="oled editor">
             <div class="gutter"><pre id="gutter" aria-hidden="true"></pre></div>
             <div class="code">
+              <pre id="marks" aria-hidden="true"></pre>
               <pre id="highlight" aria-hidden="true"></pre>
               <textarea id="source" spellcheck="false" wrap="off" autocomplete="off" aria-label="Source code"></textarea>
             </div>
@@ -1218,6 +1253,9 @@ void loop(void) { }                         /* again and again: controls and scr
       </table>
       <ul>
         <li>COMPILE, or <kbd>Ctrl</kbd> + <kbd>Enter</kbd>, compiles the project and runs the program.</li>
+        <li>SEARCH, or <kbd>Ctrl</kbd> + <kbd>F</kbd> in the code, finds text in the file in the editor. <kbd>Enter</kbd>
+          goes to the next match, <kbd>Shift</kbd> + <kbd>Enter</kbd> to the one before, and <kbd>Esc</kbd> back to
+          the code. In the code, <kbd>F3</kbd> goes to the next match.</li>
         <li>The demo project <code>main.c</code> uses all of the API but the battery and the store: a small FM synthesizer with an
           arpeggiator, an echo and its own screen. PROG-1, the first card of the gallery, loads another
           demo: a progressive rock band in an FM-1, vibe-coded by Hans Dam. SPACE-1, the second card, loads space
@@ -11999,6 +12037,7 @@ function showSource() {
   }
   $('file-type').textContent = fileType(path);
   $('file-lock').hidden = current !== null;
+  findMatches();
   painted = null;
   moveSource();
 }
@@ -12024,12 +12063,14 @@ function paintSource() {
   // The line break at the end makes the last line as high as in the text box when it is empty.
   $('highlight').innerHTML = html + '\n';
   painted = { first, last };
+  paintMarks();
 }
 
 function moveSource() {
   paintSource();
   const { scrollLeft, scrollTop } = $('source');
-  $('highlight').style.transform = `translate(${-scrollLeft}px, ${painted.first * LINE_HEIGHT - scrollTop}px)`;
+  $('highlight').style.transform = $('marks').style.transform =
+    `translate(${-scrollLeft}px, ${painted.first * LINE_HEIGHT - scrollTop}px)`;
   $('gutter').style.transform = `translateY(${-scrollTop}px)`;
 }
 
@@ -12051,10 +12092,176 @@ $('source').oninput = () => {
 for (const type of ['keyup', 'mouseup', 'focus']) $('source').addEventListener(type, showCursor);
 
 $('source').onkeydown = (event) => {
+  if (searchKeys(event)) return;
+  if (event.key === 'Escape' && $('find').value) endSearch(false);
   if (event.key === 'Tab' && !$('source').readOnly) {
     event.preventDefault();
     document.execCommand('insertText', false, '  '); // keeps the undo history, and gives an input event
   }
+};
+
+// ---- Search: the text of the SEARCH field in the file in the editor ----
+// Plain text, small and capital letters alike. #marks, below the text with colours, has a mark for each match in
+// the lines that #highlight has. The match that SEARCH goes to is the selection of the text box, and is in view.
+
+let found = [];         // the offset of each match in the text in the editor, from the start
+let foundLength = 0;    // the length of a match: the length of the search text
+let currentMatch = -1;  // the index in `found` of the match that SEARCH went to, or -1
+
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// The index of the first item of `sorted` (numbers, small to large) that is `value` or larger.
+function firstFrom(sorted, value) {
+  let low = 0, high = sorted.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if (sorted[middle] < value) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+}
+
+// The line (from 0) of an offset in the text in the editor.
+const lineOf = (offset) => firstFrom(lineStarts, offset + 1) - 1;
+
+// Finds the search text in the text in the editor: when either of them changes. No match is current then.
+// (Without the u flag, a match with the i flag has as many characters as the search text.)
+function findMatches() {
+  const query = $('find').value;
+  found = [];
+  foundLength = query.length;
+  currentMatch = -1;
+  if (query) for (const match of sourceText.matchAll(new RegExp(escapeRegExp(query), 'gi'))) found.push(match.index);
+  showFindCount();
+}
+
+// The count in the field: "3/12" for the third of twelve matches, "12" when SEARCH did not go to one of them.
+function showFindCount() {
+  const query = $('find').value, count = $('find-count');
+  count.textContent = !query ? '' : currentMatch < 0 ? `${found.length}` : `${currentMatch + 1}/${found.length}`;
+  count.classList.toggle('none', query !== '' && !found.length);
+  count.title = !query ? '' : found.length === 1 ? '1 match in this file' : `${found.length} matches in this file`;
+  $('find-prev').disabled = $('find-next').disabled = !found.length;
+}
+
+// Gives #marks the matches in the lines of #highlight.
+function paintMarks() {
+  if (!painted) return;
+  const from = lineStarts[painted.first];
+  const to = painted.last < lineStarts.length ? lineStarts[painted.last] : sourceText.length;
+  let html = '', at = from;
+  for (let i = firstFrom(found, from); i < found.length && found[i] < to; i++) {
+    html += escapeHtml(sourceText.slice(at, found[i])) + (i === currentMatch ? '<mark class="current">' : '<mark>') +
+      escapeHtml(sourceText.slice(found[i], found[i] + foundLength)) + '</mark>';
+    at = found[i] + foundLength;
+  }
+  $('marks').innerHTML = html;
+}
+
+// Goes to match `index`: selects it in the text box, and scrolls the text box so that it is in view. A match
+// that is out of view comes in the middle.
+function goToMatch(index) {
+  const box = $('source'), start = found[index];
+  currentMatch = index;
+  box.setSelectionRange(start, start + foundLength);
+  const padding = parseFloat(getComputedStyle(box).paddingTop);
+  const top = padding + lineOf(start) * LINE_HEIGHT;
+  if (top < box.scrollTop || top + LINE_HEIGHT > box.scrollTop + box.clientHeight) {
+    box.scrollTop = top - (box.clientHeight - LINE_HEIGHT) / 2;
+  }
+  moveSource();
+  paintMarks();
+  // Across, as the text lays it out (tabs, long lines): to the start of the lines when the match is in view
+  // there, or else only as far as needed, with some room beside the match.
+  const mark = $('marks').querySelector('.current'), room = 40;
+  if (mark) {
+    const left = mark.offsetLeft - room, right = mark.offsetLeft + mark.offsetWidth + room;
+    if (left < box.scrollLeft || right > box.scrollLeft + box.clientWidth) {
+      box.scrollLeft = right <= box.clientWidth ? 0 : left < box.scrollLeft ? left : right - box.clientWidth;
+    }
+  }
+  moveSource();
+  showFindCount();
+  showCursor();
+}
+
+// Goes to the next match (step 1) or the one before (step -1), round from the end to the start: from the
+// match that SEARCH went to while it is still the selection, or else from the cursor in the text box.
+function searchStep(step) {
+  if (!found.length) return;
+  const { selectionStart, selectionEnd } = $('source');
+  const selected = currentMatch >= 0 && selectionStart === found[currentMatch] && selectionEnd === selectionStart + foundLength;
+  const next = selected ? currentMatch + step : firstFrom(found, selectionStart) - (step < 0 ? 1 : 0);
+  goToMatch((next + found.length) % found.length);
+}
+
+// The keys of SEARCH, in the text box and in the field: Ctrl+F (Cmd+F) goes to the field, F3 and Ctrl+G
+// (Cmd+G) go to the next match, with Shift to the one before. Returns true for such a key.
+function searchKeys(event) {
+  const command = (event.ctrlKey || event.metaKey) && !event.altKey, letter = event.key.toLowerCase();
+  if (command && letter === 'f') {
+    event.preventDefault();
+    startSearch();
+    return true;
+  }
+  if ((event.key === 'F3' && !event.ctrlKey && !event.metaKey) || (command && letter === 'g')) {
+    event.preventDefault();
+    searchStep(event.shiftKey ? -1 : 1);
+    return true;
+  }
+  return false;
+}
+
+// Ctrl+F: the field gets the keyboard, with its text selected. Text that is selected in the text box, on one
+// line, is the new search text.
+function startSearch() {
+  const box = $('source'), field = $('find');
+  const selected = box.value.slice(box.selectionStart, box.selectionEnd);
+  if (document.activeElement === box && selected && !selected.includes('\n') && selected !== field.value) {
+    field.value = selected;
+    search();
+  }
+  field.focus();
+  field.select();
+}
+
+// The search text changed: the marks, and the first match from the cursor (or from the match before).
+function search() {
+  findMatches();
+  if (found.length) goToMatch(firstFrom(found, $('source').selectionStart) % found.length);
+  else paintMarks();
+}
+
+// Esc: the search ends (no text, no marks). `toCode`: the text box gets the keyboard, with the match that
+// SEARCH went to selected.
+function endSearch(toCode) {
+  $('find').value = '';
+  findMatches();
+  paintMarks();
+  if (toCode) $('source').focus();
+}
+
+$('find').oninput = search;
+$('find').onkeydown = (event) => {
+  if (event.isComposing || searchKeys(event)) return;  // Enter also ends the input of an input method (IME)
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    searchStep(event.shiftKey ? -1 : 1);
+  } else if (event.key === 'Escape') {
+    event.preventDefault();
+    endSearch(true);
+  }
+};
+// PREVIOUS and NEXT leave the keyboard where it is (the field, or the text box).
+for (const [id, step] of [['find-prev', -1], ['find-next', 1]]) {
+  $(id).onmousedown = (event) => event.preventDefault();
+  $(id).onclick = () => searchStep(step);
+}
+// A click on the magnifier or beside the text also puts the cursor in the field.
+document.querySelector('.find').onmousedown = (event) => {
+  if (event.target.closest('button') || event.target === $('find')) return;
+  event.preventDefault();
+  $('find').focus();
 };
 
 // COPY: all of the text in the editor (also fm1.h, when the editor shows it).

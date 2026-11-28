@@ -10,7 +10,7 @@ It is a simulation of the FM-1 API, not an emulation of the CPUs. The same compi
 makes an installable package for a real FM-1 from a project (DOWNLOAD), and an installer writes it to an FM-1 
 over USB (INSTALL). Code that works in this simulator does not guarantee it will work on a real FM-1.
 
-- **Code editor** with a file list, syntax colours and projects of more than one file.
+- **Code editor** with a file list, search, syntax colours and projects of more than one file.
 - **Vibe coding**: prompts with which an AI chat writes a program from your idea. C code that is pasted
   on the page becomes a project.
 - **Simulator compiler**: clang 23.1.5 and wasm-ld for WebAssembly (pi32v2-llvm, as WebAssembly), in a Web
