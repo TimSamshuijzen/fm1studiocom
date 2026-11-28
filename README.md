@@ -45,8 +45,7 @@ WebAssembly with two targets. It runs in the browser.
 | Licence | Apache-2.0 with LLVM exceptions; Emscripten's runtime and musl: MIT and others | The same |
 
 The page loads the compiler when it opens, and gives it to the firmware worker at the first DOWNLOAD or
-INSTALL. The WebAssembly logo in the PROGRAM panel and the one in the FIRMWARE panel name the compiler in
-their hints.
+INSTALL.
 
 The simulator compiler compiles an `fm1.h` program as the firmware build does: C only, with the C library
 of the FM-1, and `float` only (see "Write a program"). A firmware of the gallery has its own FM-1 inside,

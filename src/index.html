@@ -243,7 +243,7 @@
   .main { display: grid; grid-template-columns: minmax(0, 1fr) 800px; gap: var(--gap); min-height: 0; }
   .column { display: grid; gap: var(--gap); min-width: 0; min-height: 0; }
   /* The left column has two panels in its bottom row: FIRMWARE, then LOG. */
-  .column.left { grid-template: 172px minmax(0, 1fr) 108px / 280px minmax(0, 1fr); }
+  .column.left { grid-template: 172px minmax(0, 1fr) 108px / 190px minmax(0, 1fr); }
   .column.left > :nth-child(-n+2) { grid-column: 1 / -1; }
   .column.right { grid-template-rows: auto auto minmax(0, 1fr); }
   .column > :nth-child(1) { --legend: var(--panel-high); }
@@ -350,14 +350,8 @@
   /* ---- Firmware: the buttons that make a package for a real FM-1 and install it, and the progress
      of the build ---- */
 
-  .firmware { display: grid; grid-template-columns: auto auto; justify-content: space-evenly; align-content: center; align-items: center; }
+  .firmware { display: grid; }
   .firmware .transport { grid-template-columns: auto auto; justify-content: center; gap: 14px 20px; }
-  /* Left of the buttons: the WebAssembly logo (purple, with its notch and WA). Its hint tells which
-     compiler makes the firmware. */
-  .wasm-badge { display: grid; align-self: start; margin-top: 11px; }
-  .wasm-badge svg { width: 29px; height: 29px; border-radius: 2px; filter: drop-shadow(0 1px 1px #000a); }
-  .wasm-badge path, .wasm-logo path { fill: #654ff0; }
-  .wasm-badge text, .wasm-logo text { fill: #fff; font: 800 42px var(--font-label); text-anchor: end; }
   /* One bar below the two buttons: each of them starts a build. It is as wide as the two buttons. */
   .firmware .progress { grid-column: 1 / -1; justify-self: stretch; width: auto; margin: 0 -2px; }
 
@@ -492,13 +486,6 @@
   /* The columns are those of the API panel, so that the board is below the lanes. */
   .program { display: grid; grid-template: minmax(0, 1fr) / 104px minmax(0, 1fr); gap: 10px; }
   .port { position: relative; }  /* the COMPILE button and its cable */
-  /* Below the bar of the compile, 8px from it: the WebAssembly logo. Its hint tells which compiler makes
-     the program. For its room, the buttons of the program are lower than the other big buttons: the
-     column is as high as without the logo, and RUN stays at the same place. The logo counts as 10px in
-     the column (its margins) and hangs into the room below it, to 1px above the bottom of the board. */
-  .program .big-button { height: 32px; gap: 3px; }
-  .wasm-logo { display: block; width: 29px; height: 29px; margin: -6px 0 -13px; }
-  .wasm-logo svg { display: block; width: 100%; height: 100%; border-radius: 2px; filter: drop-shadow(0 1px 1px #000a); }
   /* The cable from the COMPILE button to connector J1 of the program board: drawBoard() draws J1
      at the height of the cable. `left` and `width` put its plugs against the button and on the
      left edge of the board. */
@@ -1086,13 +1073,6 @@
 
         <section class="section firmware" style="--accent: var(--stripe-3)">
           <h2 class="legend">FIRMWARE</h2>
-          <div class="wasm-badge" role="img" aria-label="WebAssembly compiler" title="The firmware is compiled in this page, for the processor of the FM-1 (JieLi pi32v2).
-Compiler: pi32v2-llvm by Julius Vitkauskas (github.com/jvitkauskas/pi32v2-llvm, Apache-2.0 with LLVM exceptions):
-clang 23.1.5 and ld.lld, release pi32v2-23.1.5-5, built as WebAssembly with Emscripten 7.0.0.
-The same compiler as for the simulator, loaded from fwsc/ of this site when the page opens.
-It runs in a Web Worker; its output is a .fwsc package for a real FM-1.">
-            <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M0 0H37A13 13 0 0 0 63 0H100V100H0Z"/><text x="96" y="94">WA</text></svg>
-          </div>
           <div class="transport">
             <button class="big-button amber down" id="download" title="Build and download project as a .fwsc package. You can load this .fwsc package onto your FM-1 with M-Flasher, at your own risk."><i></i>DOWNLOAD</button>
             <button class="big-button red send" id="install-open" title="Install the program of the project on a real FM-1 over USB, at your own risk. A dialog shows the steps." aria-haspopup="dialog"><i></i>INSTALL</button>
@@ -1162,15 +1142,6 @@ It runs in a Web Worker; its output is a .fwsc package for a real FM-1.">
             </div>
             <div class="progress" id="compile-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
               aria-label="Compile progress, an estimate" title="Compile progress (an estimate)"><i></i></div>
-            <div class="wasm-logo" role="img" aria-label="WebAssembly compiler" title="The program is compiled in this page, to WebAssembly.
-Compiler: pi32v2-llvm by Julius Vitkauskas (github.com/jvitkauskas/pi32v2-llvm, Apache-2.0 with LLVM exceptions):
-clang 23.1.5 and wasm-ld, release pi32v2-23.1.5-5, built as WebAssembly with Emscripten 7.0.0,
-with the targets WebAssembly and pi32v2: the same compiler as for the firmware.
-Loaded from fwsc/ of this site the first time (53 MB).
-An fm1.h program is C with float only, as on a real FM-1: each file is also compiled for the FM-1, to check it.
-It runs in a Web Worker; the simulator runs its output, fm1.wasm.">
-              <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M0 0H37A13 13 0 0 0 63 0H100V100H0Z"/><text x="96" y="94">WA</text></svg>
-            </div>
           </div>
           <div class="board-window">
             <svg class="pcb" id="board" role="img" aria-label="Program board"></svg>
@@ -1351,8 +1322,7 @@ void loop(void) { }                         /* again and again: controls and scr
           For the projects that were compared, the package is the same bytes as the one from that build with
           the same compiler.</li>
       </ol>
-      <p>The WebAssembly logos in the PROGRAM and FIRMWARE panels name the compiler in their hints. The
-        application is one HTML file, the files of the compiler, and the installer. The README
+      <p>The application is one HTML file, the files of the compiler, and the installer. The README
         <a class="ref" href="https://github.com/TimSamshuijzen/fm1studiocom#how-it-works" target="_blank" rel="noopener" title="README of FM-1 Studio">[1]</a>
         tells more.</p>
 
