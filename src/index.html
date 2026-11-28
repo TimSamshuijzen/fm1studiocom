@@ -644,6 +644,14 @@
   .save { width: min(560px, 100vw - 24px); }
   .dialog-text .confirm { font-weight: 700; }  /* what the user confirms, as the boxes of INSTALL */
 
+  /* ---- Ask: the question before a change that cannot be undone. The button that goes on is red, as INSTALL. ---- */
+  .ask { width: min(520px, 100vw - 24px); }
+  .dialog-text .push.danger:enabled {
+    color: #ffe4dc; background: linear-gradient(#d12a1c, #b01a10 60%, #8e110a);
+    box-shadow: 0 0 0 1px #000, 0 2px 0 #000, inset 0 1px 0 #ffffff40;
+  }
+  .dialog-text .push.danger:active { box-shadow: 0 0 0 1px #000, 0 1px 0 #000, inset 0 1px 0 #ffffff40; }
+
   /* ---- Vibe: a device of its own in front of the FM-1 Studio device, with cheeks of orange plastic and a
      light panel between them. It has a fixed size, and it scales with the device: 1200 x 675 at 1.2 times the
      scale of the device (--scale) is 1440 x 810, 90 % of the width and the height of the device (1600 x 900).
@@ -1724,6 +1732,29 @@ PLAY: BACK</pre>
       <p class="actions">
         <button class="push ok" id="save-confirm" autofocus>CONFIRM</button>
         <button class="push" id="save-cancel" title="Do not save (Esc)">CANCEL</button>
+      </p>
+    </div>
+  </dialog>
+
+  <!-- ASK: the question before a change that cannot be undone, as confirm() of the browser asks it: a project that
+       takes the place of one with changes that are not saved, or DELETE. The page script fills in the words
+       (askUser()). CANCEL has the keyboard, so that Enter does not lose work. -->
+  <dialog class="dialog ask" id="ask" aria-labelledby="ask-title" aria-describedby="ask-text">
+    <header class="dialog-head">
+      <h2 class="logo" id="ask-title"></h2>
+      <p class="brand-text">
+        <span class="model" id="ask-model"></span>
+        <span class="tagline" id="ask-tagline"></span>
+      </p>
+      <div class="stripes"><i></i><i></i><i></i><i></i></div>
+    </header>
+
+    <div class="dialog-text">
+      <p class="lead" id="ask-text"></p>
+      <p class="small" id="ask-note"></p>
+      <p class="actions">
+        <button class="push danger" id="ask-yes"></button>
+        <button class="push" id="ask-no" title="Esc" autofocus>CANCEL</button>
       </p>
     </div>
   </dialog>
@@ -10979,7 +11010,51 @@ function newProject() {
   setProject('demo', new Map([MANIFEST, 'main.c'].map((id) => [id, text(id)])));
 }
 
-const canReplace = () => !changed || confirm('The project has changes that are not saved. Discard them?');
+// ---- Ask: the ASK dialog, instead of confirm() of the browser ----
+// askUser() shows the question and gives a promise: true for the red button, false for CANCEL and Esc.
+// `text` and `note` are text, or a list of text and elements.
+const askDialog = $('ask');
+let askAnswer = null;  // gives the answer to the promise of the open question
+
+function askUser({ title, model, tagline, text, note, yes }) {
+  if (askDialog.open) return Promise.resolve(false);  // one question at a time
+  $('ask-title').textContent = title;
+  $('ask-model').textContent = model;
+  $('ask-tagline').textContent = tagline;
+  $('ask-text').replaceChildren(...[text].flat());
+  $('ask-note').replaceChildren(...[note].flat());
+  $('ask-yes').textContent = yes;
+  askDialog.showModal();
+  return new Promise((answer) => { askAnswer = answer; });
+}
+
+// Closes the dialog with the answer. The buttons and Esc give the answer at once: the close event can come
+// later (a page in the background draws no frames), after the next question opened.
+function endAsk(yes) {
+  const answer = askAnswer;
+  askAnswer = null;
+  askDialog.close();
+  answer?.(yes);
+}
+$('ask-yes').onclick = () => endAsk(true);
+$('ask-no').onclick = () => endAsk(false);
+askDialog.oncancel = (event) => {  // Esc
+  event.preventDefault();
+  endAsk(false);
+};
+askDialog.onclose = () => { if (!askDialog.open) endAsk(false); };  // closed in another way: no
+
+// An element <code> with `text`, for a name in a question.
+const codeOf = (text) => Object.assign(document.createElement('code'), { textContent: text });
+
+// Before another project takes the place of this one: true when it has no changes that are not saved, or when
+// the user discards them.
+const canReplace = async () => !changed || await askUser({
+  title: 'DISCARD', model: 'UNSAVED CHANGES', tagline: `project ${project.name || 'without a name'}`,
+  text: 'Discard the changes that are not saved?',
+  note: 'To keep them: CANCEL, then SAVE the project as a zip file.',
+  yes: 'DISCARD',
+});
 
 // The name of a project is also the name of a real FM-1 that runs it: over USB, and on its crash and safe-mode
 // screens. The fonts there have capitals, digits, space, + and -, and the name has 14 characters at most
@@ -11020,8 +11095,8 @@ $('project-name').addEventListener('compositionend', () => {
   project.name = $('project-name').value.trim();
 });
 
-$('project-new').onclick = () => {
-  if (!canReplace()) return;
+$('project-new').onclick = async () => {
+  if (!(await canReplace())) return;
   newProject();
   compileNew();
 };
@@ -11036,9 +11111,15 @@ $('file-new').onclick = () => {
   $('file-path').select(); // the user can type the name at once
 };
 
-$('file-delete').onclick = () => {
-  if (current === null || !confirm(`Delete ${current} from the project?`)) return;
-  project.files.delete(current);
+$('file-delete').onclick = async () => {
+  const path = current;
+  if (path === null || !(await askUser({
+    title: 'DELETE', model: 'FILE', tagline: 'from the project',
+    text: ['Delete ', codeOf(path), ' from the project?'],
+    note: 'This cannot be undone.',
+    yes: 'DELETE',
+  }))) return;
+  project.files.delete(path);
   setChanged(true);
   openFile(firstFile());
 };
@@ -11182,7 +11263,7 @@ $('project-save').onclick = () =>
 $('save-confirm').onclick = () => { save.close(); saveConfirmed(); };
 $('save-cancel').onclick = () => save.close();
 
-$('project-load').onclick = () => { if (canReplace()) $('project-file').click(); };
+$('project-load').onclick = async () => { if (await canReplace()) $('project-file').click(); };
 
 // Replaces the project with that of a zip file (a File).
 async function loadZip(file) {
@@ -11229,9 +11310,9 @@ function showDropLayer(on) {
   if (on) dropLayer.showPopover(); else dropLayer.hidePopover();
 }
 
-// INSTALL and SAVE show the project in their dialog: while one of them is open, a drop or a paste does not
-// change the project.
-const projectLocked = () => install.open || save.open;
+// INSTALL and SAVE show the project in their dialog, and ASK asks about it: while one of them is open, a drop
+// or a paste does not change the project.
+const projectLocked = () => install.open || save.open || askDialog.open;
 
 window.addEventListener('dragover', (event) => {
   if (!dragsFiles(event)) return;
@@ -11245,7 +11326,7 @@ window.addEventListener('dragleave', (event) => {
   if (!event.relatedTarget) showDropLayer(false);
 });
 
-window.addEventListener('drop', (event) => {
+window.addEventListener('drop', async (event) => {
   if (!dragsFiles(event)) return;
   event.preventDefault();
   showDropLayer(false);
@@ -11254,7 +11335,7 @@ window.addEventListener('drop', (event) => {
   const file = files.find((file) => /\.zip$/i.test(file.name) || file.name === 'main.c');
   if (!file) log(`Cannot load ${files[0]?.name ?? 'this'}: only a project zip file or main.c can be dropped here\n`);
   else if (githubBusy) log(`Cannot load ${file.name}: a download from GitHub is in progress\n`);
-  else if (canReplace()) {
+  else if (await canReplace()) {
     about.close();  // so that the new project shows, as for pasted code
     vibe.close();
     (file.name === 'main.c' ? loadMain : loadZip)(file);
@@ -11264,7 +11345,7 @@ window.addEventListener('drop', (event) => {
 // C code that is pasted on the page (Ctrl+V), but not in a text field, makes a new project, as a
 // dropped main.c does. Of a whole answer of an AI chat, with the code in ``` blocks, it takes the
 // longest block. Only a program for fm1.h replaces the project: other text does not.
-document.addEventListener('paste', (event) => {
+document.addEventListener('paste', async (event) => {
   const field = ['TEXTAREA', 'SELECT', 'INPUT'].includes(event.target.tagName) && !event.target.readOnly;
   const pasted = event.clipboardData.getData('text/plain');
   if (field || projectLocked() || !pasted.trim()) return;
@@ -11275,7 +11356,7 @@ document.addEventListener('paste', (event) => {
     log('Cannot load the pasted text: only C code with #include "fm1.h" can be pasted here\n');
   } else if (githubBusy) {
     log('Cannot load the pasted code: a download from GitHub is in progress\n');
-  } else if (canReplace()) {
+  } else if (await canReplace()) {
     about.close();  // so that the new project shows
     vibe.close();
     loadMainCode(code.trim() + '\n');
@@ -11293,8 +11374,8 @@ const DEMO_PROJECTS = [
   { id: 'game-2', label: 'GAME-2', about: 'SWOOPERS, an arcade shooter with a swarm of diving aliens' },
 ];
 
-function loadDemo(entry) {
-  if (githubBusy || !canReplace()) return;
+async function loadDemo(entry) {
+  if (githubBusy || !(await canReplace())) return;
   const prefix = entry.id + '/';
   const blocks = document.querySelectorAll(`script[type="text/plain"][id^="${prefix}"]`);
   setProject(entry.id, new Map([...blocks].map((block) => [block.id.slice(prefix.length), text(block.id)])), entry.id);
@@ -11858,7 +11939,7 @@ const githubFiles = new Map();  // id -> the files of a firmware that was loaded
 let githubBusy = false;
 
 async function loadGitHub(entry, card) {
-  if (githubBusy || !canReplace()) return;
+  if (githubBusy || !(await canReplace())) return;
   githubBusy = true;
   card.classList.add('busy');
   // A compile that runs now stops here, so that the compiler starts again during the download.
@@ -13675,8 +13756,8 @@ function releaseComputerKey(code) {
 
 document.addEventListener('keydown', (event) => {
   if (heldCodes.has(event.code)) { event.preventDefault(); return; } // the key repeats
-  // The keys do not play while the cursor is in a text field, or while a dialog (ABOUT, VIBE, INSTALL, SAVE) is open.
-  const typing = ['TEXTAREA', 'SELECT', 'INPUT'].includes(event.target.tagName) || about.open || vibe.open || install.open || save.open;
+  // The keys do not play while the cursor is in a text field, or while a dialog (ABOUT, VIBE, INSTALL, SAVE, ASK) is open.
+  const typing = ['TEXTAREA', 'SELECT', 'INPUT'].includes(event.target.tagName) || about.open || vibe.open || install.open || save.open || askDialog.open;
   if (!(event.code in COMPUTER_KEYS) || typing || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
   event.preventDefault();
   heldCodes.add(event.code);
