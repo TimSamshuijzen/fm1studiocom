@@ -258,7 +258,7 @@
   .project-controls { display: grid; align-content: space-between; }  /* NAME, and the gallery at the bottom */
   #project-name { width: calc(15ch + 14px); }  /* NAME_MAX characters, and the cursor */
   .buttons { display: flex; gap: 7px; }
-  /* SAVE, and DOWNLOAD of CODE and LOG: a download, with the symbol of DOWNLOAD (an arrow down to a line) before its name */
+  /* DOWNLOAD of PROJECT, CODE and LOG: a download, with the symbol of DOWNLOAD (an arrow down to a line) before its name */
   .push.down { display: inline-flex; align-items: center; gap: 5px; }
   .push.down svg { flex: none; width: 10px; height: 10px; fill: currentColor; }
   /* The gallery: a tray with a card for each demo project of this page, then for each firmware on GitHub.
@@ -577,7 +577,7 @@
   }
   #drop-layer:popover-open { display: grid; place-items: center; }
 
-  /* ---- Dialogs (ABOUT and SAVE; VIBE and INSTALL are devices of their own, see below): a modal dialog, in the
+  /* ---- Dialogs (ABOUT and DOWNLOAD; VIBE and INSTALL are devices of their own, see below): a modal dialog, in the
      middle of the window. It is in the device, so that it gets --scale. On a large window it grows with the
      device. On a small window it does not get smaller than its own size, so that its text stays easy to read:
      then it takes the room that the window has. Its head is a part of the device. The text below the head is
@@ -640,8 +640,8 @@
     box-shadow: 0 0 0 1px #000, 0 2px 0 #000, inset 0 1px 0 #ffffff40;
   }
 
-  /* ---- Save: for a firmware of the gallery, SAVE and DOWNLOAD ask first. ---- */
-  .save { width: min(560px, 100vw - 24px); }
+  /* ---- Download: for a firmware of the gallery, DOWNLOAD of PROJECT and of FIRMWARE ask first. ---- */
+  .download-dialog { width: min(560px, 100vw - 24px); }
   .dialog-text .confirm { font-weight: 700; }  /* what the user confirms, as the boxes of INSTALL */
 
   /* ---- Ask: the question before a change that cannot be undone. The button that goes on is red, as INSTALL. ---- */
@@ -1074,7 +1074,7 @@
           <div class="legend right">
             <button class="push" id="project-new" title="Start again with the startup demo project">NEW</button>
             <button class="push" id="project-load" title="Load a project from a zip file (or drop the zip file, or a file main.c, on the page)">LOAD</button>
-            <button class="push down" id="project-save" title="Download the project as a zip file"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2h8L6 7z"/><rect x="1" y="9" width="10" height="1.8"/></svg>SAVE</button>
+            <button class="push down" id="project-download" title="Download the project as a zip file"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2h8L6 7z"/><rect x="1" y="9" width="10" height="1.8"/></svg>DOWNLOAD</button>
           </div>
           <div class="project-controls">
             <label class="field">NAME <input class="oled-input" id="project-name" title="The name of the project: letters, digits, space, + and -, 14 at most." spellcheck="false" autocomplete="off"></label>
@@ -1279,11 +1279,11 @@ void loop(void) { }                         /* again and again: controls and scr
         <li>A project can have more than one file. The optional file <code>fm1project.json</code> says how
           the project is built: <code>sources</code>, <code>include</code>, <code>define</code> and
           <code>flags</code>.</li>
-        <li>The page keeps nothing between visits. SAVE downloads the project as a zip file, and LOAD reads
-          it back. The simulator keeps the store of the programs while the page is open, also for the next
-          program, as an FM-1 keeps its flash; a reload of the page empties it. For a firmware of the
-          gallery, SAVE and DOWNLOAD first ask you to confirm that it is the work of its authors, and that
-          you keep to its licence. You can also drop a project zip file on the page. A file
+        <li>The page keeps nothing between visits. DOWNLOAD of PROJECT downloads the project as a zip file, and
+          LOAD reads it back. The simulator keeps the store of the programs while the page is open, also for the
+          next program, as an FM-1 keeps its flash; a reload of the page empties it. For a firmware of the
+          gallery, DOWNLOAD of PROJECT and of FIRMWARE first ask you to confirm that it is the work of its
+          authors, and that you keep to its licence. You can also drop a project zip file on the page. A file
           <code>main.c</code> that you drop on the page makes a new project with it, and so does C code that you
           paste on the page with <kbd>Ctrl</kbd> + <kbd>V</kbd>, outside the editor.</li>
       </ul>
@@ -1711,25 +1711,26 @@ PLAY: BACK</pre>
     </div>
   </dialog>
 
-  <!-- SAVE: for a firmware of the gallery, the dialog that the SAVE and DOWNLOAD buttons open before the download.
-       The user confirms that the firmware is the work of its authors, and keeps to its licence, as in the INSTALL
-       dialog. The page script fills in the button, what downloads, and the name, licence and repository. -->
-  <dialog class="dialog save" id="save" aria-labelledby="save-title">
+  <!-- DOWNLOAD: for a firmware of the gallery, the dialog that the DOWNLOAD buttons of PROJECT and FIRMWARE open
+       before the download. The user confirms that the firmware is the work of its authors, and keeps to its licence,
+       as in the INSTALL dialog. The page script fills in the button, what downloads, and the name, licence and
+       repository. -->
+  <dialog class="dialog download-dialog" id="download-dialog" aria-labelledby="download-title">
     <header class="dialog-head">
-      <h2 class="logo" id="save-title">SAVE</h2>
+      <h2 class="logo" id="download-title">DOWNLOAD</h2>
       <p class="brand-text">
-        <span class="model" id="save-model">PROJECT FILE</span>
+        <span class="model" id="download-model">PROJECT FILE</span>
         <span class="tagline">with work of other authors</span>
       </p>
       <div class="stripes"><i></i><i></i><i></i><i></i></div>
     </header>
 
     <div class="dialog-text">
-      <p class="lead" id="save-what"></p>
-      <p class="confirm" id="save-licence-text"></p>
+      <p class="lead" id="download-what"></p>
+      <p class="confirm" id="download-licence-text"></p>
       <p class="actions">
-        <button class="push ok" id="save-confirm" autofocus>CONFIRM</button>
-        <button class="push" id="save-cancel" title="Do not save (Esc)">CANCEL</button>
+        <button class="push ok" id="download-confirm" autofocus>CONFIRM</button>
+        <button class="push" id="download-cancel" title="Do not download (Esc)">CANCEL</button>
       </p>
     </div>
   </dialog>
@@ -11060,7 +11061,7 @@ const codeOf = (text) => Object.assign(document.createElement('code'), { textCon
 const canReplace = async () => !changed || await askUser({
   title: 'DISCARD', model: 'UNSAVED CHANGES', tagline: `project ${project.name || 'without a name'}`,
   text: 'Discard the changes that are not saved?',
-  note: 'To keep them: CANCEL, then SAVE the project as a zip file.',
+  note: 'To keep them: CANCEL, then DOWNLOAD the project as a zip file.',
   yes: 'DISCARD',
 });
 
@@ -11075,7 +11076,7 @@ const NAME_OTHER = /[^A-Za-z0-9 +-]/g;  // the characters that a name cannot hav
 // firmware-worker.js makes the name on the FM-1, but with the small letters.
 const nameOf = (text) => text.replace(NAME_OTHER, ' ').replace(/ +/g, ' ').trim().slice(0, NAME_MAX).trim();
 
-// The name of the files of the project (SAVE) and of its package (DOWNLOAD, INSTALL). A name without a letter or a
+// The name of the files of the project (DOWNLOAD of PROJECT) and of its package (DOWNLOAD of FIRMWARE, INSTALL). A name without a letter or a
 // digit gives "project".
 const fileName = () => (/[A-Za-z0-9]/.test(project.name) ? project.name : 'project');
 
@@ -11242,34 +11243,35 @@ function downloadFile(name, blob) {
 }
 
 // Downloads the project as a zip file.
-function saveZip() {
+function downloadZip() {
   downloadFile(`${fileName()}.zip`, zipWrite(project.files));
   setChanged(false);
 }
 
-// SAVE downloads the project, and DOWNLOAD (downloadFirmware()) its package. For a firmware of the gallery
-// (galleryEntry()) each first opens the SAVE dialog: CONFIRM, that the firmware is the work of its authors and
-// that the user keeps to its licence, does the download. CANCEL and Esc close the dialog, and nothing downloads.
-const save = $('save');
-let saveConfirmed = null;  // what CONFIRM does: saveZip or downloadFirmware
-// Does `download`, or for a firmware of the gallery first asks in the SAVE dialog. `title` is the name of the
+// DOWNLOAD of PROJECT downloads the project, and DOWNLOAD of FIRMWARE (downloadFirmware()) its package. For a
+// firmware of the gallery (galleryEntry()) each first opens the DOWNLOAD dialog: CONFIRM, that the firmware is the
+// work of its authors and that the user keeps to its licence, does the download. CANCEL and Esc close the dialog,
+// and nothing downloads.
+const downloadDialog = $('download-dialog');
+let downloadConfirmed = null;  // what CONFIRM does: downloadZip or downloadFirmware
+// Does `download`, or for a firmware of the gallery first asks in the DOWNLOAD dialog. `title` is the name of the
 // button, `model` and `what` tell what downloads, and `shared` is what the user can share (see workOfOthers()).
 function askDownload(download, title, model, what, shared) {
   const entry = galleryEntry();
   if (!entry) { download(); return; }
-  $('save-title').textContent = title;
-  $('save-model').textContent = model;
-  $('save-what').textContent = `${what}: ${entry.label} ${entry.version} from ` +
+  $('download-title').textContent = title;
+  $('download-model').textContent = model;
+  $('download-what').textContent = `${what}: ${entry.label} ${entry.version} from ` +
     `github.com/${entry.sources[0].repo}, with the files that FM-1 Studio added or changed, and your changes.`;
-  $('save-licence-text').replaceChildren(...workOfOthers(entry, shared));
-  $('save-cancel').title = `Do not ${title.toLowerCase()} (Esc)`;
-  saveConfirmed = download;
-  save.showModal();
+  $('download-licence-text').replaceChildren(...workOfOthers(entry, shared));
+  $('download-cancel').title = `Do not ${title.toLowerCase()} (Esc)`;
+  downloadConfirmed = download;
+  downloadDialog.showModal();
 }
-$('project-save').onclick = () =>
-  askDownload(saveZip, 'SAVE', 'PROJECT FILE', 'This downloads the project as a zip file', 'the zip file');
-$('save-confirm').onclick = () => { save.close(); saveConfirmed(); };
-$('save-cancel').onclick = () => save.close();
+$('project-download').onclick = () =>
+  askDownload(downloadZip, 'DOWNLOAD', 'PROJECT FILE', 'This downloads the project as a zip file', 'the zip file');
+$('download-confirm').onclick = () => { downloadDialog.close(); downloadConfirmed(); };
+$('download-cancel').onclick = () => downloadDialog.close();
 
 $('project-load').onclick = async () => { if (await canReplace()) $('project-file').click(); };
 
@@ -11318,9 +11320,9 @@ function showDropLayer(on) {
   if (on) dropLayer.showPopover(); else dropLayer.hidePopover();
 }
 
-// INSTALL and SAVE show the project in their dialog, and ASK asks about it: while one of them is open, a drop
+// INSTALL and DOWNLOAD show the project in their dialog, and ASK asks about it: while one of them is open, a drop
 // or a paste does not change the project.
-const projectLocked = () => install.open || save.open || askDialog.open;
+const projectLocked = () => install.open || downloadDialog.open || askDialog.open;
 
 window.addEventListener('dragover', (event) => {
   if (!dragsFiles(event)) return;
@@ -12028,7 +12030,7 @@ function galleryEntry() {
   return (product && GITHUB_PROJECTS.find(({ manifest }) => manifest.device?.product === product)) || null;
 }
 
-// What the user confirms for a firmware of the gallery, in the INSTALL and SAVE dialogs (SAVE, DOWNLOAD): it is
+// What the user confirms for a firmware of the gallery, in the INSTALL and DOWNLOAD dialogs: it is
 // the work of its authors, and the user keeps to its licence. `shared` is what the user can share: the package,
 // or the zip file.
 // Gives the parts of the text, with a link to the repository.
@@ -12684,7 +12686,7 @@ function makeFirmware(download = false) {
   return new Promise((resolve) => { firmwareDone = resolve; });
 }
 
-// DOWNLOAD makes the package and downloads it. For a firmware of the gallery, the SAVE dialog asks first
+// DOWNLOAD makes the package and downloads it. For a firmware of the gallery, the DOWNLOAD dialog asks first
 // (askDownload()).
 $('download').onclick = () => askDownload(downloadFirmware, 'DOWNLOAD', 'FIRMWARE PACKAGE',
   'This makes the package of the project and downloads it', 'the package');
@@ -13764,8 +13766,8 @@ function releaseComputerKey(code) {
 
 document.addEventListener('keydown', (event) => {
   if (heldCodes.has(event.code)) { event.preventDefault(); return; } // the key repeats
-  // The keys do not play while the cursor is in a text field, or while a dialog (ABOUT, VIBE, INSTALL, SAVE, ASK) is open.
-  const typing = ['TEXTAREA', 'SELECT', 'INPUT'].includes(event.target.tagName) || about.open || vibe.open || install.open || save.open || askDialog.open;
+  // The keys do not play while the cursor is in a text field, or while a dialog (ABOUT, VIBE, INSTALL, DOWNLOAD, ASK) is open.
+  const typing = ['TEXTAREA', 'SELECT', 'INPUT'].includes(event.target.tagName) || about.open || vibe.open || install.open || downloadDialog.open || askDialog.open;
   if (!(event.code in COMPUTER_KEYS) || typing || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
   event.preventDefault();
   heldCodes.add(event.code);

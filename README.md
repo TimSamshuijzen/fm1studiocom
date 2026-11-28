@@ -71,14 +71,15 @@ and runs it. Browsers block sound until a click or a key press, so click the pag
 | MIDI | The MIDI IN button asks the browser for permission. A second click switches MIDI IN off |
 | Battery | The BATTERY button sets the level that the program reads: 3 (full) to 0 (empty), or USB |
 
-A project is a name and a set of text files. SAVE downloads it as a zip file and LOAD reads one back.
+A project is a name and a set of text files. DOWNLOAD of the PROJECT panel downloads it as a zip file and
+LOAD reads one back.
 The name (NAME) has letters, digits, space, `+` and `-`, 14 characters at most: on a real FM-1 it is the
 name of the FM-1 over USB, and its crash and safe-mode screens show it in capitals. It also gives the names
 of the zip file and of the package. A loaded zip
 file gives its name, with a space for each other character.
-For a firmware of the gallery, SAVE first opens a dialog: CONFIRM that the firmware is the work of its
-authors and that you keep to its licence, and the zip file downloads; CANCEL saves nothing. DOWNLOAD and
-INSTALL ask the same.
+For a firmware of the gallery, that DOWNLOAD first opens a dialog: CONFIRM that the firmware is the work
+of its authors and that you keep to its licence, and the zip file downloads; CANCEL downloads nothing.
+DOWNLOAD and INSTALL of the FIRMWARE panel ask the same.
 A project zip file that is dropped on the page loads too. A file `main.c` that is dropped on the page
 makes a new project with the name "no name": that `main.c`, and the `fm1project.json` of the demo
 project. C code with `#include "fm1.h"` that is pasted on the page with `Ctrl`+`V`, outside the editor
@@ -90,7 +91,7 @@ of space sounds and synth bass, with laser shots, a flying saucer and sonar ping
 GAME-1, the third card, loads a game: NEON REEF, a vertical shooter. Fly with the computer keys `A`, `W`, `S` and `D`, and fire with `J`.
 GAME-2, the fourth card, loads SWOOPERS, an arcade shooter with a swarm of aliens that dive at you. Move
 with the computer keys `A` and `D`, and fire with `J`.
-The page keeps nothing between visits: save a project before you close the page. The simulator keeps the
+The page keeps nothing between visits: download a project before you close the page. The simulator keeps the
 store of the programs (`fm1_store_save`) while the page is open, also for the next program, as an FM-1
 keeps its flash; a reload of the page empties it.
 
@@ -193,7 +194,7 @@ package.
 [firmware/README.md](firmware/README.md) tells what a program must keep to on the FM-1.
 
 The folder `firmware` builds the same kind of package on your own computer, from a project zip (the file
-that SAVE gives), with JieLi's own compiler: `firmware\build.cmd PROJECT.zip` on Windows (in WSL),
+that DOWNLOAD of the PROJECT panel gives), with JieLi's own compiler: `firmware\build.cmd PROJECT.zip` on Windows (in WSL),
 `firmware/build.sh PROJECT.zip` on Linux. That build also runs the program in fm1-base's host simulator.
 
 #### USB audio

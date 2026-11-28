@@ -167,7 +167,7 @@ as the browser's package (FMINI-1's `ui_menu.c` has it too, but its image has no
 releases are (`--release 1.8.2`: the identity `FM-1_918`), as the browser build does.
 
 For GR!MM: the gallery changes five of its files (the flash chip, and `grimm.c` for the browser, in
-`#ifdef GRIMM_WEB`); the checkout needs the same files, from the project zip that FM-1 Studio saves. Its
+`#ifdef GRIMM_WEB`); the checkout needs the same files, from the project zip that FM-1 Studio downloads. Its
 `build.py` runs `tools/stack_check.py` on the disassembly, and that check stops the build at two functions
 of this compiler's code that call through a pointer and that its `TARGETS` do not have: `fl_erase4k` (it
 calls the flash driver's RAM code, as the functions in `TARGETS` with `RAMT` do) and `knob_param` (its
@@ -177,12 +177,12 @@ to `TARGETS` in the checkout: the check then passes, and the package is the same
 For SKIFF: as released, its `build.py` stops at the link with this compiler (four calls from its sound
 code in RAM to the flash, out of reach). The gallery changes two of its files (`always_inline` on those
 four helpers, in `firmware/src/voice.c` and `firmware/src/slicer.c`); the checkout needs the same files,
-from the project zip that FM-1 Studio saves. Its generators need fontTools, as Felucca's do.
+from the project zip that FM-1 Studio downloads. Its generators need fontTools, as Felucca's do.
 
 For JIANT: as on its main branch, its `build.py` stops at the link with this compiler (`memmove` is
 missing). The gallery changes three of its files (`memmove` in `firmware/src/libc.c` and its other name in
 `tests/hostsim.c`, and the flash chip check in `firmware/src/project.c`); the checkout needs the same
-files, from the project zip that FM-1 Studio saves. Its release workflow runs `build.py` without
+files, from the project zip that FM-1 Studio downloads. Its release workflow runs `build.py` without
 arguments, as here.
 
 For X0X: its `build.py` makes the headers of `build/gen` with its own generators (Pillow, and a C compiler
