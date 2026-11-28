@@ -323,16 +323,13 @@
   /* ---- Code editor: a transparent text box on top of the same text with colours ---- */
 
   .editor-section { display: grid; grid-template-rows: 22px minmax(0, 1fr); gap: 10px; }
-  #code-copy { width: 54px; padding: 0; }  /* as COPY of the log: COPIED fits */
-  /* The path, SEARCH, READ ONLY, the type and the cursor. Each has a width of its own, so that each stays in its
-     place, whatever its text: the path gets the rest. READ ONLY is always there, unlit (as a part of a display
-     that is off) when the file can be changed. */
+  #code-copy { width: 54px; padding: 0; }
   .module-bar { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .module-bar .oled-chip { overflow: hidden; text-overflow: ellipsis; text-align: center; }
   #file-lock { width: 72px; color: #14232a; }
   #file-lock.on { color: var(--stripe-1); }
   #file-type { width: 80px; }
-  #cursor { width: 116px; text-align: left; }  /* "LN 99999 COL 999"; LN stays in its place */
+  #cursor { width: 116px; text-align: left; }
   /* SEARCH: the text to find in the file in the editor, how many times it is there, PREVIOUS and NEXT. A
      display as the path field, with the yellow edge of a field that has the keyboard. */
   .find {
